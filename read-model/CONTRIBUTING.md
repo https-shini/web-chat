@@ -3,7 +3,7 @@
 <p align="center">
   <a href="#pt-br">Português</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
   <a href="#en-us-">English</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
-  <a href="../README.md">Voltar</a>
+  <a href="https://github.com/https-shini/web-chat">Voltar</a>
 </p>
 
 <br>
