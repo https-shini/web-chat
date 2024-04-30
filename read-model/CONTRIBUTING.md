@@ -3,7 +3,7 @@
 <p align="center">
   <a href="#pt-br">Português</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
   <a href="#en-us-">English</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
-  <a href="./readme.md">Voltar</a>
+  <a href="../readme.md">Voltar</a>
 </p>
 
 <br>
