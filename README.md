@@ -12,7 +12,7 @@
 ![Preview](./read-model/img/banner.png)
 
 ## ☆ Hospedagem
-- Acesse o link abaixo e veja o código hospedado online.<br> <br>
+- Acesse o link abaixo e veja o código hospedado online.<br>
 https://https-shini.github.io/portfolio/#home
 
 ## ☆ Tecnologias
