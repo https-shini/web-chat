@@ -2,77 +2,69 @@
 
 ## Requisitos para rodar o projeto
 
-### Setup de ambiente:
+- Node.js: É necessário ter o Node.js instalado no ambiente de desenvolvimento.
+- npm: O npm é utilizado para instalar as dependências do projeto.
+- Conexão com a Internet: Para utilizar o Chat Web, é necessário uma conexão ativa com a internet.
+- Navegador Web Moderno: O Chat Web é acessado através de um navegador web moderno que suporte as tecnologias HTML5, CSS3 e WebSocket.
 
-- [Node LTS](https://nodejs.org/en)
-  - Usando [`nvm`](https://github.com/nvm-sh/nvm)
-    - `nvm install`
-    - `nvm use`
-- [Yarn 1.x](https://classic.yarnpkg.com/lang/en/docs/install/#mac-stable)
+## Setup de ambiente:
 
-### Como rodar na minha máquina?
+Para configurar o ambiente de desenvolvimento e executar o projeto, siga estas etapas:
 
-- Clone o projeto `git clone https://github.com/alura/techguide.git`
-- Rode `yarn`
-- Rode `yarn dev`
-- Pronto 🎉
+1. Instalação do Node.js:
+   - Certifique-se de ter o Node.js instalado em sua máquina. É recomendado usar a versão LTS (Long-Term Support). Você pode baixá-lo em [Node.js LTS](https://nodejs.org/en).
 
-## techguide.sh Site
+2. Instalação do Yarn:
+   - Utilize o Yarn como gerenciador de pacotes. Se ainda não tiver o Yarn instalado, você pode instalá-lo seguindo as instruções em [Yarn 1.x](https://classic.yarnpkg.com/lang/en/docs/install/#mac-stable).
 
-### Estrutura do projeto
+3. Clone do Projeto:
+   - Abra o terminal e clone o projeto para o seu ambiente local executando o seguinte comando:
+     ```
+     git clone https://github.com/https-shini/web-chat
+     ```
 
-- `./pages`: É a página que o Next.js usa para montar o sistema de roteamento
-- `./src/components`: São todos os pedaços primordiais de interface como componentes de formulário, `<Text>` (para qualquer texto) e o `<Box>`
-  - `<Text>`: Uma das ideias por tras do text é tematizar melhor o projeto no futuro e ele servir como um adapter para qualquer padronização de design que possamos vir a ter.
-  - `<Box>`: É nossa abstração para criar estilos, sempre use um box e **nunca crie um styled component diretamente no projeto**.
-    - Ele recebe uma prop chamada `styleSheet` e a mesma pode receber ou uma chave com nome de propriedade do CSS com seu valor, ou ao invés de o valor você pode passar um objeto com a resolução que a propriedade deve ser aplicada.
-      - **Exemplo**:
-        - `<Box styleSheet={{ color: 'red' }} />` ou `<Box styleSheet={{ color: { xs: 'red', md: 'blue' } }} />`;
-- `./src/patterns`: Patterns são todos os pedaços de interface que são menos genéricos que os componentes mas são reusados em mais de 3 lugares do projeto e fazem parte da estrutura geral dele
-- `./src/screens`: Toda screen representa uma tela do projeto, uma tela caso tenha componentes específicos inicialmente deve ter os mesmos guardados na sua própria pasta, repetindo a estrutura anterior do projeto e evitando o reuso antes do uso de fato.
+4. Instalação de Dependências:
+   - Navegue até o diretório do projeto clonado e instale as dependências executando o comando:
+     ```
+     yarn
+     ```
 
-### Como me localizar no projeto?
+## Como rodar na sua máquina?
 
-- Todas as páginas do projeto estão listadas em `./pages`
-  - Todos os `componentes` que representam as páginas estão em `./src/screens`
-    - Uma vez dentro de uma página você pode ir navegando pelos componentes para ir se encontrando e fazer a alteração que deseja
+Após configurar o ambiente, execute o projeto da seguinte maneira:
 
-### Como funciona a parte de i18n (internacionalização)?
+1. Inicie o Servidor de Desenvolvimento:
+   - No terminal, execute o comando:
+     ```
+     yarn dev
+     ```
 
-- Todo conteúdo multi-língua é alterado por meio da pasta `_data/locale/COUNTRY.json`
-  - Para acessar um conteúdo dentro do código siga o exemplo abaixo:
+2. Acesse o Projeto:
+   - Abra o navegador e acesse o projeto localmente. Por padrão, o servidor de desenvolvimento geralmente é executado em `http://localhost:3000`.
 
-```js
-import { Box, Text, Image, Link } from "@src/components";
-import { useI18n } from "@src/infra/i18n";
-import React from "react";
+3. Pronto 🎉
+   - Agora você pode explorar e interagir com o projeto em sua máquina localmente.
 
-export default function SecondContentSection() {
-  const i18n = useI18n();
-  return (
-    <Text>
-      {i18n.content("CHAVE.DO.CONTEUDO.NO.JSON")}
-    <Text>
-  )
-}
-```
+Essas instruções garantem que você tenha o ambiente configurado corretamente e possa executar o projeto sem problemas em sua máquina local.
 
-> Caso deseje passar um link, você DEVE usar a tag do html `<a href="link"></a>`
+## Decisões Arquiteturais:
 
-### Como gerar o favicon do site?
-
-- Atualmente estamos usando esse projeto https://www.favicon-generator.org/
-
-## techguide.sh GraphQL API
-
-> A API GraphQL não deve ser usada no ambiente de produção até segunda ordem.
-
-### Como usar?
-
-- Em dev, após rodar o projeto você pode alterar os arquivos da pasta `_api/*`
+Arquitetura Cliente-Servidor: O Chat Web segue uma arquitetura cliente-servidor, onde o frontend é responsável pela interface do usuário e o backend gerencia a lógica de negócios e a comunicação com o servidor WebSocket.
+WebSocket: O uso do protocolo WebSocket permite uma comunicação bidirecional em tempo real entre clientes e servidor, facilitando a troca instantânea de mensagens.
 
 ### Estrutura do projeto
 
-- `./_api/modules/*`: Cada pasta aqui representa uma entidade do sistema, atualmente temos `guides` e `cards`
-  - Após criar uma nova entidade a mesma deve ser importada no arquivo `./_api/api.ts`, tal como os anteriores.
-  - Importa no mesmo PR rodar o comando `yarn generate:types` (em uma segunda aba de terminal com o projeto rodando) para deixar a tipagem typescript sincronizada tanto para o backend quanto para o frontend.
+Frontend:
+HTML: Responsável pela estruturação do conteúdo da página, incluindo formulários de entrada e exibição de mensagens.
+CSS: Estilização e design responsivo da interface do usuário para garantir uma experiência visualmente agradável e consistente em diferentes dispositivos.
+JavaScript: Adição de interatividade à página, manipulando eventos do usuário e interagindo com o backend para enviar e receber mensagens em tempo real.
+Backend:
+Node.js: Utilizado como plataforma de tempo de execução do JavaScript no servidor, permitindo a implementação do servidor WebSocket.
+WebSocket (ws): Criação de um servidor WebSocket para lidar com conexões de clientes, recebendo e transmitindo mensagens entre eles.
+dotenv: Utilizado para carregar variáveis de ambiente do arquivo .env, facilitando a configuração do ambiente de desenvolvimento.
+
+### Informações Importantes sobre a Aplicação
+A aplicação suporta comunicação em tempo real entre os usuários através do protocolo WebSocket.
+Os usuários podem ingressar na aplicação fornecendo um nome de usuário no formulário de login.
+As mensagens enviadas por um usuário são instantaneamente exibidas para todos os outros participantes do chat.
+O frontend é responsivo e foi projetado para ser compatível com diferentes dispositivos e tamanhos de tela.
