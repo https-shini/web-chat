@@ -51,7 +51,7 @@ Este projeto é uma aplicação desenvolvida para permitir a comunicação em te
 - Podem então digitar mensagens no formulário de envio e enviá-las para serem exibidas na área de mensagens.
 
 ## ☆ Layout
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+Obtenha uma perspectiva detalhada do layout do projeto por meio da imagem abaixo.
 
 ![Preview](./read-model/img/hero.png)
 
