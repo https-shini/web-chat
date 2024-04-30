@@ -31,6 +31,9 @@ https://https-shini.github.io/portfolio/#home
 ➜ [Como o projeto está estruturado?](./read-model/STRUCTURE.md) <br>
 ➜ [Documentação aprodofundada](./read-model/MODEL.md) 
 
+<br>
+
+**Introdução:** <br>
 Este projeto é uma aplicação desenvolvida para permitir a comunicação em tempo real entre usuários através da internet. Esta aplicação oferece uma plataforma intuitiva e acessível para que os usuários possam trocar mensagens de forma rápida e conveniente, sem a necessidade de instalação de softwares adicionais. O Chat Web utiliza tecnologias modernas, como HTML5, CSS3 e JavaScript no frontend, e Node.js no backend, juntamente com o protocolo WebSocket para fornecer uma experiência de chat em tempo real, possibilitando conversas fluidas e interativas entre os usuários.
 
 **Estrutura do Projeto:**
