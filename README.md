@@ -56,10 +56,10 @@ Obtenha uma perspectiva detalhada do layout do projeto por meio da imagem abaixo
 
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/https-shini/movies_lib/main/dist/001.png" width=450 heigth=400 />
-<img src="https://raw.githubusercontent.com/https-shini/movies_lib/main/dist/002.png" width=450 heigth=400 />
-<img src="https://raw.githubusercontent.com/https-shini/movies_lib/main/dist/003.png" width=450 heigth=400 />
-<img src="https://raw.githubusercontent.com/https-shini/movies_lib/main/dist/004.png" width=450 heigth=400 />
+<img src="https://raw.githubusercontent.com/https-shini/movies_lib/main/dist/001.png" width=400 heigth=350 />
+<img src="https://raw.githubusercontent.com/https-shini/movies_lib/main/dist/002.png" width=400 heigth=350 />
+<img src="https://raw.githubusercontent.com/https-shini/movies_lib/main/dist/003.png" width=400 heigth=350 />
+<img src="https://raw.githubusercontent.com/https-shini/movies_lib/main/dist/004.png" width=400 heigth=350 />
 
 </div>
 
