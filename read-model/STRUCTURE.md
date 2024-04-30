@@ -47,7 +47,7 @@ Após configurar o ambiente, execute o projeto da seguinte maneira:
 
 Essas instruções garantem que você tenha o ambiente configurado corretamente e possa executar o projeto sem problemas em sua máquina local.
 
-## Decisões Arquiteturais:
+### Decisões Arquiteturais:
 
 Arquitetura Cliente-Servidor: O Chat Web segue uma arquitetura cliente-servidor, onde o frontend é responsável pela interface do usuário e o backend gerencia a lógica de negócios e a comunicação com o servidor WebSocket.
 WebSocket: O uso do protocolo WebSocket permite uma comunicação bidirecional em tempo real entre clientes e servidor, facilitando a troca instantânea de mensagens.
