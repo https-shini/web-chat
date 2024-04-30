@@ -9,7 +9,7 @@
 </p>
 <br>
 
-![Preview](.read-model/img/banner.png)
+![Preview](./read-model/img/banner.png)
 
 ## ☆ Hospedagem
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. <br>
@@ -22,16 +22,16 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit.
 * Nisl nunc mi ipsum faucibus vitae aliquet.
 
 ## ☆ Projeto
-➜ [Como contribuir?](read-model/CONTRIBUTING.md) <br>
-➜ [Como o projeto está estruturado?](read-model/STRUCTURE.md) <br>
-➜ [Documentação aprodofundada](read-model/MODEL.md) 
+➜ [Como contribuir?](./read-model/CONTRIBUTING.md) <br>
+➜ [Como o projeto está estruturado?](./read-model/STRUCTURE.md) <br>
+➜ [Documentação aprodofundada](./read-model/MODEL.md) 
 
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Sit amet consectetur adipiscing elit duis tristique sollicitudin nibh. Nibh sit amet commodo nulla facilisi nullam vehicula. Sit amet luctus venenatis lectus magna. Egestas diam in arcu cursus euismod quis viverra. Porttitor lacus luctus accumsan tortor posuere ac.
 
 ## ☆ Layout
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
 
-![Preview](.read-model/img/hero.png)
+![Preview](./read-model/img/hero.png)
 
 > [!NOTE]
 > Useful information that users should know, even when skimming content.
