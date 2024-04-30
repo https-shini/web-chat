@@ -1,7 +1,7 @@
 <h1 align="center"> Contributing/Contribuindo </h1>
 
 <p align="center">
-  <a href="#pt-br">Português (Brasil)</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
+  <a href="#pt-br">Português</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
   <a href="#en-us-">English</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
   <a href="./readme.md">Voltar</a>
 </p>
