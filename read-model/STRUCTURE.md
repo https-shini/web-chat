@@ -51,22 +51,27 @@ Essas instruções garantem que você tenha o ambiente configurado corretamente 
 
 ## Decisões Arquiteturais:
 
-Arquitetura Cliente-Servidor: O Chat Web segue uma arquitetura cliente-servidor, onde o frontend é responsável pela interface do usuário e o backend gerencia a lógica de negócios e a comunicação com o servidor WebSocket.
-WebSocket: O uso do protocolo WebSocket permite uma comunicação bidirecional em tempo real entre clientes e servidor, facilitando a troca instantânea de mensagens.
+- O Chat Web segue uma arquitetura cliente-servidor, onde o frontend é responsável pela interface do usuário e o backend gerencia a lógica de negócios e a comunicação com o servidor WebSocket. <br>
+- WebSocket: O uso do protocolo WebSocket permite uma comunicação bidirecional em tempo real entre clientes e servidor, facilitando a troca instantânea de mensagens.
 
 ## Estrutura do projeto
 
-Frontend:
-HTML: Responsável pela estruturação do conteúdo da página, incluindo formulários de entrada e exibição de mensagens.
-CSS: Estilização e design responsivo da interface do usuário para garantir uma experiência visualmente agradável e consistente em diferentes dispositivos.
-JavaScript: Adição de interatividade à página, manipulando eventos do usuário e interagindo com o backend para enviar e receber mensagens em tempo real.
-Backend:
-Node.js: Utilizado como plataforma de tempo de execução do JavaScript no servidor, permitindo a implementação do servidor WebSocket.
-WebSocket (ws): Criação de um servidor WebSocket para lidar com conexões de clientes, recebendo e transmitindo mensagens entre eles.
-dotenv: Utilizado para carregar variáveis de ambiente do arquivo .env, facilitando a configuração do ambiente de desenvolvimento.
+- Frontend: <br>
+   - HTML: Responsável pela estruturação do conteúdo da página, incluindo formulários de entrada e exibição de mensagens. <br>
+   - CSS: Estilização e design responsivo da interface do usuário para garantir uma experiência visualmente agradável e consistente em diferentes dispositivos. <br>
+   - JavaScript: Adição de interatividade à página, manipulando eventos do usuário e interagindo com o backend para enviar e receber mensagens em tempo real. <br>
 
-## Informações Importantes sobre a Aplicação
-A aplicação suporta comunicação em tempo real entre os usuários através do protocolo WebSocket.
-Os usuários podem ingressar na aplicação fornecendo um nome de usuário no formulário de login.
-As mensagens enviadas por um usuário são instantaneamente exibidas para todos os outros participantes do chat.
-O frontend é responsivo e foi projetado para ser compatível com diferentes dispositivos e tamanhos de tela.
+<br>
+
+- Backend: <br> 
+   - Node.js: Utilizado como plataforma de tempo de execução do JavaScript no servidor, permitindo a implementação do servidor WebSocket. <br> 
+   - WebSocket (ws): Criação de um servidor WebSocket para lidar com conexões de clientes, recebendo e transmitindo mensagens entre eles. <br> 
+   - dotenv: Utilizado para carregar variáveis de ambiente do arquivo .env, facilitando a configuração do ambiente de desenvolvimento. <br>
+
+<br>
+
+> **Informações Importantes sobre a Aplicação** <br>
+A aplicação suporta comunicação em tempo real entre os usuários através do protocolo WebSocket. <br>
+Os usuários podem ingressar na aplicação fornecendo um nome de usuário no formulário de login. <br>
+As mensagens enviadas por um usuário são instantaneamente exibidas para todos os outros participantes do chat. <br>
+O frontend é responsivo e foi projetado para ser compatível com diferentes dispositivos e tamanhos de tela. <br>
