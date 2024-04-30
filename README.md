@@ -13,7 +13,7 @@
 
 ## ☆ Hospedagem
 - Acesse o link abaixo e veja o código hospedado online.<br>
-https://https-shini.github.io/portfolio/#home
+https://chat-frontend-g42t.onrender.com
 
 ## ☆ Tecnologias
 - Frontend:
