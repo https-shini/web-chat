@@ -28,7 +28,6 @@ https://chat-frontend-g42t.onrender.com
 
 ## ☆ Projeto
 ➜ [Como contribuir?](./read-model/CONTRIBUTING.md) <br>
-➜ [Como o projeto está estruturado?](./read-model/STRUCTURE.md) <br>
 ➜ [Documentação aprofundada](./read-model/MODEL.md) 
 
 <br>
