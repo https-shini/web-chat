@@ -1,5 +1,14 @@
 # Documentação aprofundada
 
+## Decisões Arquiteturais:
+
+- O Chat Web segue uma arquitetura cliente-servidor, onde o frontend é responsável pela interface do usuário e o backend gerencia a lógica de negócios e a comunicação com o servidor WebSocket. <br>
+- WebSocket: O uso do protocolo WebSocket permite uma comunicação bidirecional em tempo real entre clientes e servidor, facilitando a troca instantânea de mensagens.
+
+<br>
+
+## Estrutura do projeto
+
 ➜ **Frontend:**
 
 1. **HTML (index.html):**
@@ -23,7 +32,7 @@
 
 <br>
 
-**Funcionamento:**
+## **Funcionamento:**
 
 - Quando um usuário acessa a aplicação, ele é apresentado com um formulário de login onde pode inserir seu nome.
 - Após inserir o nome e clicar em "Entrar", o usuário é redirecionado para a área de chat.
@@ -31,3 +40,11 @@
 - Quando uma mensagem é enviada, o JavaScript no frontend envia a mensagem para o servidor WebSocket no backend.
 - O servidor WebSocket recebe a mensagem e a retransmite para todos os outros clientes conectados.
 - As mensagens recebidas são exibidas dinamicamente na área de chat de todos os clientes, permitindo uma conversa em tempo real entre os usuários.
+
+<br>
+
+> **Informações Importantes sobre a Aplicação** <br>
+A aplicação suporta comunicação em tempo real entre os usuários através do protocolo WebSocket. <br>
+Os usuários podem ingressar na aplicação fornecendo um nome de usuário no formulário de login. <br>
+As mensagens enviadas por um usuário são instantaneamente exibidas para todos os outros participantes do chat. <br>
+O frontend é responsivo e foi projetado para ser compatível com diferentes dispositivos e tamanhos de tela. <br>
