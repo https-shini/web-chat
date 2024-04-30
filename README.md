@@ -29,7 +29,7 @@ https://https-shini.github.io/portfolio/#home
 ## ☆ Projeto
 ➜ [Como contribuir?](./read-model/CONTRIBUTING.md) <br>
 ➜ [Como o projeto está estruturado?](./read-model/STRUCTURE.md) <br>
-➜ [Documentação aprodofundada](./read-model/MODEL.md) 
+➜ [Documentação aprofundada](./read-model/MODEL.md) 
 
 <br>
 
