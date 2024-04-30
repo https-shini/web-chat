@@ -1,4 +1,4 @@
-# Entendendo decisões arquiteturais e a estrutura do projeto
+# Decisões arquiteturais e Estrutura do projeto
 
 ## Requisitos para rodar o projeto
 
@@ -47,12 +47,14 @@ Após configurar o ambiente, execute o projeto da seguinte maneira:
 
 Essas instruções garantem que você tenha o ambiente configurado corretamente e possa executar o projeto sem problemas em sua máquina local.
 
-### Decisões Arquiteturais:
+<br>
+
+## Decisões Arquiteturais:
 
 Arquitetura Cliente-Servidor: O Chat Web segue uma arquitetura cliente-servidor, onde o frontend é responsável pela interface do usuário e o backend gerencia a lógica de negócios e a comunicação com o servidor WebSocket.
 WebSocket: O uso do protocolo WebSocket permite uma comunicação bidirecional em tempo real entre clientes e servidor, facilitando a troca instantânea de mensagens.
 
-### Estrutura do projeto
+## Estrutura do projeto
 
 Frontend:
 HTML: Responsável pela estruturação do conteúdo da página, incluindo formulários de entrada e exibição de mensagens.
@@ -63,7 +65,7 @@ Node.js: Utilizado como plataforma de tempo de execução do JavaScript no servi
 WebSocket (ws): Criação de um servidor WebSocket para lidar com conexões de clientes, recebendo e transmitindo mensagens entre eles.
 dotenv: Utilizado para carregar variáveis de ambiente do arquivo .env, facilitando a configuração do ambiente de desenvolvimento.
 
-### Informações Importantes sobre a Aplicação
+## Informações Importantes sobre a Aplicação
 A aplicação suporta comunicação em tempo real entre os usuários através do protocolo WebSocket.
 Os usuários podem ingressar na aplicação fornecendo um nome de usuário no formulário de login.
 As mensagens enviadas por um usuário são instantaneamente exibidas para todos os outros participantes do chat.
