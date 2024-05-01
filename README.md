@@ -52,19 +52,14 @@ Este projeto é uma aplicação desenvolvida para permitir a comunicação em te
 ## ☆ Layout
 Obtenha uma perspectiva detalhada do layout do projeto por meio da imagem abaixo.
 
-![Preview](./read-model/img/hero.png)
-
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/https-shini/movies_lib/main/dist/001.png" width=400 heigth=350 />
-<img src="https://raw.githubusercontent.com/https-shini/movies_lib/main/dist/002.png" width=400 heigth=350 />
-<img src="https://raw.githubusercontent.com/https-shini/movies_lib/main/dist/003.png" width=400 heigth=350 />
-<img src="https://raw.githubusercontent.com/https-shini/movies_lib/main/dist/004.png" width=400 heigth=350 />
+<img src="https://raw.githubusercontent.com/https-shini/web-chat/main/frontend/images/img01.png" width=400 heigth=350 />
+<img src="https://raw.githubusercontent.com/https-shini/web-chat/main/frontend/images/img02.png" width=400 heigth=350 />
+<img src="https://raw.githubusercontent.com/https-shini/web-chat/main/frontend/images/img03.png" width=400 heigth=350 />
+<img src="https://raw.githubusercontent.com/https-shini/web-chat/main/frontend/images/img04.png" width=400 heigth=350 />
 
 </div>
-
-> [!NOTE]
-> Useful information that users should know, even when skimming content.
 
 ## ☆ Licença
 Esse projeto está sob a [licença MIT](/LICENSE).
