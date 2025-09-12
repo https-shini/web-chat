@@ -113,15 +113,15 @@ const updateUsersList = (users) => {
 
 // Funções de indicador de digitação
 const updateTypingIndicator = (userName, isTyping) => {
-    // ... (aqui entraria a lógica de indicador de digitação, se implementada)
+    // ... (lógica do indicador de digitação)
 };
 
 // Funções de WebSocket
 const connectWebSocket = () => {
     try {
-        // CORREÇÃO: Para testar em produção, altere a URL abaixo para o endereço do seu servidor
-        // Exemplo: "wss://chat-backend-3sxv.onrender.com"
-        websocket = new WebSocket("ws://SEU_IP_AQUI:8080");
+        // CORREÇÃO: Altere a URL abaixo para o endereço do seu servidor de produção com 'wss://'
+        // Exemplo: new WebSocket("wss://chat-backend-3sxv.onrender.com");
+        websocket = new WebSocket("wss://SUA_URL_DO_BACKEND_AQUI");
 
         websocket.onopen = () => {
             console.log("Conectado ao servidor");
@@ -201,23 +201,23 @@ const processMessage = ({ data }) => {
                 chatMessages.innerHTML = '';
                 showNotification(message.payload, 'info');
                 break;
-            
+
             case 'user_list':
                 updateUsersList(message.payload);
                 break;
-                
+
             case 'user_joined':
                 const joinMessage = createSystemMessage(`${message.payload.userName} entrou no chat`, message.payload.timestamp);
                 chatMessages.appendChild(joinMessage);
                 scrollToBottom();
                 break;
-                
+
             case 'user_left':
                 const leftMessage = createSystemMessage(`${message.payload.userName} saiu do chat`, message.payload.timestamp);
                 chatMessages.appendChild(leftMessage);
                 scrollToBottom();
                 break;
-            
+
             case 'user_typing':
                 updateTypingIndicator(message.payload.userName, message.payload.isTyping);
                 break;
@@ -225,7 +225,7 @@ const processMessage = ({ data }) => {
             case 'error':
                 showNotification(message.payload.message, 'error');
                 break;
-                
+
             default:
                 console.log("Tipo de mensagem desconhecido:", message.type);
         }
@@ -274,7 +274,7 @@ const sendMessage = (event) => {
     }));
 
     chatInput.value = "";
-    
+
     if (typingTimer) {
         clearTimeout(typingTimer);
     }
@@ -283,9 +283,9 @@ const sendMessage = (event) => {
 
 const handleTyping = () => {
     if (!websocket || websocket.readyState !== WebSocket.OPEN) return;
-    
+
     websocket.send(JSON.stringify({ type: 'typing_start' }));
-    
+
     clearTimeout(typingTimer);
     typingTimer = setTimeout(() => {
         websocket.send(JSON.stringify({ type: 'typing_stop' }));
