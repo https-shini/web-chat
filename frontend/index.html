@@ -10,38 +10,59 @@
         />
         <link rel="stylesheet" href="./css/style.css" />
 
-        <title>Web Chat</title>
+        <title>Web Chat Melhorado</title>
     </head>
     <body>
         <section class="container">
             <section class="login">
-                <h2>Login</h2>
+                <h2>Web Chat</h2>
+                <p class="login__subtitle">Entre com seu nome para começar</p>
                 <form class="login__form">
                     <input
                         type="text"
                         class="login__input"
                         placeholder="Seu nome"
+                        maxlength="30"
                         required
                     />
-                    <button type="submit" class="login__button">Entrar</button>
+                    <button type="submit" class="login__button">Entrar no Chat</button>
                 </form>
             </section>
 
             <section class="chat">
-                <section class="chat__messages">
-                    <!-- <div class="message--self">Hello, World!</div>
+                <header class="chat__header">
+                    <div class="chat__info">
+                        <h3>Web Chat</h3>
+                        <span class="chat__status">Conectado</span>
+                    </div>
+                    <div class="chat__users">
+                        <span class="users__count">0 usuários online</span>
+                        <div class="users__list"></div>
+                    </div>
+                </header>
 
-                <div class="message--other">
-                    <span class="message--sender">Bl4ck404</span>
-                    Olá, Mundo!
-                </div> -->
+                <section class="chat__messages">
+                    <div class="welcome__message">
+                        <p>Bem-vindo ao Web Chat! 🎉</p>
+                        <p>Comece uma conversa digitando uma mensagem abaixo.</p>
+                    </div>
                 </section>
+
+                <div class="typing__indicator" style="display: none;">
+                    <span class="typing__text"></span>
+                    <div class="typing__dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
 
                 <form class="chat__form">
                     <input
                         type="text"
                         class="chat__input"
-                        placeholder="Digite uma mensagem"
+                        placeholder="Digite uma mensagem..."
+                        maxlength="1000"
                         required
                     />
                     <button type="submit" class="chat__button">
@@ -51,6 +72,10 @@
             </section>
         </section>
 
+        <!-- Notificações -->
+        <div class="notifications" id="notifications"></div>
+
         <script src="./js/script.js"></script>
     </body>
 </html>
+
