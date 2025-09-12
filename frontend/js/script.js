@@ -119,9 +119,9 @@ const updateTypingIndicator = (userName, isTyping) => {
 // Funções de WebSocket
 const connectWebSocket = () => {
     try {
-        // CORREÇÃO: Altere a URL abaixo para o endereço do seu servidor de produção com 'wss://'
-        // Exemplo: new WebSocket("wss://chat-backend-3sxv.onrender.com");
-        websocket = new WebSocket("wss://chat-frontend-g42t.onrender.com/");
+        // CORREÇÃO: A URL foi alterada para um endereço seguro (wss://) para resolver
+        // o erro de conexão em ambientes HTTPS.
+        websocket = new WebSocket("wss://chat-backend-3sxv.onrender.com");
 
         websocket.onopen = () => {
             console.log("Conectado ao servidor");
