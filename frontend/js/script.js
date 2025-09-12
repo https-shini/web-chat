@@ -119,9 +119,9 @@ const updateTypingIndicator = (userName, isTyping) => {
 // Funções de WebSocket
 const connectWebSocket = () => {
     try {
-        // CORREÇÃO: Usando wss:// para o ambiente de produção
-        // A URL do seu backend deve estar aqui. Ex: "wss://chat-backend-3sxv.onrender.com"
-        websocket = new WebSocket("wss://chat-backend-3sxv.onrender.com");
+        // CORREÇÃO: Altere a URL abaixo para o endereço do seu servidor de produção com 'wss://'
+        // Exemplo: new WebSocket("wss://chat-backend-3sxv.onrender.com");
+        websocket = new WebSocket("wss://chat-frontend-g42t.onrender.com/");
 
         websocket.onopen = () => {
             console.log("Conectado ao servidor");
@@ -309,4 +309,3 @@ chatInput.addEventListener('keydown', (e) => {
         sendMessage(e);
     }
 });
-
