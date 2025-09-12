@@ -10,6 +10,25 @@ const wss = new WebSocketServer({ port: process.env.PORT || 8080 });
 const connectedUsers = new Map();
 const messageHistory = [];
 const typingUsers = new Set();
+const maxMessages = 1000;
+const inactiveTime = 60 * 60 * 1000; // 1 hora em milissegundos
+let cleanupTimer;
+
+const resetCleanupTimer = () => {
+    clearTimeout(cleanupTimer);
+    cleanupTimer = setTimeout(() => {
+        console.log("Chat limpo por inatividade.");
+        messageHistory.length = 0; // Limpa o histórico em memória
+        wss.clients.forEach((client) => {
+            if (client.readyState === 1) {
+                client.send(JSON.stringify({
+                    type: "chat_cleared",
+                    payload: "O chat foi limpo por inatividade."
+                }));
+            }
+        });
+    }, inactiveTime);
+};
 
 // Função para broadcast de mensagens
 const broadcast = (message, excludeWs = null) => {
@@ -59,13 +78,21 @@ wss.on("connection", (ws) => {
         console.error("Erro no WebSocket:", error);
     });
 
+    // Enviar histórico de mensagens para o novo usuário
+    if (messageHistory.length > 0) {
+        ws.send(JSON.stringify({
+            type: 'message_history',
+            payload: messageHistory
+        }));
+    }
+    
     ws.on("message", (data) => {
+        resetCleanupTimer(); // Reinicia o timer a cada nova mensagem
         try {
             const message = JSON.parse(data.toString());
             
             switch (message.type) {
                 case 'user_login':
-                    // Registrar novo usuário
                     const userData = {
                         id: message.payload.userId,
                         name: sanitizeContent(message.payload.userName),
@@ -75,15 +102,6 @@ wss.on("connection", (ws) => {
                     
                     connectedUsers.set(ws, userData);
                     
-                    // Enviar histórico de mensagens para o novo usuário
-                    if (messageHistory.length > 0) {
-                        ws.send(JSON.stringify({
-                            type: 'message_history',
-                            payload: messageHistory.slice(-50) // Últimas 50 mensagens
-                        }));
-                    }
-                    
-                    // Notificar outros usuários sobre novo usuário
                     broadcast({
                         type: 'user_joined',
                         payload: {
@@ -93,7 +111,6 @@ wss.on("connection", (ws) => {
                         }
                     }, ws);
                     
-                    // Enviar lista atualizada de usuários
                     broadcastUserList();
                     break;
                     
@@ -107,7 +124,6 @@ wss.on("connection", (ws) => {
                         return;
                     }
                     
-                    // Validar conteúdo da mensagem
                     const content = sanitizeContent(message.payload.content);
                     if (!content || content.length > 1000) {
                         ws.send(JSON.stringify({
@@ -129,15 +145,11 @@ wss.on("connection", (ws) => {
                         }
                     };
                     
-                    // Adicionar ao histórico
                     messageHistory.push(chatMessage);
-                    
-                    // Limitar histórico a 1000 mensagens
-                    if (messageHistory.length > 1000) {
+                    if (messageHistory.length > maxMessages) {
                         messageHistory.shift();
                     }
                     
-                    // Broadcast da mensagem
                     broadcast(chatMessage);
                     break;
                     
@@ -187,11 +199,8 @@ wss.on("connection", (ws) => {
         const user = connectedUsers.get(ws);
         if (user) {
             console.log(`Cliente desconectado: ${user.name}`);
-            
-            // Remover usuário da lista de digitando
             typingUsers.delete(user.id);
             
-            // Notificar outros usuários sobre saída
             broadcast({
                 type: 'user_left',
                 payload: {
@@ -201,13 +210,11 @@ wss.on("connection", (ws) => {
                 }
             });
             
-            // Remover usuário da lista
             connectedUsers.delete(ws);
-            
-            // Enviar lista atualizada de usuários
             broadcastUserList();
         }
     });
 });
 
 console.log(`Servidor WebSocket rodando na porta ${process.env.PORT || 8080}`);
+resetCleanupTimer();
