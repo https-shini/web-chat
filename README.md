@@ -1,83 +1,195 @@
-<h1 align="center">Chat Web</h1>
+<img width=100% src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=24&height=120&section=header"/>
+
+<h1 align="center">💬 Web Chat</h1>
 
 <p align="center">
-  <a href="#-sobre-o-projeto">Sobre</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
-  <a href="#-funcionalidades">Funcionalidades</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
-  <a href="#-tecnologias">Tecnologias</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
-  <a href="#-como-rodar-localmente">Como Rodar</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
-  <a href="#-evolução-do-projeto">Evolução</a>
+  Aplicação de chat em tempo real com salas, moderação e privacidade — sem salvar mensagens no servidor.
 </p>
 
-<!-- 
 <div align="center">
-  <img src="https-shini/web-chat/web-chat-4a63f35f8beed46d444a0fe2cfbdd218241382bd/frontend/images/banner.png" alt="Preview do projeto WebChat em desktop e mobile">
+
+  [![Demo](https://img.shields.io/badge/🌐%20Acessar%20Projeto-2482FF?style=for-the-badge)](https://chat-frontend-g42t.onrender.com)
+  [![Código](https://img.shields.io/badge/Ver%20Código-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/https-shini/web-chat)
+  [![Licença](https://img.shields.io/badge/Licença-MIT-green?style=for-the-badge)](./LICENSE)
+
 </div>
--->
 
-## 📄 Sobre o Projeto
+---
 
-O WebChat é uma aplicação de chat em tempo real construída com uma arquitetura cliente-servidor e o protocolo WebSocket. O projeto original, embora funcional, foi significativamente aprimorado para se tornar uma plataforma mais robusta e segura. As atualizações trouxeram funcionalidades essenciais para uma experiência de usuário moderna, além de melhorias em segurança e na arquitetura técnica.
+## 📌 O que é este projeto?
+
+O **Web Chat** é uma aplicação de mensagens instantâneas que funciona direto no navegador. Os usuários entram com um nome, escolhem uma sala e conversam em tempo real com qualquer pessoa conectada.
+
+O projeto segue uma filosofia de **privacidade por padrão**: as mensagens não são salvas no servidor — quando todos saem da sala, o histórico desaparece. Mensagens importantes podem ser fixadas localmente pelo próprio usuário, sem que o servidor tenha acesso a elas.
+
+---
+
+## 🌐 Experimente agora
+
+Você pode usar o projeto sem precisar baixar nada:
+
+👉 **[https://chat-frontend-g42t.onrender.com](https://chat-frontend-g42t.onrender.com)**
+
+Basta abrir o link, digitar um nome de usuário e começar a conversar!
+
+---
 
 ## ✨ Funcionalidades
 
-O projeto foi transformado de uma aplicação de broadcast simples em uma plataforma com recursos profissionais.
+- Entrar no chat com um **nome de usuário**
+- **Salas de chat** criadas e gerenciadas pelo administrador
+- **Chat efêmero** — mensagens não são salvas no servidor
+- **Fixar mensagens** localmente via `localStorage`, sem envolver o servidor
+- **Moderação** — administrador pode excluir mensagens de qualquer usuário
+- **Indicador de digitação** em tempo real
+- **Timestamps** em todas as mensagens
+- **Notificações** do navegador para novas mensagens
+- Proteção contra **XSS** com sanitização de conteúdo
+- **Reconexão automática** em caso de falha de rede
 
-### 🔒 Segurança e Robustez
-- **Sanitização de Conteúdo**: Prevenção contra ataques XSS (Cross-Site Scripting).
-- **Tratamento de Erros**: Sistema mais robusto com uso de `try-catch` em operações críticas.
-- **Validação de Dados**: Previne spam e dados inválidos nas mensagens.
-- **Reconexão Automática**: Sistema de reconexão com backoff exponencial para resistir a falhas de rede.
+---
 
-### 💬 Funcionalidades Essenciais
-- **Persistência de Mensagens**: Histórico em memória para até 1000 mensagens, permitindo que novos usuários vejam o contexto das conversas.
-- **Lista de Usuários Online**: Exibição em tempo real dos usuários conectados.
-- **Timestamps**: O horário de envio é exibido em todas as mensagens.
-- **Indicador de Digitação**: Feedback visual em tempo real mostrando quando outros usuários estão digitando.
-- **Notificações**: Alertas no navegador e toast messages para novas mensagens.
+## 🛠️ Tecnologias utilizadas
 
-### 🎨 Interface e Design
-- **Design Moderno**: Tema escuro com gradientes e variáveis CSS para uma aparência profissional.
-- **Responsividade Aprimorada**: Otimizado para funcionar perfeitamente em dispositivos móveis e desktops.
-- **Animações e Transições**: Efeitos visuais suaves para uma experiência mais polida.
+**Front-end**
+- **HTML5** — estrutura da interface
+- **CSS3** — estilização responsiva
+- **JavaScript** — interatividade e comunicação em tempo real
+- **Google Fonts** — tipografia
 
-## 🚀 Tecnologias
+**Back-end**
+- **Node.js** — servidor da aplicação
+- **WebSocket (ws)** — comunicação bidirecional em tempo real
+- **dotenv** — variáveis de ambiente
 
-- **Frontend**:
-  - HTML
-  - CSS
-  - JavaScript
-    
-- **Backend**:
-  - Node.js
-  - **ws**: Biblioteca para o servidor WebSocket
-  - **dotenv**: Gerenciamento de variáveis de ambiente
+---
 
-## 💻 Como Rodar Localmente
+## 🗂️ Estrutura de arquivos
 
-Para rodar e testar o projeto na sua máquina, siga estas instruções:
+```
+web-chat/
+│
+├── frontend/
+│   ├── index.html       → Estrutura da página (login e área de chat)
+│   ├── style.css        → Estilização responsiva da interface
+│   └── script.js        → Conexão WebSocket, envio e exibição de mensagens
+│
+├── backend/
+│   └── server.js        → Servidor WebSocket, salas e moderação
+│
+├── .env                 → Variáveis de ambiente (porta, configurações)
+├── CONTRIBUTING.md      → Guia de contribuição
+├── LICENSE              → Licença MIT
+└── read-model/
+    └── MODEL.md         → Documentação técnica aprofundada
+```
 
-1.  **Pré-requisitos**:
-    -   Instale o [Node.js (versão LTS)](https://nodejs.org/).
-    -   Instale o Yarn globalmente via npm: `npm install --global yarn`.
-2.  **Instalação de Dependências**:
-    -   Abra o terminal na pasta raiz do projeto.
-    -   Execute `yarn` para instalar as dependências do backend e do frontend.
-3.  **Inicie o Servidor**:
-    -   No terminal, execute o comando `yarn dev`.
-    -   O servidor WebSocket será iniciado na porta `8080`.
-4.  **Acesse a Aplicação**:
-    -   Abra o arquivo `frontend/index.html` em seu navegador.
-    -   Digite seu nome na tela de login para começar a interagir.
+---
 
-## 📈 Evolução do Projeto
+## ⚙️ Como funciona
 
-O projeto segue um roteiro de evolução focado em aprimorar a experiência de chat e a segurança, sempre respeitando a privacidade dos usuários.
+1. O usuário acessa o app e informa seu nome no formulário de login
+2. Após entrar, visualiza as salas disponíveis e escolhe uma
+3. As mensagens digitadas são enviadas ao servidor via **WebSocket**
+4. O servidor retransmite a mensagem para todos os usuários conectados na sala
+5. A interface é atualizada em tempo real para todos os participantes
+6. Ao sair, as mensagens somem — o chat é efêmero por design
 
-- **Nível 1 (Curto Prazo)**:
-    - **Criptografia de Ponta a Ponta**: Implementação de criptografia para garantir que as mensagens só possam ser lidas pelos destinatários.
-    - **Autenticação**: Sistema de login e registro para gerenciar usuários e atribuir o papel de administrador.
-    - **Segurança**: Adicionar **rate limiting** para evitar spam de mensagens.
+---
 
-- **Nível 2 (Médio Prazo)**:
-    - **Compartilhamento de Mídia**: Permitir o upload e o compartilhamento de arquivos e imagens.
-    - **Interação**: Integrar um sistema de **emojis e reações** às mensagens.
+## 🔒 Segurança e privacidade
+
+| Recurso | Descrição |
+|---|---|
+| **Chat efêmero** | Mensagens não são armazenadas no servidor |
+| **Sanitização XSS** | Todo conteúdo é sanitizado antes de ser exibido |
+| **Mensagens fixadas** | Salvas apenas no `localStorage` do usuário, sem passar pelo servidor |
+| **Moderação** | Admin pode excluir mensagens para manter o ambiente seguro |
+| **Validação** | Dados inválidos e spam são bloqueados antes do envio |
+
+---
+
+## 📈 Melhorias implementadas
+
+A versão atual evoluiu significativamente em relação à versão original:
+
+| Aspecto | Antes | Depois |
+|---|---|---|
+| **Persistência** | Nenhuma | Chat efêmero por design |
+| **Armazenamento** | Nenhum | Mensagens fixadas via `localStorage` |
+| **Moderação** | Nenhuma | Admin pode excluir mensagens |
+| **Segurança** | Vulnerável a XSS | Sanitização e validação completas |
+| **Salas de chat** | Nenhuma | Criadas e gerenciadas pelo admin |
+| **Indicador de digitação** | Não | Sim, em tempo real |
+| **Interface** | Simples | Moderna e otimizada |
+
+---
+
+## 🔮 Próximos passos
+
+**Curto prazo**
+- Criptografia de ponta a ponta nas mensagens
+- Sistema de autenticação (login e registro)
+- Rate limiting para evitar spam
+
+**Médio prazo**
+- Compartilhamento de arquivos e imagens
+- Sistema de emojis e reações às mensagens
+
+---
+
+## 🚀 Como rodar localmente
+
+**Pré-requisitos:** Node.js e Yarn instalados.
+
+**1. Clone o repositório**
+```bash
+git clone https://github.com/https-shini/web-chat.git
+cd web-chat
+```
+
+**2. Instale as dependências**
+```bash
+yarn
+```
+
+**3. Inicie o servidor**
+```bash
+yarn dev
+```
+
+**4. Acesse no navegador**
+```
+http://localhost:3000
+```
+
+---
+
+## 🤝 Como contribuir
+
+Consulte o arquivo [CONTRIBUTING.md](./CONTRIBUTING.md) para o passo a passo completo.
+
+```bash
+git checkout -b minha-feature
+git commit -m "feat: minha nova feature"
+git push origin minha-feature
+# Abra um Pull Request 🚀
+```
+
+---
+
+## 📄 Licença
+
+Este projeto está sob a licença **MIT**. Veja o arquivo [LICENSE](./LICENSE) para mais detalhes.
+
+---
+
+<div align="center">
+
+Feito com 💙 — converse em tempo real com privacidade!
+
+⭐ Se gostou, deixe uma estrela no repositório!
+
+</div>
+
+<img width=100% src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=24&height=120&section=footer"/>
