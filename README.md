@@ -96,6 +96,25 @@ Sem nenhuma configuração, o frontend já aponta para o servidor local — não
 preciso editar código para rodar offline. Para apontar para outro servidor,
 copie `.env.example` para `.env` e ajuste `VITE_SOCKET_URL`.
 
+### Publicando
+
+O projeto funciona de duas formas, e as duas foram verificadas em navegador:
+
+| Forma                       | O que servir                    | Quando usar                                                                            |
+| --------------------------- | ------------------------------- | -------------------------------------------------------------------------------------- |
+| **Com build** (recomendado) | `npm run build` e sirva `dist/` | Produção: CSS e JavaScript minificados e reunidos em um arquivo cada, com hash no nome |
+| **Sem build**               | Sirva `frontend/` direto        | Host estático simples, ou para abrir o projeto sem instalar nada                       |
+
+Se o seu host estático aponta para `frontend/`, continua funcionando: o CSS é
+carregado por `<link>` a partir de `src/css/index.css`, não importado de dentro
+do JavaScript. Importar CSS de um módulo é recurso de bundler — servido cru, o
+navegador tentaria carregar cada `.css` como módulo, recusaria por MIME type e
+derrubaria a aplicação inteira junto.
+
+A diferença prática entre as duas: sem build, o navegador resolve os `@import`
+em cascata (uma requisição por arquivo de estilo). Com build, tudo isso vira um
+arquivo só.
+
 ### Outros comandos
 
 | Comando                  | O que faz                                                     |

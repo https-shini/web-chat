@@ -221,3 +221,35 @@ verificação automatizada não substitui olhar o resultado.
 Os três primeiros são invisíveis para qualquer verificação estática: o CSS era
 válido, os tipos passavam e o contraste medido dos tokens continuava correto —
 o par medido existia, só não era o par que a tela mostrava.
+
+---
+
+## 10. Correção posterior: o projeto exigia build para funcionar
+
+Depois da entrega, servir `frontend/` sem passar pelo Vite quebrava a aplicação
+por completo — não parcialmente. `main.js` abria com 22 linhas de
+`import "./css/….css"`, que é recurso de bundler: o navegador tratava cada
+folha como módulo ES, recusava por MIME type (`text/css`) e, como o primeiro
+import falhava, o módulo inteiro nunca executava. Página sem estilo **e** sem
+comportamento.
+
+Reproduzido com um servidor estático apontando para `frontend/`: **24 erros de
+console, nenhum token aplicado, aplicação morta**.
+
+| O que mudou                                                                                                                         | Por quê                                                                                                                      |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| As 22 importações de CSS saem de `main.js` e viram um `<link>` para `src/css/index.css`, que reúne os `@import` na ordem da cascata | A ordem passa a viver num arquivo só, explícita, e o build resolve os `@import` num único CSS — sem encadeamento em produção |
+| `import.meta.env.VITE_SOCKET_URL` → `import.meta.env?.VITE_SOCKET_URL`                                                              | Fora de um bundler, `import.meta.env` é `undefined` e o acesso direto lançava TypeError antes da primeira linha útil         |
+| Favicon passa a ser referenciado por caminho relativo                                                                               | O Vite o trata como asset e o emite com hash no `dist`; servido cru, o mesmo caminho resolve. Antes dava 404 fora do build   |
+
+Verificado em navegador nos três modos de servir, com backend real, entrando na
+sala e enviando mensagem:
+
+| Modo                    | Erros | Tokens    | Conexão   | Texto literal      |
+| ----------------------- | ----: | --------- | --------- | ------------------ |
+| `frontend/` servido cru |     0 | aplicados | conectado | `it's & <b>ok</b>` |
+| `dist/` (build)         |     0 | aplicados | conectado | `it's & <b>ok</b>` |
+| `vite dev`              |     0 | aplicados | conectado | `it's & <b>ok</b>` |
+
+Lição registrada junto com a da §9: lint, tipos, build e os nove critérios
+passavam. O defeito só existia no modo de servir que nenhum deles exercitava.

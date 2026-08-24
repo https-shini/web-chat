@@ -1,28 +1,5 @@
 // @ts-check
 
-import "./css/tokens.css";
-import "./css/base/reset.css";
-import "./css/base/typography.css";
-import "./css/base/a11y.css";
-import "./css/base/motion.css";
-import "./css/components/app-shell.css";
-import "./css/components/skip-link.css";
-import "./css/components/button.css";
-import "./css/components/field.css";
-import "./css/components/entry.css";
-import "./css/components/composer.css";
-import "./css/components/thread.css";
-import "./css/components/message-list.css";
-import "./css/components/identity.css";
-import "./css/components/message.css";
-import "./css/components/typing.css";
-import "./css/components/connection.css";
-import "./css/components/people.css";
-import "./css/components/toast.css";
-import "./css/components/empty.css";
-import "./css/components/failure.css";
-import "./css/components/theme-toggle.css";
-
 import { SOCKET_URL, TIMING } from "./config.js";
 import { createAnnouncer } from "./a11y/announce.js";
 import { format, strings } from "./i18n/strings.js";

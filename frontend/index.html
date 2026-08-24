@@ -7,7 +7,7 @@
             name="description"
             content="Sala de conversa em tempo real: única, efêmera e anônima. Nada é salvo."
         />
-        <link rel="shortcut icon" href="/images/favicon.ico" />
+        <link rel="icon" href="./public/images/favicon.ico" />
 
         <!--
             Bootstrap de tema: escreve data-theme no <html> ANTES da primeira
@@ -38,6 +38,13 @@
             rel="stylesheet"
             href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Syne:wght@700;800&display=swap"
         />
+
+        <!--
+            Uma folha de entrada, e a ordem da cascata vive dentro dela:
+            tokens → base → componentes. O build resolve os @import num
+            arquivo só; servida crua, a página continua estilizada.
+        -->
+        <link rel="stylesheet" href="/src/css/index.css" />
 
         <title>web-chat · sala aberta</title>
     </head>

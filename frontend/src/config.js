@@ -21,8 +21,16 @@ const localFallback = () => {
     return `${secure ? "wss" : "ws"}://${host}:${LOCAL_PORT}`;
 };
 
-/** Endereço do servidor de tempo real. @type {string} */
-export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || localFallback();
+/**
+ * Endereço do servidor de tempo real.
+ *
+ * O acesso é opcional porque `import.meta.env` só existe quando o código
+ * passa por um bundler. Servido cru, sem build, `import.meta.env` é
+ * `undefined` e o acesso direto lançaria TypeError, derrubando a aplicação
+ * antes da primeira linha útil.
+ * @type {string}
+ */
+export const SOCKET_URL = import.meta.env?.VITE_SOCKET_URL || localFallback();
 
 /** Parâmetros de reconexão: exponencial, com teto e jitter. */
 export const RECONNECT = {

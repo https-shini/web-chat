@@ -1,0 +1,41 @@
+/* Folha de entrada do CSS.
+ *
+ * A ordem abaixo É a arquitetura da cascata: tokens definem o vocabulário,
+ * base estabelece o terreno, componentes consomem os dois. Trocar a ordem
+ * quebra o sistema, então ela vive num lugar só, explícita.
+ *
+ * Por que @import aqui e não `import` no JavaScript: importar CSS de dentro
+ * de um módulo é recurso de bundler, não do navegador. Quando o código-fonte
+ * é servido sem build, o navegador tenta carregar cada .css como módulo ES,
+ * recusa por MIME type e derruba a aplicação inteira junto. Com um <link>
+ * para este arquivo, a página funciona servida crua e o build continua
+ * resolvendo os @import em um único arquivo — sem encadeamento em produção.
+ */
+
+/* ─── 1 · tokens: única fonte de cor, espaço, raio e tempo ─────────── */
+@import url("./tokens.css");
+
+/* ─── 2 · base: terreno comum ──────────────────────────────────────── */
+@import url("./base/reset.css");
+@import url("./base/typography.css");
+@import url("./base/a11y.css");
+@import url("./base/motion.css");
+
+/* ─── 3 · componentes ──────────────────────────────────────────────── */
+@import url("./components/app-shell.css");
+@import url("./components/skip-link.css");
+@import url("./components/button.css");
+@import url("./components/field.css");
+@import url("./components/entry.css");
+@import url("./components/composer.css");
+@import url("./components/thread.css");
+@import url("./components/message-list.css");
+@import url("./components/identity.css");
+@import url("./components/message.css");
+@import url("./components/typing.css");
+@import url("./components/connection.css");
+@import url("./components/people.css");
+@import url("./components/toast.css");
+@import url("./components/empty.css");
+@import url("./components/failure.css");
+@import url("./components/theme-toggle.css");
