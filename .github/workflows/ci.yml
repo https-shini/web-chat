@@ -8,6 +8,12 @@ on:
 jobs:
     verificar:
         runs-on: ubuntu-latest
+        # Least privilege: este job só lê o repositório e roda checagens —
+        # nunca publica, comenta nem escreve nada. Sem este bloco, o token
+        # herda a permissão padrão do repositório, que pode ser mais ampla
+        # do que o job precisa.
+        permissions:
+            contents: read
         steps:
             - uses: actions/checkout@v4
 

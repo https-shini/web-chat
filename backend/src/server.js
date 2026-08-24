@@ -4,7 +4,35 @@ const crypto = require("crypto");
 
 dotenv.config();
 
-const wss = new WebSocketServer({ port: process.env.PORT || 8080 });
+// Origin allowlist: OPCIONAL, via variável de ambiente. Sem ela configurada,
+// o comportamento de hoje é preservado (qualquer origem pode conectar) — é
+// assim que este chat sempre funcionou, e travar a origem sem saber o
+// domínio real de produção derrubaria o serviço para todo mundo. Configure
+// ALLOWED_ORIGINS (lista separada por vírgula) no ambiente de produção para
+// que só o frontend legítimo consiga abrir conexão.
+const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+// Teto de conexões simultâneas: independe de proxy/IP (ver nota sobre
+// limite por IP mais abaixo) e evita que o processo seja derrubado por
+// exaustão de memória num flood de conexões.
+const MAX_TOTAL_CONNECTIONS = 500;
+
+const wss = new WebSocketServer({
+    port: process.env.PORT || 8080,
+    // Ver comentário acima: 16 KiB é generoso para o maior payload legítimo
+    // (mensagem de 1000 caracteres) e recusa qualquer frame muito maior
+    // antes que ele seja bufferizado inteiro na memória do processo.
+    maxPayload: 16 * 1024,
+    verifyClient: allowedOrigins.length === 0
+        ? undefined
+        : (info, callback) => {
+              const ok = allowedOrigins.includes(info.origin);
+              callback(ok, ok ? undefined : 403, ok ? undefined : "Origem não permitida");
+          },
+});
 
 // Armazenamento em memória para usuários conectados e mensagens
 const connectedUsers = new Map();
@@ -26,7 +54,6 @@ const broadcastUserList = () => {
     const userList = Array.from(connectedUsers.values()).map((user) => ({
         id: user.id,
         name: user.name,
-        color: user.color,
         status: "online",
     }));
 
@@ -45,7 +72,38 @@ const broadcastUserList = () => {
 // Sanitização pertence a quem renderiza; o servidor só apara e limita.
 const normalizeText = (value, maxLength) => {
     if (typeof value !== "string") return "";
-    return value.trim().slice(0, maxLength);
+    // Caracteres de controle (inclui \r e \n) não têm uso legítimo em nome
+    // de usuário ou mensagem de uma linha, e sem removê-los o texto do
+    // usuário poderia forjar linhas nos logs do servidor. O regex é
+    // deliberado — é a própria correção, não um descuido.
+    // eslint-disable-next-line no-control-regex
+    const withoutControlChars = value.replace(/[\x00-\x1f\x7f]/g, " ");
+    return withoutControlChars.trim().slice(0, maxLength);
+};
+
+// Limitador de taxa por conexão (balde de fichas). Aplica-se a toda mensagem
+// recebida, incluindo typing_start/typing_stop — o cliente dispara um sinal
+// de digitação a CADA tecla, sem debounce, então a capacidade é generosa o
+// bastante para nunca ser atingida por uso legítimo. O alvo real é o flood
+// de chat_message, que cresce o histórico em memória e é retransmitido para
+// todo mundo conectado a cada mensagem aceita.
+const RATE_LIMIT_CAPACITY = 40;
+const RATE_LIMIT_REFILL_PER_SECOND = 8;
+
+const createRateLimiter = () => {
+    let tokens = RATE_LIMIT_CAPACITY;
+    let lastRefill = Date.now();
+    return () => {
+        const now = Date.now();
+        tokens = Math.min(
+            RATE_LIMIT_CAPACITY,
+            tokens + ((now - lastRefill) / 1000) * RATE_LIMIT_REFILL_PER_SECOND,
+        );
+        lastRefill = now;
+        if (tokens < 1) return false;
+        tokens -= 1;
+        return true;
+    };
 };
 
 // Função para adicionar timestamp
@@ -54,23 +112,39 @@ const addTimestamp = () => {
 };
 
 wss.on("connection", (ws) => {
+    if (wss.clients.size > MAX_TOTAL_CONNECTIONS) {
+        ws.close(1013, "Servidor cheio, tente novamente em instantes");
+        return;
+    }
+
     console.log("Cliente conectado");
+
+    const consumeToken = createRateLimiter();
 
     ws.on("error", (error) => {
         console.error("Erro no WebSocket:", error);
     });
 
     ws.on("message", (data) => {
+        // Excedeu a taxa: descarta em silêncio. Nenhuma resposta de erro é
+        // enviada de propósito — responder amplificaria tráfego de volta
+        // para quem está inundando o servidor, e para o caso legítimo
+        // (digitação muito rápida) um "erro" na tela seria só ruído.
+        if (!consumeToken()) return;
+
         try {
             const message = JSON.parse(data.toString());
 
             switch (message.type) {
                 case "user_login": {
-                    // Registrar novo usuário
+                    // Registrar novo usuário. userColor não é lido: o campo
+                    // não tem consumidor no cliente (a cor de exibição é
+                    // derivada do id, no navegador) e aceitar um valor
+                    // arbitrário sem uso é só superfície de ataque à toa.
+                    const requestedId = normalizeText(message.payload?.userId, 100);
                     const userData = {
-                        id: message.payload.userId,
-                        name: normalizeText(message.payload.userName, 30),
-                        color: message.payload.userColor,
+                        id: requestedId || crypto.randomUUID(),
+                        name: normalizeText(message.payload?.userName, 30),
                         ws: ws,
                     };
 
@@ -92,7 +166,6 @@ wss.on("connection", (ws) => {
                             type: "user_joined",
                             payload: {
                                 userName: userData.name,
-                                userColor: userData.color,
                                 timestamp: addTimestamp(),
                             },
                         },
@@ -134,7 +207,6 @@ wss.on("connection", (ws) => {
                         payload: {
                             userId: user.id,
                             userName: user.name,
-                            userColor: user.color,
                             content: content,
                             timestamp: addTimestamp(),
                         },
@@ -220,7 +292,6 @@ wss.on("connection", (ws) => {
                 type: "user_left",
                 payload: {
                     userName: user.name,
-                    userColor: user.color,
                     timestamp: addTimestamp(),
                 },
             });

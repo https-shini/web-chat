@@ -10,6 +10,21 @@ frontend/dist/
 .env.local
 .env.*.local
 
+# Segredos e material criptográfico — nenhum existe hoje no projeto, mas a
+# regra fica travada de antemão para que um .pem ou .npmrc com token nunca
+# seja commitado por acidente (ISO/IEC 27001 A.8, prevenção de exposição).
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+.npmrc
+*.local.json
+
 # Logs
 *.log
 npm-debug.log*
