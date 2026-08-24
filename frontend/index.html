@@ -2,6 +2,25 @@
 <html lang="pt-BR" data-theme="dark">
     <head>
         <meta charset="UTF-8" />
+
+        <!--
+            Content-Security-Policy: reduz o dano possível de um XSS mesmo
+            que um apareça — script só de origem própria mais o hash exato
+            do bootstrap de tema abaixo; nada de plugin, formulário só para
+            a própria origem. connect-src precisa aceitar ws:/wss: de
+            qualquer host porque o endereço do servidor é configurado por
+            ambiente (VITE_SOCKET_URL), não é fixo em tempo de build.
+
+            Limitação real, não escondida: entregue via <meta>, a CSP NÃO
+            aplica frame-ancestors nem upgrade-insecure-requests (o padrão
+            ignora essas diretivas fora de cabeçalho HTTP) — proteção contra
+            clickjacking e HSTS continuam dependendo de configuração na
+            camada de hospedagem, fora do alcance de um arquivo estático.
+        -->
+        <meta
+            http-equiv="Content-Security-Policy"
+            content="default-src 'self'; script-src 'self' 'sha256-Fi5GNExRuHFNJT41G5L8f9zpBwwJ0I4ywQTVAiJUGhs='; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; connect-src 'self' ws: wss:; base-uri 'self'; form-action 'self'; object-src 'none';"
+        />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta
             name="description"

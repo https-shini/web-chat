@@ -26,12 +26,13 @@ const wss = new WebSocketServer({
     // (mensagem de 1000 caracteres) e recusa qualquer frame muito maior
     // antes que ele seja bufferizado inteiro na memória do processo.
     maxPayload: 16 * 1024,
-    verifyClient: allowedOrigins.length === 0
-        ? undefined
-        : (info, callback) => {
-              const ok = allowedOrigins.includes(info.origin);
-              callback(ok, ok ? undefined : 403, ok ? undefined : "Origem não permitida");
-          },
+    verifyClient:
+        allowedOrigins.length === 0
+            ? undefined
+            : (info, callback) => {
+                  const ok = allowedOrigins.includes(info.origin);
+                  callback(ok, ok ? undefined : 403, ok ? undefined : "Origem não permitida");
+              },
 });
 
 // Armazenamento em memória para usuários conectados e mensagens

@@ -9,8 +9,13 @@
 > configuração citados no pedido, do histórico completo do Git (68 commits,
 > todos os branches, `git grep` sobre cada blob que já existiu, não só o
 > estado atual), auditoria de dependências (`npm audit`) e testes
-> comportamentais reais contra o servidor rodando — não inspeção estática
-> apenas.
+> comportamentais reais contra o servidor e o frontend rodando — não
+> inspeção estática apenas.
+>
+> **Este documento cobre duas rodadas de auditoria** na mesma sessão de
+> trabalho: a primeira (§2.1–2.10) focou no servidor; a segunda (§2.11–2.12)
+> aprofundou o frontend, que na primeira passagem foi verificado só quanto a
+> segredos no bundle, não quanto a controles de navegador como CSP.
 
 ---
 
@@ -207,6 +212,62 @@ proxy na frente é confiar num cabeçalho que o próprio cliente pode
 forjar livremente. Prefiro nenhum controle a um controle que parece
 funcionar e não funciona — ver recomendação em §5.
 
+### 2.11 Nenhuma Content-Security-Policy — **MÉDIO**
+
+**Onde:** `frontend/index.html`, `<head>`.
+
+O frontend não declarava nenhum controle de CSP. Hoje não há vetor de XSS
+conhecido no código (renderização é só `textContent`/`createElement`, sem
+`innerHTML`), mas CSP é defesa em profundidade: reduz o dano de um XSS que
+apareça no futuro (por exemplo, numa dependência de terceiro comprometida)
+em vez de depender só de "hoje não tem bug".
+
+**Alteração:** `<meta http-equiv="Content-Security-Policy">` restringindo
+script a origem própria mais o hash exato do único script inline do
+projeto (o bootstrap de tema, que precisa rodar antes da primeira pintura
+para não piscar o tema errado); estilo e fonte só para origem própria e
+Google Fonts; `connect-src` aceitando `ws:`/`wss:` de qualquer host porque
+o endereço do servidor é definido por `VITE_SOCKET_URL` em tempo de
+implantação, não fixo em tempo de build; `object-src 'none'`; `base-uri` e
+`form-action` restritos à própria origem.
+
+**Verificado, não presumido** — inclusive um bug que a própria verificação
+encontrou: o primeiro hash que calculei manualmente estava errado e
+bloqueava silenciosamente o script de tema (teria quebrado a experiência
+de quem tem tema claro salvo, sem gerar nenhum erro visível na tela).
+Corrigido usando o hash que o navegador real confirmou como correto, e
+testado de duas formas:
+
+- com preferência "light" salva em `localStorage`, o `data-theme` muda
+  para `light` depois do reload — prova que o script inline **executa de
+  verdade**, não só que a página carrega;
+- um script injetado dinamicamente via `document.head.appendChild` (o
+  mesmo padrão que um XSS real usaria) foi **bloqueado pela CSP**,
+  confirmando que a política tem efeito prático, não é só decorativa.
+
+**Limitação real, documentada no próprio HTML, não escondida:** CSP
+entregue via `<meta>` **ignora** as diretivas `frame-ancestors` (proteção
+contra clickjacking) e `upgrade-insecure-requests`, e HSTS nunca funciona
+por `<meta>` — essas três só têm efeito quando enviadas como cabeçalho
+HTTP real, o que depende da camada de hospedagem em produção, fora do
+alcance de um arquivo estático neste repositório. Ver recomendação em §5.
+
+### 2.12 `ALLOWED_ORIGINS` documentada mas nunca testada de fato — **achado de processo, corrigido**
+
+**Onde:** verificação, não código — o código de `backend/src/server.js` já
+estava correto desde a rodada anterior.
+
+Na primeira rodada desta auditoria eu implementei e documentei a allowlist
+de `Origin` como funcional, mas só testei o caminho **desligado**
+(`ALLOWED_ORIGINS` vazio, comportamento preservado). Nunca tinha
+verificado, com um servidor real, que o caminho **ligado** de fato
+bloqueia. Corrigido agora: subi o servidor com
+`ALLOWED_ORIGINS=https://meuchat.exemplo` e confirmei — uma conexão com
+`Origin: https://site-malicioso.exemplo` recebe **HTTP 403** no handshake
+e nunca chega a abrir; uma conexão com a origem permitida conecta
+normalmente. A capacidade documentada na rodada anterior realmente
+funciona quando configurada, não é uma afirmação não verificada.
+
 ### 2.10 `permissions` ausente no workflow de CI — **BAIXO**
 
 **Onde:** `.github/workflows/ci.yml`.
@@ -295,6 +356,18 @@ Git com o nome real do mantenedor, não uma falha de configuração.
    dependência (raiz e `backend/`) — hoje a checagem de dependências é
    manual; automatizá-la pega regressões de segurança em PRs futuros antes
    do merge.
+7. **Configure `frame-ancestors` e HSTS na camada de hospedagem/proxy**
+   quando o domínio de produção estiver definido — a CSP entregue por
+   `<meta>` (§2.11) não consegue aplicar essas duas diretivas; elas só
+   funcionam como cabeçalho HTTP real (`Content-Security-Policy:
+frame-ancestors 'none'` e `Strict-Transport-Security`), configurado na
+   plataforma que serve o site, não no repositório.
+8. **Se o repositório precisar ficar inacessível para o público**, isso é
+   configuração de visibilidade da conta/organização no GitHub (Settings →
+   General → Danger Zone), não uma mudança de arquivo — nenhum arquivo
+   deste projeto contém segredo que justifique isso por si só, mas pode
+   haver outras razões (institucionais, de produto) para tornar o
+   repositório privado que fogem do escopo desta auditoria.
 
 ---
 
@@ -310,12 +383,23 @@ O que existia era risco de **disponibilidade** (nenhum limite de tamanho
 de mensagem, nenhum limite de taxa, nenhum teto de conexões — os três
 corrigidos), risco de **integridade** (log injection via nome de usuário —
 corrigido; identidade validada em forma mas não em posse — parcialmente
-mitigado, residual documentado), e uma dependência de produção com CVE de
-divulgação de memória (`ws` — corrigido).
+mitigado, residual documentado), risco de **confidencialidade** (CVE de
+divulgação de memória não inicializada no `ws` — corrigido), e ausência de
+defesa em profundidade no navegador (nenhuma CSP — corrigido, §2.11).
 
-Todas as correções foram testadas contra o servidor rodando de verdade —
-fluxo normal, payload gigante, flood de mensagens, digitação humana sob o
-limitador, injeção de log com dois clientes reais — não apenas lidas ou
-inferidas do código. `npm audit` no backend foi de 1 vulnerabilidade alta
-para **0**. O comportamento do produto para uso legítimo não mudou em
-nenhum teste realizado.
+Uma segunda rodada desta mesma auditoria também verificou, com testes
+reais, duas coisas que a primeira rodada tinha deixado como afirmação não
+testada: a allowlist de `Origin` (§2.12) de fato bloqueia quando
+configurada — testei os dois lados, permitido e recusado — e o hash da CSP
+que eu mesmo calculei estava errado na primeira tentativa, o que teria
+quebrado silenciosamente o tema para quem tem preferência clara salva; o
+teste pegou isso antes do commit.
+
+Todas as correções foram testadas contra o servidor e o frontend rodando
+de verdade — fluxo normal, payload gigante, flood de mensagens, digitação
+humana sob o limitador, injeção de log com dois clientes reais, script
+injetado dinamicamente bloqueado pela CSP, tema mudando de verdade com
+preferência salva, origem não permitida recebendo 403 — não apenas lidas
+ou inferidas do código. `npm audit` no backend foi de 1 vulnerabilidade
+alta para **0**. O comportamento do produto para uso legítimo não mudou em
+nenhum teste realizado, nas duas rodadas.
