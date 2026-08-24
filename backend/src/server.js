@@ -1,4 +1,5 @@
 const { WebSocketServer } = require("ws");
+const http = require("http");
 const dotenv = require("dotenv");
 const crypto = require("crypto");
 
@@ -20,8 +21,20 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? "")
 // exaustão de memória num flood de conexões.
 const MAX_TOTAL_CONNECTIONS = 500;
 
+// Servidor HTTP próprio, em vez de deixar o WebSocketServer criar o dele
+// internamente. Motivo: sem um handler de requisição, um GET comum na porta
+// (exatamente o que a checagem de saúde de uma plataforma de hospedagem
+// faz) recebe 426 "Upgrade Required" do servidor HTTP interno do módulo ws
+// — e a maioria das plataformas trata qualquer coisa fora de 2xx como
+// "não saudável" e reinicia o processo, derrubando todo mundo conectado
+// sem que o serviço tenha, de fato, parado de funcionar.
+const httpServer = http.createServer((request, response) => {
+    response.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+    response.end("ok");
+});
+
 const wss = new WebSocketServer({
-    port: process.env.PORT || 8080,
+    server: httpServer,
     // Ver comentário acima: 16 KiB é generoso para o maior payload legítimo
     // (mensagem de 1000 caracteres) e recusa qualquer frame muito maior
     // antes que ele seja bufferizado inteiro na memória do processo.
@@ -34,6 +47,8 @@ const wss = new WebSocketServer({
                   callback(ok, ok ? undefined : 403, ok ? undefined : "Origem não permitida");
               },
 });
+
+httpServer.listen(process.env.PORT || 8080);
 
 // Armazenamento em memória para usuários conectados e mensagens
 const connectedUsers = new Map();
