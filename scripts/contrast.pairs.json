@@ -1,0 +1,254 @@
+[
+    {
+        "label": "texto principal / superfície base",
+        "fg": "--color-text-1",
+        "bg": "--color-surface-1",
+        "min": 4.5
+    },
+    {
+        "label": "texto principal / superfície elevada",
+        "fg": "--color-text-1",
+        "bg": "--color-surface-2",
+        "min": 4.5
+    },
+    {
+        "label": "texto secundário / superfície base",
+        "fg": "--color-text-2",
+        "bg": "--color-surface-1",
+        "min": 4.5
+    },
+    {
+        "label": "texto secundário / superfície elevada",
+        "fg": "--color-text-2",
+        "bg": "--color-surface-2",
+        "min": 4.5
+    },
+    {
+        "label": "texto sobre preenchimento de marca",
+        "fg": "--color-on-brand",
+        "bg": "--color-brand",
+        "min": 4.5
+    },
+    {
+        "label": "texto sobre preenchimento de marca em hover",
+        "fg": "--color-on-brand",
+        "bg": "--color-brand-hover",
+        "min": 4.5
+    },
+    {
+        "label": "preenchimento de marca / superfície base (1.4.11)",
+        "fg": "--color-brand",
+        "bg": "--color-surface-1",
+        "min": 3.0
+    },
+    {
+        "label": "preenchimento de marca / superfície elevada (1.4.11)",
+        "fg": "--color-brand",
+        "bg": "--color-surface-2",
+        "min": 3.0
+    },
+    {
+        "label": "preenchimento de marca em hover / superfície base (1.4.11)",
+        "fg": "--color-brand-hover",
+        "bg": "--color-surface-1",
+        "min": 3.0
+    },
+    {
+        "label": "marca como texto / superfície base",
+        "fg": "--color-brand-text",
+        "bg": "--color-surface-1",
+        "min": 4.5
+    },
+    {
+        "label": "marca como texto / superfície elevada",
+        "fg": "--color-brand-text",
+        "bg": "--color-surface-2",
+        "min": 4.5
+    },
+    {
+        "label": "contorno de controle / superfície base (1.4.11)",
+        "fg": "--color-outline-control",
+        "bg": "--color-surface-1",
+        "min": 3.0
+    },
+    {
+        "label": "contorno de controle / superfície elevada (1.4.11)",
+        "fg": "--color-outline-control",
+        "bg": "--color-surface-2",
+        "min": 3.0
+    },
+    {
+        "label": "anel de foco / superfície base (1.4.11)",
+        "fg": "--color-focus-ring",
+        "bg": "--color-surface-1",
+        "min": 3.0
+    },
+    {
+        "label": "anel de foco / superfície elevada (1.4.11)",
+        "fg": "--color-focus-ring",
+        "bg": "--color-surface-2",
+        "min": 3.0
+    },
+    {
+        "label": "fio vivo / superfície base (1.4.11)",
+        "fg": "--color-thread-live",
+        "bg": "--color-surface-1",
+        "min": 3.0
+    },
+    {
+        "label": "fio reconectando / superfície base (1.4.11)",
+        "fg": "--color-thread-retry",
+        "bg": "--color-surface-1",
+        "min": 3.0
+    },
+    {
+        "label": "fio perdido / superfície base (1.4.11)",
+        "fg": "--color-thread-lost",
+        "bg": "--color-surface-1",
+        "min": 3.0
+    },
+    {
+        "label": "estado conectado como texto / base",
+        "fg": "--color-ok",
+        "bg": "--color-surface-1",
+        "min": 4.5
+    },
+    {
+        "label": "estado conectado como ponto / base (1.4.11)",
+        "fg": "--color-ok",
+        "bg": "--color-surface-1",
+        "min": 3.0
+    },
+    {
+        "label": "estado de erro como texto / base",
+        "fg": "--color-danger",
+        "bg": "--color-surface-1",
+        "min": 4.5
+    },
+    {
+        "label": "estado de erro como texto / elevada",
+        "fg": "--color-danger",
+        "bg": "--color-surface-2",
+        "min": 4.5
+    },
+    {
+        "label": "degrau de elevação: superfície 2 sobre superfície 1",
+        "fg": "--color-surface-2",
+        "bg": "--color-surface-1",
+        "min": 1.2
+    },
+    {
+        "label": "texto desabilitado / superfície elevada (isento de 1.4.3)",
+        "fg": "--color-text-disabled",
+        "bg": "--color-surface-2",
+        "min": 3.0
+    },
+    {
+        "label": "remetente 1 como texto / superfície base",
+        "fg": "--color-sender-1",
+        "bg": "--color-surface-1",
+        "min": 4.5
+    },
+    {
+        "label": "remetente 1 como texto / superfície elevada",
+        "fg": "--color-sender-1",
+        "bg": "--color-surface-2",
+        "min": 4.5
+    },
+    {
+        "label": "monograma 1: texto sobre preenchimento do remetente",
+        "fg": "--color-on-sender",
+        "bg": "--color-sender-1",
+        "min": 4.5
+    },
+    {
+        "label": "remetente 2 como texto / superfície base",
+        "fg": "--color-sender-2",
+        "bg": "--color-surface-1",
+        "min": 4.5
+    },
+    {
+        "label": "remetente 2 como texto / superfície elevada",
+        "fg": "--color-sender-2",
+        "bg": "--color-surface-2",
+        "min": 4.5
+    },
+    {
+        "label": "monograma 2: texto sobre preenchimento do remetente",
+        "fg": "--color-on-sender",
+        "bg": "--color-sender-2",
+        "min": 4.5
+    },
+    {
+        "label": "remetente 3 como texto / superfície base",
+        "fg": "--color-sender-3",
+        "bg": "--color-surface-1",
+        "min": 4.5
+    },
+    {
+        "label": "remetente 3 como texto / superfície elevada",
+        "fg": "--color-sender-3",
+        "bg": "--color-surface-2",
+        "min": 4.5
+    },
+    {
+        "label": "monograma 3: texto sobre preenchimento do remetente",
+        "fg": "--color-on-sender",
+        "bg": "--color-sender-3",
+        "min": 4.5
+    },
+    {
+        "label": "remetente 4 como texto / superfície base",
+        "fg": "--color-sender-4",
+        "bg": "--color-surface-1",
+        "min": 4.5
+    },
+    {
+        "label": "remetente 4 como texto / superfície elevada",
+        "fg": "--color-sender-4",
+        "bg": "--color-surface-2",
+        "min": 4.5
+    },
+    {
+        "label": "monograma 4: texto sobre preenchimento do remetente",
+        "fg": "--color-on-sender",
+        "bg": "--color-sender-4",
+        "min": 4.5
+    },
+    {
+        "label": "remetente 5 como texto / superfície base",
+        "fg": "--color-sender-5",
+        "bg": "--color-surface-1",
+        "min": 4.5
+    },
+    {
+        "label": "remetente 5 como texto / superfície elevada",
+        "fg": "--color-sender-5",
+        "bg": "--color-surface-2",
+        "min": 4.5
+    },
+    {
+        "label": "monograma 5: texto sobre preenchimento do remetente",
+        "fg": "--color-on-sender",
+        "bg": "--color-sender-5",
+        "min": 4.5
+    },
+    {
+        "label": "remetente 6 como texto / superfície base",
+        "fg": "--color-sender-6",
+        "bg": "--color-surface-1",
+        "min": 4.5
+    },
+    {
+        "label": "remetente 6 como texto / superfície elevada",
+        "fg": "--color-sender-6",
+        "bg": "--color-surface-2",
+        "min": 4.5
+    },
+    {
+        "label": "monograma 6: texto sobre preenchimento do remetente",
+        "fg": "--color-on-sender",
+        "bg": "--color-sender-6",
+        "min": 4.5
+    }
+]

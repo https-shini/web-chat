@@ -1,195 +1,164 @@
-<img width=100% src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=24&height=120&section=header"/>
-
-<h1 align="center">💬 Web Chat</h1>
+<h1 align="center">web-chat</h1>
 
 <p align="center">
-  Aplicação de chat em tempo real com salas, moderação e privacidade — sem salvar mensagens no servidor.
+  Sala de conversa em tempo real: <strong>única, efêmera e anônima</strong>.<br>
+  Sem framework no frontend.
 </p>
 
 <div align="center">
 
-  [![Demo](https://img.shields.io/badge/🌐%20Acessar%20Projeto-2482FF?style=for-the-badge)](https://chat-frontend-g42t.onrender.com)
-  [![Código](https://img.shields.io/badge/Ver%20Código-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/https-shini/web-chat)
-  [![Licença](https://img.shields.io/badge/Licença-MIT-green?style=for-the-badge)](./LICENSE)
+[![Licença](https://img.shields.io/badge/Licença-MIT-green?style=for-the-badge)](./LICENSE)
+[![Código](https://img.shields.io/badge/Ver%20Código-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/https-shini/web-chat)
 
 </div>
 
 ---
 
-## 📌 O que é este projeto?
+## O que este projeto é
 
-O **Web Chat** é uma aplicação de mensagens instantâneas que funciona direto no navegador. Os usuários entram com um nome, escolhem uma sala e conversam em tempo real com qualquer pessoa conectada.
+Uma sala só. Você entra com um nome, conversa, e sai. Não há cadastro, não há
+login, não há canais para escolher. Quando você fecha a aba, sua sessão acaba.
 
-O projeto segue uma filosofia de **privacidade por padrão**: as mensagens não são salvas no servidor — quando todos saem da sala, o histórico desaparece. Mensagens importantes podem ser fixadas localmente pelo próprio usuário, sem que o servidor tenha acesso a elas.
+O valor técnico do projeto é o que ele **não** usa: comunicação em tempo real,
+design system com acessibilidade verificada e dois temas, tudo em HTML, CSS e
+JavaScript nativos. Nenhuma dependência de runtime no frontend.
 
----
+## O que existe hoje
 
-## 🌐 Experimente agora
+Cada item abaixo corresponde a código neste repositório.
 
-Você pode usar o projeto sem precisar baixar nada:
+- **Entrada com um nome** — sem senha, sem cadastro (`frontend/src/ui/entry.js`).
+- **Mensagens em tempo real** para todos os conectados (`backend/src/server.js`).
+- **Lista de quem está online**, com identidade visual estável por pessoa
+  (`frontend/src/ui/people.js`).
+- **Indicador de digitação** com expiração automática (`frontend/src/ui/typing.js`,
+  `frontend/src/state/typing.js`).
+- **Horário em cada mensagem** (`frontend/src/ui/message.js`).
+- **Reconexão automática** com backoff exponencial, teto, jitter e caminho manual
+  de volta quando o teto estoura (`frontend/src/transport/socket.js`).
+- **Fila de envio**: mensagem escrita fora do ar é entregue quando a conexão volta,
+  em vez de ser descartada em silêncio.
+- **Quatro estados de conexão visíveis** — conectando, conectado, reconectando e
+  offline (`frontend/src/ui/connection.js`).
+- **Tema claro e escuro**, aplicados antes da primeira pintura e persistidos
+  (`frontend/index.html`, `frontend/src/ui/themeToggle.js`).
+- **Notificação do navegador** só com a aba oculta, e só depois de um gesto seu
+  (`frontend/src/ui/notify.js`).
+- **Acessibilidade WCAG 2.2 AA verificada** — ver a seção abaixo.
 
-👉 **[https://chat-frontend-g42t.onrender.com](https://chat-frontend-g42t.onrender.com)**
+### Buffer de mensagens: o que o servidor guarda
 
-Basta abrir o link, digitar um nome de usuário e começar a conversar!
+O servidor mantém em memória as últimas **1000 mensagens** e envia as **50 mais
+recentes** para quem entra, para que a sala não apareça vazia no meio de uma
+conversa. Isso vive só na memória do processo: **reiniciar o servidor apaga
+tudo**, e nada é gravado em disco ou banco.
 
----
+Este parágrafo existe porque a versão anterior deste README dizia "mensagens não
+são salvas no servidor" enquanto o código guardava esse buffer. A documentação
+descreve o código; quando os dois divergirem, o código ganha.
 
-## ✨ Funcionalidades
+## O que **não** existe
 
-- Entrar no chat com um **nome de usuário**
-- **Salas de chat** criadas e gerenciadas pelo administrador
-- **Chat efêmero** — mensagens não são salvas no servidor
-- **Fixar mensagens** localmente via `localStorage`, sem envolver o servidor
-- **Moderação** — administrador pode excluir mensagens de qualquer usuário
-- **Indicador de digitação** em tempo real
-- **Timestamps** em todas as mensagens
-- **Notificações** do navegador para novas mensagens
-- Proteção contra **XSS** com sanitização de conteúdo
-- **Reconexão automática** em caso de falha de rede
+Nenhum destes itens está implementado. Estão aqui porque versões anteriores
+desta documentação os anunciavam no presente.
 
----
+| Recurso                                  | Situação                                               |
+| ---------------------------------------- | ------------------------------------------------------ |
+| Salas múltiplas                          | Não implementado. Há **uma** sala global.              |
+| Papel de administrador e moderação       | Não implementado. Não há papéis.                       |
+| Excluir mensagens                        | Não implementado.                                      |
+| Fixar mensagens via `localStorage`       | Não implementado. `localStorage` guarda apenas o tema. |
+| Autenticação e registro                  | Não implementado, e fora do escopo.                    |
+| Upload de arquivos, voz, emojis, reações | Não implementado.                                      |
+| Criptografia ponta a ponta               | Não implementado.                                      |
 
-## 🛠️ Tecnologias utilizadas
+## Rodando na sua máquina
 
-**Front-end**
-- **HTML5** — estrutura da interface
-- **CSS3** — estilização responsiva
-- **JavaScript** — interatividade e comunicação em tempo real
-- **Google Fonts** — tipografia
+Requisitos: Node.js 20 ou superior.
 
-**Back-end**
-- **Node.js** — servidor da aplicação
-- **WebSocket (ws)** — comunicação bidirecional em tempo real
-- **dotenv** — variáveis de ambiente
+```bash
+git clone https://github.com/https-shini/web-chat
+cd web-chat
+npm install
+npm --prefix backend install
 
----
+npm run dev
+```
 
-## 🗂️ Estrutura de arquivos
+`npm run dev` sobe os dois processos:
+
+| Processo               | Endereço              |
+| ---------------------- | --------------------- |
+| Frontend (Vite)        | http://localhost:5173 |
+| Servidor de tempo real | ws://localhost:8080   |
+
+Sem nenhuma configuração, o frontend já aponta para o servidor local — não é
+preciso editar código para rodar offline. Para apontar para outro servidor,
+copie `.env.example` para `.env` e ajuste `VITE_SOCKET_URL`.
+
+### Outros comandos
+
+| Comando                  | O que faz                                                     |
+| ------------------------ | ------------------------------------------------------------- |
+| `npm run build`          | Gera o frontend de produção em `dist/`                        |
+| `npm run lint`           | ESLint, Stylelint, checagem de tipos e contraste              |
+| `npm run check:contrast` | Mede os pares de cor dos dois temas e falha se algum reprovar |
+| `npm run format`         | Prettier                                                      |
+
+## Acessibilidade
+
+Verificada por comando, não por afirmação. `npm run check:contrast` mede **42
+pares de cor** nos dois temas a partir de `frontend/src/css/tokens.css` e falha
+o build se algum reprovar no critério que lhe cabe.
+
+- **1.4.3** — todo texto ≥ 4.5:1. O menor par medido é 4.74:1.
+- **1.4.11** — contorno de controle, preenchimento e anel de foco ≥ 3:1.
+- **1.4.1** — a identidade de quem fala não depende só de cor: monograma
+  preenchido para você, vazado para os outros, mais o rótulo "Você".
+- **2.4.7 / 2.4.11** — anel de foco global visível em todo controle.
+- **2.5.8** — todo alvo vai a 44px sob `pointer: coarse`.
+- **4.1.3** — a lista de mensagens é `role="log"` e anuncia mensagem nova uma vez.
+- **2.3.3** — `prefers-reduced-motion` desliga toda animação decorativa.
+
+Os números e o método estão em [`docs/design-system.md`](./docs/design-system.md)
+e o antes → depois em [`docs/refactor-report.md`](./docs/refactor-report.md).
+
+## Estrutura
 
 ```
 web-chat/
-│
 ├── frontend/
-│   ├── index.html       → Estrutura da página (login e área de chat)
-│   ├── style.css        → Estilização responsiva da interface
-│   └── script.js        → Conexão WebSocket, envio e exibição de mensagens
-│
-├── backend/
-│   └── server.js        → Servidor WebSocket, salas e moderação
-│
-├── .env                 → Variáveis de ambiente (porta, configurações)
-├── CONTRIBUTING.md      → Guia de contribuição
-├── LICENSE              → Licença MIT
-└── read-model/
-    └── MODEL.md         → Documentação técnica aprofundada
+│   ├── index.html              → raiz do Vite, landmarks e bootstrap de tema
+│   ├── public/images/          → favicon e imagens
+│   └── src/
+│       ├── main.js             → raiz de composição: só aqui as camadas se conhecem
+│       ├── config.js           → URL por ambiente, limites e tempos
+│       ├── css/                → tokens.css → base/ → components/
+│       ├── transport/socket.js → conexão, backoff e fila (não toca no DOM)
+│       ├── state/              → estado observável (não conhece o transporte)
+│       ├── ui/                 → renderização e eventos, DOM puro
+│       ├── a11y/announce.js    → região live única, com fila e deduplicação
+│       └── i18n/strings.js     → todo texto de interface
+├── backend/src/server.js       → servidor WebSocket
+├── scripts/                    → dev e checagem de contraste
+└── docs/                       → design system e relatório de refatoração
 ```
 
----
-
-## ⚙️ Como funciona
-
-1. O usuário acessa o app e informa seu nome no formulário de login
-2. Após entrar, visualiza as salas disponíveis e escolhe uma
-3. As mensagens digitadas são enviadas ao servidor via **WebSocket**
-4. O servidor retransmite a mensagem para todos os usuários conectados na sala
-5. A interface é atualizada em tempo real para todos os participantes
-6. Ao sair, as mensagens somem — o chat é efêmero por design
-
----
-
-## 🔒 Segurança e privacidade
-
-| Recurso | Descrição |
-|---|---|
-| **Chat efêmero** | Mensagens não são armazenadas no servidor |
-| **Sanitização XSS** | Todo conteúdo é sanitizado antes de ser exibido |
-| **Mensagens fixadas** | Salvas apenas no `localStorage` do usuário, sem passar pelo servidor |
-| **Moderação** | Admin pode excluir mensagens para manter o ambiente seguro |
-| **Validação** | Dados inválidos e spam são bloqueados antes do envio |
-
----
-
-## 📈 Melhorias implementadas
-
-A versão atual evoluiu significativamente em relação à versão original:
-
-| Aspecto | Antes | Depois |
-|---|---|---|
-| **Persistência** | Nenhuma | Chat efêmero por design |
-| **Armazenamento** | Nenhum | Mensagens fixadas via `localStorage` |
-| **Moderação** | Nenhuma | Admin pode excluir mensagens |
-| **Segurança** | Vulnerável a XSS | Sanitização e validação completas |
-| **Salas de chat** | Nenhuma | Criadas e gerenciadas pelo admin |
-| **Indicador de digitação** | Não | Sim, em tempo real |
-| **Interface** | Simples | Moderna e otimizada |
-
----
-
-## 🔮 Próximos passos
-
-**Curto prazo**
-- Criptografia de ponta a ponta nas mensagens
-- Sistema de autenticação (login e registro)
-- Rate limiting para evitar spam
-
-**Médio prazo**
-- Compartilhamento de arquivos e imagens
-- Sistema de emojis e reações às mensagens
-
----
-
-## 🚀 Como rodar localmente
-
-**Pré-requisitos:** Node.js e Yarn instalados.
-
-**1. Clone o repositório**
-```bash
-git clone https://github.com/https-shini/web-chat.git
-cd web-chat
-```
-
-**2. Instale as dependências**
-```bash
-yarn
-```
-
-**3. Inicie o servidor**
-```bash
-yarn dev
-```
-
-**4. Acesse no navegador**
-```
-http://localhost:3000
-```
-
----
-
-## 🤝 Como contribuir
-
-Consulte o arquivo [CONTRIBUTING.md](./CONTRIBUTING.md) para o passo a passo completo.
+Duas fronteiras valem mais que a árvore, e são verificáveis:
 
 ```bash
-git checkout -b minha-feature
-git commit -m "feat: minha nova feature"
-git push origin minha-feature
-# Abra um Pull Request 🚀
+grep -rni 'websocket' frontend/src/ui frontend/src/state   # vazio
+grep -rn 'document\.\|querySelector' frontend/src/transport # vazio
 ```
 
----
+## Contribuindo
 
-## 📄 Licença
+A regra que governa o CSS: **nenhuma cor, espaço, raio ou duração fora de
+`frontend/src/css/tokens.css`.** Se faltar um token, crie o token — o lint
+falha em hex, `rgba()`, `!important` e `px` de densidade nos componentes.
 
-Este projeto está sob a licença **MIT**. Veja o arquivo [LICENSE](./LICENSE) para mais detalhes.
+Detalhes em [`read-model/CONTRIBUTING.md`](./read-model/CONTRIBUTING.md).
 
----
+## Licença
 
-<div align="center">
-
-Feito com 💙 — converse em tempo real com privacidade!
-
-⭐ Se gostou, deixe uma estrela no repositório!
-
-</div>
-
-<img width=100% src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=24&height=120&section=footer"/>
+MIT — ver [LICENSE](./LICENSE).

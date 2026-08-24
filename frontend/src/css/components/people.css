@@ -1,0 +1,54 @@
+/* Lista de pessoas online. Cada pessoa aparece com o mesmo monograma que
+   assina suas mensagens — uma identidade só, repetida, em vez de uma cor
+   solta em cada lugar. */
+
+.c-people {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-width: 0;
+}
+
+.c-people__title {
+    margin: 0;
+}
+
+.c-people__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.c-people__item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    padding: var(--space-1) var(--space-2);
+    border: var(--rule-1) solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-surface-2);
+    font-size: var(--text-xs);
+    transition: border-color var(--duration-fast) var(--ease-standard);
+}
+
+.c-people__item:hover {
+    border-color: var(--color-outline-control);
+}
+
+.c-people__empty:empty {
+    display: none;
+}
+
+/* Em telas estreitas a lista vira faixa com rolagem própria, presa dentro
+   do container: o body nunca rola na horizontal. */
+@media (max-width: 480px) {
+    .c-people__list {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: var(--space-1);
+    }
+
+    .c-people__item {
+        flex: 0 0 auto;
+    }
+}

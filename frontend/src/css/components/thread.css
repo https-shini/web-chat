@@ -1,0 +1,50 @@
+/* O fio da sessão — a assinatura da interface.
+   Não é decoração: é o indicador de estado da conexão. Num chat de sala
+   única, efêmera e anônima, o único estado que o produto realmente tem é
+   "a linha está viva?", e o fio dá forma a isso. Cor e padrão de traço
+   mudam juntos, e o estado também é dito em texto: três canais. */
+
+.c-thread {
+    position: absolute;
+    inset-block: 0;
+    left: calc(var(--rail-width) / 2);
+    width: var(--rule-thread);
+    color: var(--color-text-2);
+    background-color: currentcolor;
+}
+
+.c-thread[data-state="live"] {
+    color: var(--color-thread-live);
+}
+
+/* Tracejado desenhado por gradiente: o padrão vem da escala de espaço,
+   não de números soltos. */
+.c-thread[data-state="retrying"],
+.c-thread[data-state="offline"] {
+    background-color: transparent;
+    background-image: repeating-linear-gradient(
+        to bottom,
+        currentcolor 0 var(--space-2),
+        transparent var(--space-2) var(--space-4)
+    );
+}
+
+.c-thread[data-state="retrying"] {
+    color: var(--color-thread-retry);
+    animation: thread-travel var(--duration-slow) linear infinite;
+}
+
+.c-thread[data-state="offline"] {
+    color: var(--color-thread-lost);
+}
+
+/* O fio cortado ganha um cap visível: a linha termina, não desbota. */
+.c-thread[data-state="offline"]::after,
+.c-thread[data-state="empty"]::after {
+    content: "";
+    position: absolute;
+    inset-inline: calc(var(--space-1) * -1);
+    bottom: 0;
+    height: var(--rule-thread);
+    background-color: currentcolor;
+}

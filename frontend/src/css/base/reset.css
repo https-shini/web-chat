@@ -1,0 +1,73 @@
+/* Reset — só o que é necessário. A família tipográfica cai em body, nunca
+   no seletor universal: `* { font-family }` impede que qualquer elemento
+   use a fonte de display sem lutar contra a especificidade. */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    /* Percentual, não px: respeita o tamanho de fonte escolhido no navegador. */
+    font-size: 100%;
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    min-height: 100dvh;
+    background-color: var(--color-surface-1);
+    color: var(--color-text-1);
+    -webkit-font-smoothing: antialiased;
+}
+
+img,
+svg {
+    display: block;
+    max-width: 100%;
+}
+
+input,
+button {
+    font: inherit;
+    color: inherit;
+}
+
+button {
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+ol,
+ul {
+    list-style: none;
+}
+
+/* Rolagem — a lista de mensagens é o único container rolável do produto. */
+.js-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-outline-control) transparent;
+}
+
+.js-scroll::-webkit-scrollbar {
+    width: var(--space-1-5);
+}
+
+.js-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.js-scroll::-webkit-scrollbar-thumb {
+    background: var(--color-outline-control);
+    border-radius: var(--radius-full);
+}
+
+.js-scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--color-brand);
+}

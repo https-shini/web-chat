@@ -1,0 +1,85 @@
+/* Mensagem. Sem balão e sem alinhamento à direita: o produto é uma
+   transcrição, e o balão custava 30% da largura (max-width: 70%) e uma
+   leitura em ziguezague. A posse é dita por três sinais redundantes —
+   monograma preenchido, rótulo "Você" e o traço de 2px na marca. */
+
+.c-message {
+    display: grid;
+    grid-template-columns: var(--rail-width) 1fr;
+    column-gap: var(--space-3);
+    animation: message-enter var(--duration-base) var(--ease-out);
+}
+
+.c-message__aside {
+    display: flex;
+    justify-content: center;
+    padding-top: var(--space-0-5);
+}
+
+.c-message__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+    max-width: var(--measure-message);
+}
+
+.c-message__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+}
+
+.c-message__time {
+    flex: 0 0 auto;
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wide);
+    color: var(--color-text-2);
+    font-variant-numeric: tabular-nums;
+}
+
+.c-message__text {
+    color: var(--color-text-1);
+    overflow-wrap: anywhere;
+}
+
+/* Terceiro sinal de posse, não cromático na forma: um traço presente
+   apenas nas mensagens próprias. */
+.c-message--self .c-message__body {
+    border-left: var(--rule-2) solid var(--color-brand);
+    padding-left: var(--space-3);
+    margin-left: calc(var(--space-3) * -1);
+}
+
+/* Mensagem de sistema: linha centrada, sem balão, sem itálico decorativo.
+   Declarada depois das variantes para que a coluna única não seja
+   sobrescrita — com duas colunas, o texto caía no trilho e quebrava
+   letra a letra em telas estreitas. */
+.c-message--system .c-message__text {
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wide);
+    color: var(--color-text-2);
+    text-align: center;
+}
+
+/* Mensagem própria ainda na fila, aguardando a conexão voltar. */
+.c-message[data-pending="true"] .c-message__text {
+    color: var(--color-text-2);
+}
+
+/* Coluna única, por último para vencer as regras acima. */
+.c-message--system {
+    grid-template-columns: 1fr;
+    justify-items: center;
+}
+
+@media (max-width: 480px) {
+    .c-message {
+        column-gap: var(--space-2);
+    }
+
+    .c-message__body {
+        max-width: 100%;
+    }
+}

@@ -1,0 +1,75 @@
+/* Identidade do remetente. A cor sai do style.color inline e vira classe
+   derivada de token, com paleta medida: todo membro fica >=4.5:1 nas duas
+   superfícies de cada tema.
+
+   Cor sozinha reprova 1.4.1, então a identidade tem reforço não cromático:
+   o monograma é PREENCHIDO para você e VAZADO para as outras pessoas —
+   diferença de forma, que sobrevive a daltonismo, monocromia e impressão. */
+
+.c-identity {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.c-identity__monogram {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: var(--rail-width);
+    height: var(--rail-width);
+    max-width: var(--space-8);
+    max-height: var(--space-8);
+    border: var(--rule-2) solid currentcolor;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-normal);
+    line-height: var(--leading-tight);
+}
+
+.c-identity__name {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
+    color: currentcolor;
+}
+
+/* Preenchido = você.
+   O fundo cita --color-brand explicitamente em vez de currentcolor: como a
+   mesma regra troca a `color` do elemento para o texto, currentcolor aqui
+   resolveria para a cor do texto e o monograma sumiria (fundo e letra iguais). */
+.c-identity--self .c-identity__monogram {
+    background-color: var(--color-brand);
+    border-color: var(--color-brand);
+    color: var(--color-on-brand);
+}
+
+.c-identity--self {
+    color: var(--color-brand-text);
+}
+
+/* Seis matizes tokenizados; nenhum deles é o âmbar da marca, para "você"
+   nunca competir com "outra pessoa". */
+.c-identity--sender-1 {
+    color: var(--color-sender-1);
+}
+
+.c-identity--sender-2 {
+    color: var(--color-sender-2);
+}
+
+.c-identity--sender-3 {
+    color: var(--color-sender-3);
+}
+
+.c-identity--sender-4 {
+    color: var(--color-sender-4);
+}
+
+.c-identity--sender-5 {
+    color: var(--color-sender-5);
+}
+
+.c-identity--sender-6 {
+    color: var(--color-sender-6);
+}

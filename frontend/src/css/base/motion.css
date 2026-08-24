@@ -1,0 +1,65 @@
+/* Movimento — toda animação nomeada do projeto vive aqui, e todas elas são
+   decorativas: nenhuma informação depende de movimento para chegar.
+   O desligamento global está em tokens.css; aqui ficam os casos em que
+   o elemento precisa de um estado parado explícito, não só mais rápido. */
+
+@keyframes message-enter {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes toast-enter {
+    from {
+        opacity: 0;
+        transform: translateX(var(--space-4));
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes typing-dot {
+    0%,
+    80%,
+    100% {
+        opacity: var(--opacity-disabled);
+    }
+
+    40% {
+        opacity: var(--opacity-1);
+    }
+}
+
+/* O tracejado do fio "caminha" enquanto reconecta. */
+@keyframes thread-travel {
+    to {
+        background-position-y: var(--space-6);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    /* Parado, o estado continua legível por cor, por padrão de traço e por
+       texto — três canais, nenhum dependendo de movimento. */
+    .c-thread[data-state="retrying"],
+    .c-thread[data-state="offline"] {
+        animation: none;
+    }
+
+    .c-typing__dot {
+        animation: none;
+        opacity: var(--opacity-1);
+    }
+
+    /* Hover não desloca elemento quando o usuário pediu menos movimento. */
+    .c-button:hover,
+    .c-people__item:hover {
+        transform: none;
+    }
+}

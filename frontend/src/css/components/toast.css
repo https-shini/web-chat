@@ -1,0 +1,36 @@
+/* Notificação. Elevação real — é o único lugar com sombra no projeto. */
+
+.c-toasts {
+    position: fixed;
+    top: var(--space-5);
+    right: var(--space-5);
+    z-index: var(--z-toast);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    max-width: 40ch;
+}
+
+.c-toast {
+    padding: var(--space-3) var(--space-4);
+    border: var(--rule-1) solid var(--color-border-subtle);
+    border-left: var(--rule-2) solid var(--color-ok);
+    border-radius: var(--radius-md);
+    background-color: var(--color-surface-2);
+    color: var(--color-text-1);
+    font-size: var(--text-sm);
+    box-shadow: var(--shadow-2);
+    animation: toast-enter var(--duration-base) var(--ease-out);
+}
+
+.c-toast--error {
+    border-left-color: var(--color-danger);
+}
+
+@media (max-width: 480px) {
+    .c-toasts {
+        left: var(--space-3);
+        right: var(--space-3);
+        max-width: none;
+    }
+}

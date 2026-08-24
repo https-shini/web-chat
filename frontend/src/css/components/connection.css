@@ -1,0 +1,39 @@
+/* Estado da conexão. Quatro estados reais, não um textContent solto.
+   O ponto é reforço; o rótulo em texto é quem carrega a informação. */
+
+.c-connection {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wide);
+    color: var(--color-text-2);
+}
+
+.c-connection__dot {
+    width: var(--space-2);
+    height: var(--space-2);
+    border-radius: var(--radius-full);
+    background-color: currentcolor;
+    flex: 0 0 auto;
+}
+
+.c-connection[data-state="online"] {
+    color: var(--color-ok);
+}
+
+.c-connection[data-state="retrying"] {
+    color: var(--color-brand-text);
+}
+
+.c-connection[data-state="offline"] {
+    color: var(--color-danger);
+}
+
+/* Vazado enquanto tenta, preenchido quando está de pé: a diferença de
+   estado não depende só da cor. */
+.c-connection[data-state="connecting"] .c-connection__dot,
+.c-connection[data-state="retrying"] .c-connection__dot {
+    background-color: transparent;
+    border: var(--rule-2) solid currentcolor;
+}

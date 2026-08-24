@@ -1,0 +1,52 @@
+{
+    "extends": "stylelint-config-standard",
+    "ignoreFiles": ["dist/**/*.css"],
+    "rules": {
+        "custom-property-empty-line-before": null,
+        "declaration-empty-line-before": null,
+        "comment-empty-line-before": null,
+        "no-descending-specificity": null,
+        "alpha-value-notation": null,
+        "color-function-notation": null,
+        "selector-class-pattern": [
+            "^(c|u)-[a-z0-9]+(-[a-z0-9]+)*(__[a-z0-9]+(-[a-z0-9]+)*)?(--[a-z0-9]+(-[a-z0-9]+)*)?$|^sr-only$|^js-[a-z0-9-]+$",
+            {
+                "message": "Use BEM com prefixo de camada: .c-bloco__elemento--modificador ou .u-utilitario"
+            }
+        ],
+        "media-feature-range-notation": "prefix",
+        "custom-property-pattern": [
+            "^_?[a-z0-9]+(-[a-z0-9]+)*$",
+            {
+                "message": "Use kebab-case; o prefixo _ é reservado à camada primitiva."
+            }
+        ],
+        "property-no-vendor-prefix": [
+            true,
+            {
+                "ignoreProperties": ["text-size-adjust"]
+            }
+        ]
+    },
+    "overrides": [
+        {
+            "files": ["frontend/src/css/components/**/*.css", "frontend/src/css/base/**/*.css"],
+            "rules": {
+                "color-no-hex": true,
+                "declaration-property-value-disallowed-list": {
+                    "/^(padding|margin|gap|border-radius|font-size|row-gap|column-gap)$/": [
+                        "/[0-9]+(px|rem|em)/"
+                    ]
+                },
+                "function-disallowed-list": ["rgb", "rgba", "hsl", "hsla"],
+                "declaration-no-important": true
+            }
+        },
+        {
+            "files": ["frontend/src/css/tokens.css"],
+            "rules": {
+                "no-duplicate-selectors": null
+            }
+        }
+    ]
+}

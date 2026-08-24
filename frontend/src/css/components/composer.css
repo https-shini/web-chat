@@ -1,0 +1,30 @@
+/* Composer. O campo continua editável quando a conexão cai: o envio vai
+   para a fila em vez de ser descartado em silêncio, e o aviso ao lado diz
+   isso em texto. */
+
+.c-composer {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--space-3);
+}
+
+.c-composer__field {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.c-composer__send {
+    flex: 0 0 auto;
+}
+
+.c-composer__notice:empty {
+    display: none;
+}
+
+.c-composer[data-state="queued"] .c-field__input {
+    border-color: var(--color-brand);
+}
+
+.c-composer[data-state="blocked"] .c-field__input {
+    color: var(--color-text-disabled);
+}

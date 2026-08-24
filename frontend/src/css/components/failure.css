@@ -1,0 +1,21 @@
+/* Falha definitiva de conexão. O histórico continua legível acima; esta
+   tela diz o que aconteceu e oferece o caminho manual de volta, alcançável
+   por teclado. */
+
+.c-failure:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+    max-width: 44ch;
+    padding-left: var(--rail-width);
+    padding-block: var(--space-6);
+}
+
+.c-failure__title {
+    color: var(--color-text-1);
+}
+
+.c-failure__body {
+    color: var(--color-text-2);
+}

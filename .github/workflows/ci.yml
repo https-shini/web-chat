@@ -1,0 +1,42 @@
+name: CI
+
+on:
+    push:
+        branches: ["main"]
+    pull_request:
+
+jobs:
+    verificar:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+                  cache: npm
+
+            - name: Instalar dependências
+              run: npm ci
+
+            - name: Formatação
+              run: npm run format:check
+
+            - name: Lint do JavaScript
+              run: npm run lint:js
+
+            # Barra hex, rgb/hsl, !important e densidade fora de token nos
+            # componentes. Um PR com cor no lugar errado falha aqui.
+            - name: Lint do CSS
+              run: npm run lint:css
+
+            - name: Verificação de tipos
+              run: npm run check:types
+
+            # Mede os dois temas a partir de tokens.css e falha se qualquer
+            # par declarado reprovar no critério que lhe cabe.
+            - name: Contraste dos tokens
+              run: npm run check:contrast
+
+            - name: Build
+              run: npm run build

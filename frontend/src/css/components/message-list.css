@@ -1,0 +1,26 @@
+/* Lista de mensagens. Único container rolável do produto; a altura vem do
+   grid da casca, e min-height: 0 é o que permite rolar em vez de empurrar
+   o rodapé para fora da tela. */
+
+.c-room {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.c-room[hidden] {
+    display: none;
+}
+
+.c-message-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding-block: var(--space-6);
+    padding-inline: 0;
+}

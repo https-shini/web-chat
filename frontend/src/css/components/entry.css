@@ -1,0 +1,39 @@
+/* Tela de entrada. Sem cartão: superfície única, hierarquia por espaço e
+   tipografia. O cartão antigo tinha borda de 1.34:1 e sombra, e o título
+   usava gradiente clipado em texto — recurso proibido, e que impede medir
+   contraste porque a cor do texto vira transparente. */
+
+.c-entry:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    max-width: 34ch;
+    margin-block: auto;
+    padding-block: var(--space-10);
+}
+
+.c-entry__title {
+    color: var(--color-text-1);
+}
+
+.c-entry__subtitle {
+    font-size: var(--text-lg);
+    color: var(--color-text-2);
+    margin-top: calc(var(--space-3) * -1);
+}
+
+.c-entry__form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    margin-top: var(--space-4);
+}
+
+.c-entry__note {
+    margin-top: var(--space-2);
+}
+
+.c-entry__theme {
+    align-self: flex-start;
+    margin-top: var(--space-6);
+}

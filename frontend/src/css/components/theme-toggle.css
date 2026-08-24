@@ -1,0 +1,33 @@
+/* Alternador de tema. Um botão, dois sentidos, estado em aria-pressed.
+   O glifo é decorativo (aria-hidden); quem nomeia o controle é o rótulo. */
+
+.c-theme-toggle {
+    flex: 0 0 auto;
+}
+
+.c-theme-toggle__glyph {
+    width: var(--space-4);
+    height: var(--space-4);
+    border-radius: var(--radius-full);
+    border: var(--rule-2) solid currentcolor;
+}
+
+/* Preenchido quando o tema claro está ativo, vazado quando não está: a
+   forma acompanha o estado. A regra pende de aria-pressed, o estado do
+   próprio controle — nunca de [data-theme]. Um componente que se reescreve
+   por tema é a folha de patches que este sistema proíbe: a diferença de
+   tema mora na camada semântica de tokens.css, e em lugar nenhum mais. */
+.c-theme-toggle[aria-pressed="true"] .c-theme-toggle__glyph {
+    background-color: currentcolor;
+}
+
+@media (max-width: 480px) {
+    .c-theme-toggle__label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+}
