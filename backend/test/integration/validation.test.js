@@ -1,10 +1,8 @@
-"use strict";
-
 // Validação de nome e campos (F1-04). Problema: P06.
 
-const { test, describe, before, after } = require("node:test");
-const assert = require("node:assert/strict");
-const { startServer, connect, join, barrier } = require("./helpers");
+import { test, describe, before, after } from "node:test";
+import assert from "node:assert/strict";
+import { startServer, connect, join, barrier } from "./helpers.js";
 
 describe("validação de nome", () => {
     let server;

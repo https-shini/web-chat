@@ -1,11 +1,9 @@
-"use strict";
-
 // Mensagens: envio válido, vazio, payload inválido, rate limit separado
 // (F1-08) e preservação de identificadores (F1-10). Problemas: P02, P05, P09.
 
-const { test, describe, before, after } = require("node:test");
-const assert = require("node:assert/strict");
-const { startServer, connect, join } = require("./helpers");
+import { test, describe, before, after } from "node:test";
+import assert from "node:assert/strict";
+import { startServer, connect, join } from "./helpers.js";
 
 describe("mensagens", () => {
     let server;

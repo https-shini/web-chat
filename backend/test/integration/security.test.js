@@ -1,11 +1,9 @@
-"use strict";
-
 // Segurança: identidade emitida pelo servidor (F1-05), acesso sem login e
 // allowlist de origem (F1-02). Problemas de origem: P01, P07, P30.
 
-const { test, describe, before, after } = require("node:test");
-const assert = require("node:assert/strict");
-const { startServer, connect, join, barrier } = require("./helpers");
+import { test, describe, before, after } from "node:test";
+import assert from "node:assert/strict";
+import { startServer, connect, join, barrier } from "./helpers.js";
 
 describe("identidade atribuída pelo servidor", () => {
     let server;

@@ -1,12 +1,10 @@
-"use strict";
-
 // Conexões: login, login repetido (F1-04), reconexão com identidade estável
 // (F1-05), entrada/saída, lista de participantes, heartbeat (F1-11) e
 // desligamento gracioso (F1-12). Problemas: P07, P10, P11.
 
-const { test, describe, before, after } = require("node:test");
-const assert = require("node:assert/strict");
-const { startServer, connect, join, barrier } = require("./helpers");
+import { test, describe, before, after } from "node:test";
+import assert from "node:assert/strict";
+import { startServer, connect, join, barrier } from "./helpers.js";
 
 describe("ciclo de vida da conexão", () => {
     let server;

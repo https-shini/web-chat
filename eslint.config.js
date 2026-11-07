@@ -44,7 +44,7 @@ export default [
         },
     },
 
-    // Backend e scripts: Node.
+    // Backend (ESM desde a Fase 2) e scripts: Node.
     {
         files: ["backend/src/**/*.js", "scripts/**/*.mjs", "vite.config.js", "eslint.config.js"],
         languageOptions: {
@@ -54,21 +54,11 @@ export default [
         },
         rules: { ...js.configs.recommended.rules },
     },
-    {
-        files: ["backend/src/**/*.js"],
-        languageOptions: { sourceType: "commonjs" },
-    },
 
-    // Testes: node:test. Os do frontend são módulos ES (importam o código do
-    // navegador); os do backend seguem o CommonJS do servidor.
+    // Testes: node:test, módulos ES dos dois lados.
     {
-        files: ["frontend/test/**/*.js"],
+        files: ["frontend/test/**/*.js", "backend/test/**/*.js"],
         languageOptions: { ecmaVersion: 2022, sourceType: "module", globals: globals.node },
-        rules: { ...js.configs.recommended.rules },
-    },
-    {
-        files: ["backend/test/**/*.js"],
-        languageOptions: { ecmaVersion: 2022, sourceType: "commonjs", globals: globals.node },
         rules: { ...js.configs.recommended.rules },
     },
 ];

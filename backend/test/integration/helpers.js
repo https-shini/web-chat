@@ -1,5 +1,3 @@
-"use strict";
-
 // Utilitários dos testes de integração do protocolo. O servidor sobe como
 // processo filho (exatamente como em produção, via `node src/server.js`) numa
 // porta efêmera, e os testes conversam com ele por clientes `ws` reais. Os
@@ -7,13 +5,15 @@
 // segurança verifiquem o que de fato foi escrito, não o que o código "deveria"
 // escrever.
 
-const { after } = require("node:test");
-const { spawn } = require("node:child_process");
-const net = require("node:net");
-const path = require("node:path");
-const WebSocket = require("ws");
+import { after } from "node:test";
+import { spawn } from "node:child_process";
+import net from "node:net";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import WebSocket from "ws";
 
-const SERVER_SCRIPT = path.resolve(__dirname, "..", "src", "server.js");
+const BACKEND_DIR = fileURLToPath(new URL("../../", import.meta.url));
+export const SERVER_SCRIPT = path.join(BACKEND_DIR, "src", "server.js");
 const DEFAULT_TIMEOUT = 4000;
 
 /**
@@ -325,4 +325,4 @@ const barrier = async (sender, observer) => {
     );
 };
 
-module.exports = { startServer, connect, join, barrier, freePort, SERVER_SCRIPT };
+export { startServer, connect, join, barrier, freePort, BACKEND_DIR };

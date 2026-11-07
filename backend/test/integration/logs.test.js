@@ -1,11 +1,9 @@
-"use strict";
-
 // Logs: injeção de linhas (F1-03), erros de parsing sem stack trace e
 // ausência de dados sensíveis. Problemas: P04, P05.
 
-const { test, describe, before, after } = require("node:test");
-const assert = require("node:assert/strict");
-const { startServer, connect, join } = require("./helpers");
+import { test, describe, before, after } from "node:test";
+import assert from "node:assert/strict";
+import { startServer, connect, join } from "./helpers.js";
 
 describe("logs do servidor", () => {
     let server;
