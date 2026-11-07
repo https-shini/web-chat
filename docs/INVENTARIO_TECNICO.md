@@ -1,6 +1,6 @@
 # Inventário técnico · web-chat
 
-> Fotografia do repositório em 2026-11-07, **atualizada ao fim da Fase 2**. A
+> Fotografia do repositório em 2026-11-07, **atualizada ao fim da Fase 3**. A
 > fotografia original (commit `34b523c`) foi tirada antes das Fases 1 e 2. Todos os dados foram
 > extraídos dos arquivos do projeto ou de comandos executados sobre ele
 > (`npm outdated`, `npm audit`, `vite build`, `wc -l`). Para diagnóstico e
@@ -43,12 +43,12 @@ web-chat/
 │   ├── package.json            ws, dotenv; scripts start/dev/test
 │   ├── src/
 │   │   ├── server.js           ponto de entrada (bootstrap)
-│   │   ├── config.js, logger.js, errors.js, protocol.js, validation.js, rateLimiter.js
+│   │   ├── config.js, logger.js, errors.js, protocol.js, validation.js, rateLimiter.js, metrics.js
 │   │   ├── room/               room.js (regras da sala), sessions.js (identidades)
 │   │   └── transport/          chatServer.js, connection.js, http.js
 │   └── test/
-│       ├── unit/               7 arquivos, 58 testes
-│       └── integration/        helpers.js + 8 arquivos, 64 testes
+│       ├── unit/               8 arquivos, 77 testes
+│       └── integration/        helpers.js + 9 arquivos, 74 testes
 ├── docs/
 │   ├── ANALISE_E_PLANO_DE_MELHORIAS.md, ROADMAP_DE_IMPLEMENTACAO.md, INVENTARIO_TECNICO.md
 │   ├── FASE_1_RELATORIO_DE_IMPLEMENTACAO.md, FASE_2_RELATORIO_DE_IMPLEMENTACAO.md
@@ -62,9 +62,9 @@ web-chat/
 │   │   ├── main.js, config.js, protocol.js, socketUrl.js
 │   │   ├── a11y/, i18n/, state/, transport/, ui/ (14 componentes)
 │   │   └── css/                index.css, tokens.css, base/ (4), components/ (17)
-│   └── test/                   7 arquivos, 38 testes
+│   └── test/                   8 arquivos, 42 testes
 ├── read-model/README.md        aviso: conteúdo movido (F2-08)
-├── scripts/                    dev.mjs, check-contrast.mjs, contrast.pairs.json
+├── scripts/                    dev.mjs, check-contrast.mjs, contrast.pairs.json, load-test.mjs
 ├── .env.example                variáveis do frontend e do backend (lido da raiz)
 ├── CONTRIBUTING.md
 ├── eslint.config.js, .stylelintrc.json, .prettierrc.json, .prettierignore
@@ -126,21 +126,26 @@ Arquivo: `.env` na **raiz** (exemplo em `.env.example`). Backend: ambiente do
 processo > `.env` da raiz > `backend/.env` (compatibilidade). Leitura e validação em
 `backend/src/config.js`; frontend em `vite.config.js` e `frontend/src/config.js`.
 
-| Variável                 | Lado     | Padrão                             | Validação                                        |
-| ------------------------ | -------- | ---------------------------------- | ------------------------------------------------ |
-| `VITE_SOCKET_URL`        | Frontend | `ws(s)://<host da página>:8080`    | `ws://` ou `wss://`, senão o build falha         |
-| `ALLOWED_ORIGINS`        | Backend  | vazio (qualquer origem, com aviso) | Cada entrada é uma origem http(s) sem caminho    |
-| `PORT`                   | Backend  | `8080`                             | Inteiro 0–65535                                  |
-| `HEARTBEAT_MS`           | Backend  | `30000`                            | Inteiro ≥ 50                                     |
-| `MAX_CONNECTIONS`        | Backend  | `500`                              | Inteiro ≥ 1                                      |
-| `MAX_PAYLOAD_BYTES`      | Backend  | `16384`                            | 8192–1048576                                     |
-| `RATE_MESSAGES_CAPACITY` | Backend  | `40`                               | Inteiro ≥ 1                                      |
-| `RATE_MESSAGES_PER_SEC`  | Backend  | `8`                                | Inteiro ≥ 1                                      |
-| `RATE_SIGNALS_CAPACITY`  | Backend  | `40`                               | Inteiro ≥ 1                                      |
-| `RATE_SIGNALS_PER_SEC`   | Backend  | `8`                                | Inteiro ≥ 1                                      |
-| `HISTORY_SIZE`           | Backend  | `1000`                             | 1–100000                                         |
-| `HISTORY_ON_JOIN`        | Backend  | `50`                               | 0–1000 e ≤ `HISTORY_SIZE`                        |
-| `NODE_ENV`               | Backend  | —                                  | `production` eleva o aviso de allowlist a `warn` |
+| Variável                  | Lado     | Padrão                             | Validação                                        |
+| ------------------------- | -------- | ---------------------------------- | ------------------------------------------------ |
+| `VITE_SOCKET_URL`         | Frontend | `ws(s)://<host da página>:8080`    | `ws://` ou `wss://`, senão o build falha         |
+| `ALLOWED_ORIGINS`         | Backend  | vazio (qualquer origem, com aviso) | Cada entrada é uma origem http(s) sem caminho    |
+| `PORT`                    | Backend  | `8080`                             | Inteiro 0–65535                                  |
+| `HEARTBEAT_MS`            | Backend  | `30000`                            | Inteiro ≥ 50                                     |
+| `MAX_CONNECTIONS`         | Backend  | `500`                              | Inteiro ≥ 1                                      |
+| `MAX_PAYLOAD_BYTES`       | Backend  | `16384`                            | 8192–1048576                                     |
+| `RATE_MESSAGES_CAPACITY`  | Backend  | `40`                               | Inteiro ≥ 1                                      |
+| `RATE_MESSAGES_PER_SEC`   | Backend  | `8`                                | Inteiro ≥ 1                                      |
+| `RATE_SIGNALS_CAPACITY`   | Backend  | `40`                               | Inteiro ≥ 1                                      |
+| `RATE_SIGNALS_PER_SEC`    | Backend  | `8`                                | Inteiro ≥ 1                                      |
+| `HISTORY_SIZE`            | Backend  | `1000`                             | 1–100000                                         |
+| `HISTORY_ON_JOIN`         | Backend  | `50`                               | 0–1000 e ≤ `HISTORY_SIZE`                        |
+| `HEARTBEAT_MAX_MISSED`    | Backend  | `2`                                | 1–10                                             |
+| `MAX_BUFFERED_BYTES`      | Backend  | `1048576`                          | Inteiro ≥ 65536                                  |
+| `LOGIN_TIMEOUT_MS`        | Backend  | `30000`                            | Inteiro ≥ 100                                    |
+| `METRICS_ENABLED`         | Backend  | `false`                            | `true` ou `false`                                |
+| `METRICS_LOG_INTERVAL_MS` | Backend  | `60000`                            | `0` (desliga) ou ≥ 1000                          |
+| `NODE_ENV`                | Backend  | —                                  | `production` eleva o aviso de allowlist a `warn` |
 
 Configuração inválida: linha `config_invalid` com a variável e saída com código 1.
 
@@ -157,6 +162,7 @@ Configuração inválida: linha `config_invalid` com a variável e saída com c�
 | `preview`        | `vite preview`                                            |
 | `check:types`    | `tsc -p jsconfig.json`                                    |
 | `check:contrast` | `node scripts/check-contrast.mjs`                         |
+| `load-test`      | `node scripts/load-test.mjs`                              |
 | `lint:js`        | `eslint .`                                                |
 | `lint:css`       | `stylelint "frontend/src/**/*.css"`                       |
 | `lint`           | `lint:js` + `lint:css` + `check:types` + `check:contrast` |
@@ -204,24 +210,40 @@ no backend, `test` = `node --test test/*.test.js`.
 
 ## 8. Módulos do backend
 
-| Módulo                    | Exporta                                                                                                          | Depende de                           | Papel                                               |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------ | --------------------------------------------------- |
-| `server.js`               | —                                                                                                                | config, logger, transport/chatServer | Bootstrap: `.env`, configuração, sinais, `listen`   |
-| `config.js`               | `loadEnvFiles`, `loadConfig`, `ConfigError`, `DEFAULTS`                                                          | `dotenv`                             | Configuração validada (função pura)                 |
-| `logger.js`               | `createLogger`                                                                                                   | —                                    | JSON por linha; omite campos sensíveis              |
-| `errors.js`               | `ERROR_CODES`, `ERROR_CATEGORIES`, `describeError`, `logLevelFor`                                                | —                                    | Catálogo de erros                                   |
-| `protocol.js`             | `LIMITS`, `CLIENT_EVENTS`, `SERVER_EVENTS`, `isSignal`, `parseEnvelope`, `errorCodeForEnvelope`, `serverMessage` | errors                               | Contrato do protocolo                               |
-| `validation.js`           | `normalizeText`, `readName`, `readContent`, `readResumeToken`                                                    | errors, protocol                     | Validação de campos                                 |
-| `rateLimiter.js`          | `createRateLimiter`                                                                                              | —                                    | Balde de fichas (relógio injetável)                 |
-| `room/sessions.js`        | `createIdentityStore`, `RESUME_TTL_MS`, `MAX_RELEASED_IDENTITIES`                                                | `node:crypto`                        | Identidades e tokens de retomada (só hash guardado) |
-| `room/room.js`            | `createRoom`                                                                                                     | errors, protocol, validation         | Regras da sala; sem rede                            |
-| `transport/connection.js` | `createConnectionHandler`, `RATE_LIMIT_NOTICE_INTERVAL_MS`                                                       | errors, protocol, rateLimiter        | Limites, envelope, encaminhamento, erros            |
-| `transport/http.js`       | `createHttpHandler`                                                                                              | —                                    | `/`, `/healthz`, 404, 405                           |
-| `transport/chatServer.js` | `createChatServer`, `SHUTDOWN_TIMEOUT_MS`                                                                        | `ws`, room/_, transport/_            | Composição, heartbeat, desligamento                 |
+| Módulo                    | Exporta                                                                                                          | Depende de                           | Papel                                                        |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------ |
+| `server.js`               | —                                                                                                                | config, logger, transport/chatServer | Bootstrap: `.env`, configuração, sinais, `listen`            |
+| `config.js`               | `loadEnvFiles`, `loadConfig`, `ConfigError`, `DEFAULTS`                                                          | `dotenv`                             | Configuração validada (função pura)                          |
+| `logger.js`               | `createLogger`                                                                                                   | —                                    | JSON por linha; omite campos sensíveis                       |
+| `errors.js`               | `ERROR_CODES`, `ERROR_CATEGORIES`, `describeError`, `logLevelFor`                                                | —                                    | Catálogo de erros                                            |
+| `protocol.js`             | `LIMITS`, `CLIENT_EVENTS`, `SERVER_EVENTS`, `isSignal`, `parseEnvelope`, `errorCodeForEnvelope`, `serverMessage` | errors                               | Contrato do protocolo                                        |
+| `validation.js`           | `normalizeText`, `readName`, `readContent`, `readResumeToken`                                                    | errors, protocol                     | Validação de campos                                          |
+| `rateLimiter.js`          | `createRateLimiter`                                                                                              | —                                    | Balde de fichas (relógio injetável)                          |
+| `metrics.js`              | `createMetrics`                                                                                                  | `node:perf_hooks`                    | Contadores, tempo de processamento, event loop, CPU, memória |
+| `room/sessions.js`        | `createIdentityStore`, `RESUME_TTL_MS`, `MAX_RELEASED_IDENTITIES`                                                | `node:crypto`                        | Identidades e tokens de retomada (só hash guardado)          |
+| `room/room.js`            | `createRoom`                                                                                                     | errors, protocol, validation         | Regras da sala; sem rede                                     |
+| `transport/connection.js` | `createConnectionHandler`, `RATE_LIMIT_NOTICE_INTERVAL_MS`                                                       | errors, protocol, rateLimiter        | Limites, envelope, encaminhamento, erros                     |
+| `transport/http.js`       | `createHttpHandler`                                                                                              | —                                    | `/`, `/healthz`, 404, 405                                    |
+| `transport/chatServer.js` | `createChatServer`, `SHUTDOWN_TIMEOUT_MS`                                                                        | `ws`, room/_, transport/_            | Composição, heartbeat, desligamento                          |
+
+### Conexões, monitoramento e métricas (Fase 3)
+
+| Mecanismo           | Onde                                                      | Comportamento                                                                                                            |
+| ------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Heartbeat           | `transport/chatServer.js`                                 | Ping a cada `HEARTBEAT_MS`; pong ou qualquer quadro zera a contagem; encerra após `HEARTBEAT_MAX_MISSED` pings sem sinal |
+| Prazo de login      | `transport/connection.js`                                 | Fecha com 4001 quem não entra em `LOGIN_TIMEOUT_MS`                                                                      |
+| Cliente lento       | `transport/chatServer.js` (`deliver`)                     | Encerra conexão com fila acima de `MAX_BUFFERED_BYTES`                                                                   |
+| Lista agrupada      | `room/room.js` + agendador (`USER_LIST_COALESCE_MS` = 50) | Um envio por janela, com o estado final                                                                                  |
+| Teto de identidades | `room/sessions.js`                                        | Aplicado na liberação (2.000)                                                                                            |
+| Health              | `transport/http.js`                                       | `/healthz` (liveness), `/readyz` (readiness), `/metrics` (opcional)                                                      |
+| Métricas            | `metrics.js`                                              | `/metrics` e log `metrics` periódico e no desligamento                                                                   |
+| Falha fatal         | `server.js`                                               | `uncaughtException`/`unhandledRejection` → `fatal_error` + encerramento controlado (1)                                   |
+| Teste de carga      | `scripts/load-test.mjs`                                   | `npm run load-test` — cenários A–E contra instância própria                                                              |
 
 Constantes fixas (não configuráveis): `LIMITS` (nome 30, mensagem 1000, token 100),
 `RESUME_TTL_MS` (10 min), `MAX_RELEASED_IDENTITIES` (2000),
-`RATE_LIMIT_NOTICE_INTERVAL_MS` (1000), `SHUTDOWN_TIMEOUT_MS` (5000).
+`RATE_LIMIT_NOTICE_INTERVAL_MS` (1000), `SHUTDOWN_TIMEOUT_MS` (5000),
+`USER_LIST_COALESCE_MS` (50), `LOGIN_TIMEOUT_CLOSE_CODE` (4001).
 
 ## 9. Protocolo WebSocket
 
@@ -256,7 +278,7 @@ Documentado em [`PROTOCOLO.md`](./PROTOCOLO.md). Fontes: `backend/src/protocol.j
 | Tipos                         | `tsc` (JSDoc, `strict`, `noUncheckedIndexedAccess`)              | ✅ passa                                                                      |
 | Contraste                     | `scripts/check-contrast.mjs` (42 pares, 2 temas)                 | ✅ todos passam                                                               |
 | Build                         | Vite                                                             | ✅ `dist/` 1,9 MB (HTML 10 KB, JS 13,9 KB, CSS 17,6 KB, imagens ~1,8 MB)      |
-| Testes automatizados          | `node:test`                                                      | ✅ 160 após a Fase 2 (backend 58 unidade + 64 integração; frontend 38), na CI |
+| Testes automatizados          | `node:test`                                                      | ✅ 193 após a Fase 3 (backend 77 unidade + 74 integração; frontend 42), na CI |
 | `npm audit` backend           | npm                                                              | ✅ 0                                                                          |
 | `npm audit` raiz              | npm                                                              | ⚠️ 7 (dev)                                                                    |
 | Análise estática de segurança | CodeQL                                                           | Configurada (resultado não acessível nesta análise)                           |

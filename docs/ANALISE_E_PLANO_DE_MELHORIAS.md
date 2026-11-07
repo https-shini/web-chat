@@ -20,6 +20,11 @@
 
 ---
 
+> **Atualização 2026-11-07 — Fase 3 concluída.** Renderização seletiva (P19),
+> métricas e health checks (P26), e quatro problemas novos encontrados por medição e
+> corrigidos (P38–P41: listas O(N²), cliente lento, teto de identidades, conexão sem
+> login). Ver §18.
+>
 > **Atualização 2026-11-07 — Fase 2 concluída.** Backend modularizado (P13), CI com
 > testes e auditoria (P14), parâmetros por ambiente (P28), `/healthz` e logs
 > estruturados (P26, P27), documentação consolidada (P24), backend em ESM (P36,
@@ -608,44 +613,44 @@ os dois números (configuráveis) — ou documentar o motivo.
 
 ### Tabela consolidada
 
-| ID  | Problema                               | Prioridade | Complexidade | Tipo de evidência | Status             |
-| --- | -------------------------------------- | ---------- | ------------ | ----------------- | ------------------ |
-| P01 | Identidade forjável                    | Crítica    | Média        | TESTADO           | Corrigido (Fase 1) |
-| P02 | Mensagens descartadas pelo rate limit  | Alta       | Baixa        | TESTADO           | Corrigido (Fase 1) |
-| P03 | `.env` lido do diretório errado        | Alta       | Baixa        | TESTADO           | Corrigido (Fase 1) |
-| P09 | `id` de mensagem descartado no cliente | Alta       | Baixa        | CÓDIGO            | Corrigido (Fase 1) |
-| P10 | Sem heartbeat                          | Alta       | Baixa        | CÓDIGO/INFERIDO   | Corrigido (Fase 1) |
-| P12 | Sem testes                             | Alta       | Média        | CÓDIGO            | Corrigido (Fase 2) |
-| P04 | Log injection via `type`               | Média      | Baixa        | TESTADO           | Corrigido (Fase 1) |
-| P05 | Sem validação de envelope              | Média      | Baixa        | TESTADO           | Corrigido (Fase 1) |
-| P06 | Nome vazio aceito                      | Média      | Baixa        | TESTADO           | Corrigido (Fase 1) |
-| P07 | Login repetível                        | Média      | Baixa        | TESTADO           | Corrigido (Fase 1) |
-| P08 | "Entrou/saiu" em reconexão             | Média      | Média        | INFERIDO          | Pendente           |
-| P13 | Backend monolítico                     | Média      | Média        | CÓDIGO            | Corrigido (Fase 2) |
-| P14 | CI incompleta                          | Média      | Baixa        | CÓDIGO            | Corrigido (Fase 2) |
-| P15 | Vulnerabilidades dev                   | Média      | Média        | TESTADO           | Pendente           |
-| P16 | Imagens órfãs no build                 | Média      | Baixa        | TESTADO           | Pendente           |
-| P17 | Google Fonts / privacidade             | Média      | Baixa        | CÓDIGO            | Pendente           |
-| P18 | Toasts sem anúncio                     | Média      | Baixa        | CÓDIGO            | Pendente           |
-| P22 | Sem confirmação de entrega             | Média      | Média        | CÓDIGO            | Pendente           |
-| P30 | Allowlist desligada por padrão         | Média      | Baixa        | CÓDIGO            | Mitigado (Fase 1)  |
-| P11 | Sem shutdown gracioso                  | Baixa      | Baixa        | CÓDIGO            | Corrigido (Fase 1) |
-| P19 | Render global                          | Baixa      | Baixa        | CÓDIGO            | Pendente           |
-| P20 | Lista ilimitada                        | Baixa      | Baixa        | CÓDIGO            | Pendente           |
-| P21 | Fila descarta sem aviso                | Baixa      | Baixa        | CÓDIGO            | Pendente           |
-| P23 | Código morto                           | Baixa      | Baixa        | CÓDIGO            | Pendente           |
-| P24 | Docs desatualizadas                    | Baixa      | Baixa        | CÓDIGO            | Corrigido (Fase 2) |
-| P25 | Node não fixado                        | Baixa      | Baixa        | CÓDIGO            | Pendente           |
-| P26 | Healthcheck indiscriminado             | Baixa      | Baixa        | CÓDIGO            | Corrigido (Fase 2) |
-| P27 | Logs não estruturados                  | Baixa      | Baixa        | CÓDIGO            | Corrigido (Fase 2) |
-| P28 | Parâmetros fixos                       | Baixa      | Baixa        | CÓDIGO            | Parcial (Fase 2)   |
-| P29 | CSP só por meta                        | Baixa      | Média        | CÓDIGO            | Pendente           |
-| P31 | Composer limitado                      | Baixa      | Média        | CÓDIGO            | Pendente           |
-| P32 | `<time>` sem `datetime`                | Baixa      | Baixa        | CÓDIGO            | Pendente           |
-| P33 | Nomes duplicados                       | Baixa      | Baixa        | CÓDIGO            | Pendente           |
-| P34 | Sem escala horizontal                  | Baixa      | Alta         | INFERIDO          | Pendente           |
-| P35 | Histórico 1000 vs 50                   | Baixa      | Baixa        | CÓDIGO            | Pendente           |
-| P36 | Backend sem tipos / CJS                | Baixa      | Baixa        | CÓDIGO            | Parcial (Fase 2)   |
+| ID  | Problema                               | Prioridade | Complexidade | Tipo de evidência | Status                          |
+| --- | -------------------------------------- | ---------- | ------------ | ----------------- | ------------------------------- |
+| P01 | Identidade forjável                    | Crítica    | Média        | TESTADO           | Corrigido (Fase 1)              |
+| P02 | Mensagens descartadas pelo rate limit  | Alta       | Baixa        | TESTADO           | Corrigido (Fase 1)              |
+| P03 | `.env` lido do diretório errado        | Alta       | Baixa        | TESTADO           | Corrigido (Fase 1)              |
+| P09 | `id` de mensagem descartado no cliente | Alta       | Baixa        | CÓDIGO            | Corrigido (Fase 1)              |
+| P10 | Sem heartbeat                          | Alta       | Baixa        | CÓDIGO/INFERIDO   | Corrigido (Fase 1)              |
+| P12 | Sem testes                             | Alta       | Média        | CÓDIGO            | Corrigido (Fase 2)              |
+| P04 | Log injection via `type`               | Média      | Baixa        | TESTADO           | Corrigido (Fase 1)              |
+| P05 | Sem validação de envelope              | Média      | Baixa        | TESTADO           | Corrigido (Fase 1)              |
+| P06 | Nome vazio aceito                      | Média      | Baixa        | TESTADO           | Corrigido (Fase 1)              |
+| P07 | Login repetível                        | Média      | Baixa        | TESTADO           | Corrigido (Fase 1)              |
+| P08 | "Entrou/saiu" em reconexão             | Média      | Média        | INFERIDO          | Pendente                        |
+| P13 | Backend monolítico                     | Média      | Média        | CÓDIGO            | Corrigido (Fase 2)              |
+| P14 | CI incompleta                          | Média      | Baixa        | CÓDIGO            | Corrigido (Fase 2)              |
+| P15 | Vulnerabilidades dev                   | Média      | Média        | TESTADO           | Pendente                        |
+| P16 | Imagens órfãs no build                 | Média      | Baixa        | TESTADO           | Pendente                        |
+| P17 | Google Fonts / privacidade             | Média      | Baixa        | CÓDIGO            | Pendente                        |
+| P18 | Toasts sem anúncio                     | Média      | Baixa        | CÓDIGO            | Pendente                        |
+| P22 | Sem confirmação de entrega             | Média      | Média        | CÓDIGO            | Pendente                        |
+| P30 | Allowlist desligada por padrão         | Média      | Baixa        | CÓDIGO            | Mitigado (Fase 1)               |
+| P11 | Sem shutdown gracioso                  | Baixa      | Baixa        | CÓDIGO            | Corrigido (Fase 1)              |
+| P19 | Render global                          | Baixa      | Baixa        | CÓDIGO            | Corrigido (Fase 3)              |
+| P20 | Lista ilimitada                        | Baixa      | Baixa        | CÓDIGO            | Não necessário (medido, Fase 3) |
+| P21 | Fila descarta sem aviso                | Baixa      | Baixa        | CÓDIGO            | Pendente                        |
+| P23 | Código morto                           | Baixa      | Baixa        | CÓDIGO            | Pendente                        |
+| P24 | Docs desatualizadas                    | Baixa      | Baixa        | CÓDIGO            | Corrigido (Fase 2)              |
+| P25 | Node não fixado                        | Baixa      | Baixa        | CÓDIGO            | Pendente                        |
+| P26 | Healthcheck indiscriminado             | Baixa      | Baixa        | CÓDIGO            | Corrigido (Fase 2)              |
+| P27 | Logs não estruturados                  | Baixa      | Baixa        | CÓDIGO            | Corrigido (Fase 2)              |
+| P28 | Parâmetros fixos                       | Baixa      | Baixa        | CÓDIGO            | Parcial (Fase 2)                |
+| P29 | CSP só por meta                        | Baixa      | Média        | CÓDIGO            | Pendente                        |
+| P31 | Composer limitado                      | Baixa      | Média        | CÓDIGO            | Pendente                        |
+| P32 | `<time>` sem `datetime`                | Baixa      | Baixa        | CÓDIGO            | Pendente                        |
+| P33 | Nomes duplicados                       | Baixa      | Baixa        | CÓDIGO            | Pendente                        |
+| P34 | Sem escala horizontal                  | Baixa      | Alta         | INFERIDO          | Pendente                        |
+| P35 | Histórico 1000 vs 50                   | Baixa      | Baixa        | CÓDIGO            | Não necessário (medido, Fase 3) |
+| P36 | Backend sem tipos / CJS                | Baixa      | Baixa        | CÓDIGO            | Parcial (Fase 2)                |
 
 ---
 
@@ -1048,3 +1053,31 @@ envio itera só `connectedUsers`. Prioridade: Alta. Teste:
 - **M29 (escala horizontal)**, se um dia necessária, tem um ponto de extensão claro:
   `deliver` e o estado de `room.js`.
 - **M13 (código morto)**: `chat_cleared` já foi removido; o restante continua em F4-04.
+
+### Fase 3 — concluída em 2026-11-07
+
+Escopo redefinido pelo pedido da fase (performance, estabilidade, conexões e
+monitoramento); medições antes/depois em
+[`FASE_3_RELATORIO_DE_IMPLEMENTACAO.md`](./FASE_3_RELATORIO_DE_IMPLEMENTACAO.md).
+
+**Problemas novos, encontrados por medição e corrigidos**
+
+| ID  | Problema                                                                          | Evidência                                                      | Correção                               | Resultado                   |
+| --- | --------------------------------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------- | --------------------------- |
+| P38 | Lista de pessoas inteira enviada a todos a cada entrada/saída (O(N²) por entrada) | 200 entradas simultâneas → 200 MB; p95 140 ms com 300 conexões | Agrupamento em 50 ms                   | 7,7 MB (−96 %); p95 25 ms   |
+| P39 | Cliente que para de ler acumula fila sem teto no servidor                         | +56 MB com 1 cliente parado                                    | `MAX_BUFFERED_BYTES` (1 MiB)           | Desconectado; demais seguem |
+| P40 | Teto de identidades só aplicado a cada 30 s                                       | 28.600 identidades entre varreduras                            | Teto aplicado na liberação             | Constante em ~2.040         |
+| P41 | Conexão sem login (que responde ao ping) ocupa vaga indefinidamente               | Análise; heartbeat não deve manter conexão não autorizada      | `LOGIN_TIMEOUT_MS` (30 s, código 4001) | Coberto por teste           |
+
+**Melhorias do plano**
+
+| Melhoria                                        | Situação                                                | Observação                                                                        |
+| ----------------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| M17 Renderização seletiva e limite de mensagens | Parcial — renderização concluída; limite não necessário | Layout de 2.000 mensagens: 43,4 s → 1,5 s                                         |
+| M16 Observabilidade                             | Ampliada                                                | `/readyz`, `/metrics` opcional, log `metrics` periódico, contadores por categoria |
+| M05 Heartbeat                                   | Ampliada                                                | Tolerância configurável; qualquer quadro conta como atividade                     |
+| M18 / M19 (build, fontes)                       | Pendentes                                               | Dependem de V04 e V02                                                             |
+
+**Mudanças nas recomendações:** a recomendação de limitar mensagens no cliente (M17,
+parte 2) foi retirada por evidência; o teste de carga (antes F7-02) já existe e deve
+ser rodado antes de mudanças que afetem o broadcast ou o ciclo de conexão.

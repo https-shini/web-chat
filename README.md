@@ -229,7 +229,8 @@ Parâmetros operacionais opcionais do backend — limite de conexões, tamanho d
 limites de taxa e tamanho do histórico — estão documentados, com os valores padrão,
 no [`.env.example`](./.env.example): `MAX_CONNECTIONS`, `MAX_PAYLOAD_BYTES`,
 `RATE_MESSAGES_CAPACITY`, `RATE_MESSAGES_PER_SEC`, `RATE_SIGNALS_CAPACITY`,
-`RATE_SIGNALS_PER_SEC`, `HISTORY_SIZE` e `HISTORY_ON_JOIN`.
+`RATE_SIGNALS_PER_SEC`, `HISTORY_SIZE`, `HISTORY_ON_JOIN`, `HEARTBEAT_MAX_MISSED`,
+`MAX_BUFFERED_BYTES`, `LOGIN_TIMEOUT_MS`, `METRICS_ENABLED` e `METRICS_LOG_INTERVAL_MS`.
 
 Comportamento previsível quando algo está errado:
 
@@ -304,6 +305,25 @@ Análise estática, executada também na CI:
 
 A CI executa `npm test` e também a auditoria de dependências de produção (bloqueante).
 
+### Teste de carga
+
+```bash
+npm run load-test
+```
+
+Sobe uma instância própria do backend numa porta livre (nunca usa um servidor
+externo) e executa cinco cenários: uso normal (A), entradas simultâneas (B),
+estabilidade prolongada (C), oscilação de rede (D) e sobrecarga controlada (E).
+Mede latência de entrega, volume, erros e CPU/memória do servidor. Leva cerca de
+1 minuto; para rodar só alguns cenários e gravar o resultado:
+
+```bash
+npm run load-test -- B D --json resultado.json
+```
+
+Não roda na CI (é lento e os números dependem da máquina). Os resultados de
+referência estão em [`docs/FASE_3_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_3_RELATORIO_DE_IMPLEMENTACAO.md).
+
 ## Build
 
 ```bash
@@ -347,13 +367,23 @@ npm --prefix backend start
 ```
 
 Defina `PORT` (normalmente fornecida pela plataforma) e `ALLOWED_ORIGINS` com o
-domínio do frontend. Para checagem de saúde, `GET /` responde `200 ok` e
-`GET /healthz` responde JSON com `status`, `uptimeSec`, `connections` e `users`;
-outros caminhos respondem 404. Termine TLS na plataforma ou num proxy reverso para
+domínio do frontend. Rotas HTTP na mesma porta:
+
+| Rota           | Uso                                       | Resposta                                                                        |
+| -------------- | ----------------------------------------- | ------------------------------------------------------------------------------- |
+| `GET /`        | Checagem de saúde simples                 | `200 ok`                                                                        |
+| `GET /healthz` | **Liveness**: o processo responde         | `200` JSON `{ status, uptimeSec, connections, users }`                          |
+| `GET /readyz`  | **Readiness**: pronto para novas conexões | `200 {"status":"ready"}`; `503` com `draining` (desligando) ou `full` (no teto) |
+| `GET /metrics` | Métricas operacionais                     | Só com `METRICS_ENABLED=true`; senão `404`                                      |
+
+Outros caminhos respondem 404. Termine TLS na plataforma ou num proxy reverso para
 servir `wss://`.
 
 O servidor escreve **uma linha JSON por evento** (`ts`, `level`, `event` e campos
-como `connection` e `user`), sem conteúdo de mensagem, nomes ou tokens. Ao receber
+como `connection` e `user`), sem conteúdo de mensagem, nomes ou tokens. A cada
+`METRICS_LOG_INTERVAL_MS` (padrão 60 s) sai uma linha `metrics` com conexões,
+pessoas, mensagens aceitas e recusadas, erros por categoria, tempo de processamento,
+atraso do event loop, CPU e memória — basta filtrar os logs por `"event":"metrics"`. Ao receber
 `SIGTERM`, fecha as conexões com o código 1001 e encerra em até 5 s — os clientes
 reconectam sozinhos quando o novo processo sobe. O ponto de entrada continua sendo
 `backend/src/server.js` (`npm start`).
@@ -393,18 +423,19 @@ da lista na reconexão) estão no plano de melhorias.
 
 ## Documentação complementar
 
-| Documento                                                                                  | Conteúdo                                                   |
-| ------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| [`docs/ANALISE_E_PLANO_DE_MELHORIAS.md`](./docs/ANALISE_E_PLANO_DE_MELHORIAS.md)           | Diagnóstico técnico, problemas, melhorias e riscos         |
-| [`docs/ROADMAP_DE_IMPLEMENTACAO.md`](./docs/ROADMAP_DE_IMPLEMENTACAO.md)                   | 49 tarefas em 8 fases, estratégia e plano de testes        |
-| [`docs/INVENTARIO_TECNICO.md`](./docs/INVENTARIO_TECNICO.md)                               | Tecnologias, dependências, módulos, variáveis e scripts    |
-| [`docs/PROTOCOLO.md`](./docs/PROTOCOLO.md)                                                 | Contrato do WebSocket: eventos, erros, identidade, limites |
-| [`docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md) | Correções da Fase 1: decisões, testes e compatibilidade    |
-| [`docs/FASE_2_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_2_RELATORIO_DE_IMPLEMENTACAO.md) | Fase 2: arquitetura modular do backend, testes e CI        |
-| [`docs/design-system.md`](./docs/design-system.md)                                         | Tokens, paleta, contraste medido                           |
-| [`docs/refactor-report.md`](./docs/refactor-report.md)                                     | Antes → depois da refatoração do frontend                  |
-| [`docs/security-report.md`](./docs/security-report.md)                                     | Auditoria de segurança e riscos residuais                  |
-| [`CONTRIBUTING.md`](./CONTRIBUTING.md)                                                     | Como contribuir                                            |
+| Documento                                                                                  | Conteúdo                                                           |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| [`docs/ANALISE_E_PLANO_DE_MELHORIAS.md`](./docs/ANALISE_E_PLANO_DE_MELHORIAS.md)           | Diagnóstico técnico, problemas, melhorias e riscos                 |
+| [`docs/ROADMAP_DE_IMPLEMENTACAO.md`](./docs/ROADMAP_DE_IMPLEMENTACAO.md)                   | 49 tarefas em 8 fases, estratégia e plano de testes                |
+| [`docs/INVENTARIO_TECNICO.md`](./docs/INVENTARIO_TECNICO.md)                               | Tecnologias, dependências, módulos, variáveis e scripts            |
+| [`docs/PROTOCOLO.md`](./docs/PROTOCOLO.md)                                                 | Contrato do WebSocket: eventos, erros, identidade, limites         |
+| [`docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md) | Correções da Fase 1: decisões, testes e compatibilidade            |
+| [`docs/FASE_2_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_2_RELATORIO_DE_IMPLEMENTACAO.md) | Fase 2: arquitetura modular do backend, testes e CI                |
+| [`docs/FASE_3_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_3_RELATORIO_DE_IMPLEMENTACAO.md) | Fase 3: heartbeat, conexões, métricas, carga e otimizações medidas |
+| [`docs/design-system.md`](./docs/design-system.md)                                         | Tokens, paleta, contraste medido                                   |
+| [`docs/refactor-report.md`](./docs/refactor-report.md)                                     | Antes → depois da refatoração do frontend                          |
+| [`docs/security-report.md`](./docs/security-report.md)                                     | Auditoria de segurança e riscos residuais                          |
+| [`CONTRIBUTING.md`](./CONTRIBUTING.md)                                                     | Como contribuir                                                    |
 
 ## Roadmap
 
@@ -415,7 +446,7 @@ Resumo — detalhes, dependências e critérios de aceite em
 | ---- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
 | 1    | Correções críticas (concluída) | Testes do protocolo, identidade emitida pelo servidor, rate limit sem perda de mensagem, `.env` funcional, heartbeat |
 | 2    | Fundação técnica (concluída)   | Testes do frontend, CI completa, backend modular em ESM, contrato do protocolo verificado                            |
-| 3    | Performance                    | Build enxuto, fontes auto-hospedadas, renderização seletiva                                                          |
+| 3    | Performance (concluída)        | Heartbeat tolerante, conexões e memória sob controle, métricas, carga medida, renderização seletiva                  |
 | 4    | Funcionalidades                | Reconexão sem avisos repetidos, confirmação de entrega                                                               |
 | 5    | UX e acessibilidade            | Erros anunciados, indicador de mensagens novas, composer melhorado                                                   |
 | 6    | Atualizações                   | `npm audit` limpo, Vite atual, versão do Node fixada                                                                 |
@@ -430,8 +461,12 @@ atribuída pelo servidor, limites de taxa separados com aviso ao usuário,
 configuração de ambiente funcional e validada, logs estruturados, validação de
 cada quadro recebido, heartbeat e desligamento gracioso. A **Fase 2** (fundação
 técnica) também está concluída: backend modular em ESM, contrato do protocolo
-verificado por teste, parâmetros operacionais configuráveis, `/healthz` e 160 testes
-automatizados executados na CI. Próximo passo: Fase 3 (performance e otimização).
+verificado por teste, parâmetros operacionais configuráveis, `/healthz` e testes na
+CI. A **Fase 3** (performance, estabilidade e monitoramento) também: heartbeat
+tolerante a oscilações, prazo de login, proteção contra cliente lento, listas de
+pessoas agrupadas, renderização seletiva no navegador, `/readyz`, métricas e teste
+de carga — com 193 testes automatizados. Próximo passo: Fase 4 (melhorias
+funcionais).
 Antes de expor o chat publicamente, configure `ALLOWED_ORIGINS`.
 
 ## Contribuindo

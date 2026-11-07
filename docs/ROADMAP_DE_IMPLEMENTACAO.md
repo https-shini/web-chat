@@ -351,6 +351,26 @@ Objetivo: estrutura, padronização e automação que tornam as fases seguintes 
 
 ## Fase 3 — Performance e otimização
 
+> **Status: concluída em 2026-11-07**, com escopo redefinido pelo pedido da fase
+> (performance, estabilidade, gerenciamento de conexões e monitoramento). Detalhes,
+> medições antes/depois e riscos em
+> [`FASE_3_RELATORIO_DE_IMPLEMENTACAO.md`](./FASE_3_RELATORIO_DE_IMPLEMENTACAO.md).
+>
+> | Tarefa                               | Situação                                                                                                                                           |
+> | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | F3-01 Build enxuto                   | Pendente — aguarda V04                                                                                                                             |
+> | F3-02 Fontes auto-hospedadas         | Pendente — aguarda V02                                                                                                                             |
+> | F3-03 Renderização seletiva          | Concluída — layout −95 a −97 % (medido)                                                                                                            |
+> | F3-04 Limite de mensagens no cliente | Não necessária — após F3-03, 2.000 mensagens custam 1,5 s de layout; cortar o histórico visível seria mudança funcional sem ganho que a justifique |
+> | F3-05 Alinhar buffer do servidor     | Não necessária — ≤ 2 MB, sem efeito mensurável                                                                                                     |
+> | F7-02 Teste de carga                 | Antecipada e concluída (`npm run load-test`)                                                                                                       |
+>
+> Feitas também, por evidência ou pedido: lista de pessoas agrupada (−96 % de volume
+> em entradas simultâneas), limite de fila por conexão (cliente lento), teto de
+> identidades aplicado na liberação, heartbeat tolerante (`HEARTBEAT_MAX_MISSED`),
+> prazo de login (4001), `/readyz`, métricas (`/metrics` opcional + log periódico),
+> encerramento controlado em falha fatal.
+
 ### F3-01 — Build enxuto (M18, P16)
 
 | Campo                     | Conteúdo                                                                                                                                                                                         |
@@ -752,11 +772,11 @@ em cada PR.
 | F2-06 | Parâmetros por ambiente               | 2    | Baixa      | Baixa        | F2-03        | concluída                          |
 | F2-07 | Logger + `/healthz`                   | 2    | Baixa      | Baixa        | F2-03, V01   | concluída                          |
 | F2-08 | Consolidar documentação               | 2    | Baixa      | Baixa        | —            | concluída                          |
-| F3-01 | Build enxuto                          | 3    | Média      | Baixa        | V04          | pendente                           |
-| F3-02 | Fontes auto-hospedadas                | 3    | Média      | Baixa        | F3-01        | pendente                           |
-| F3-03 | Renderização seletiva                 | 3    | Baixa      | Baixa        | F2-01        | pendente                           |
-| F3-04 | Limite de mensagens no cliente        | 3    | Baixa      | Baixa        | F1-10        | pendente                           |
-| F3-05 | Alinhar buffer do servidor            | 3    | Baixa      | Baixa        | F2-06        | pendente                           |
+| F3-01 | Build enxuto                          | 3    | Média      | Baixa        | V04          | pendente (aguarda V04)             |
+| F3-02 | Fontes auto-hospedadas                | 3    | Média      | Baixa        | F3-01        | pendente (aguarda V02)             |
+| F3-03 | Renderização seletiva                 | 3    | Baixa      | Baixa        | F2-01        | concluída                          |
+| F3-04 | Limite de mensagens no cliente        | 3    | Baixa      | Baixa        | F1-10        | não necessária (medido)            |
+| F3-05 | Alinhar buffer do servidor            | 3    | Baixa      | Baixa        | F2-06        | não necessária (medido)            |
 | F4-01 | Sessão retomável                      | 4    | Média      | Média        | F1-06, F2-03 | pendente                           |
 | F4-02 | Confirmação de entrega                | 4    | Média      | Média        | F1-10, F1-09 | pendente                           |
 | F4-03 | Fila offline com aviso                | 4    | Baixa      | Baixa        | F2-01        | pendente                           |
@@ -774,7 +794,7 @@ em cada PR.
 | F6-04 | `ws` patch                            | 6    | Baixa      | Baixa        | F1-01        | pendente                           |
 | F6-05 | Ferramentas de qualidade              | 6    | Baixa      | Média        | F2-02        | pendente                           |
 | F7-01 | E2E Playwright                        | 7    | Alta       | Média        | F1-06        | pendente                           |
-| F7-02 | Teste de carga                        | 7    | Média      | Média        | F2-06, F1-11 | pendente                           |
+| F7-02 | Teste de carga                        | 7    | Média      | Média        | F2-06, F1-11 | concluída (antecipada na Fase 3)   |
 | F7-03 | Axe automatizado                      | 7    | Média      | Baixa        | F7-01        | pendente                           |
 | F8-01 | Deploy declarativo + cabeçalhos       | 8    | Média      | Média        | V01, F2-07   | pendente                           |
 | F8-02 | Anti-abuso local                      | 8    | Média      | Baixa        | F1-05        | pendente                           |

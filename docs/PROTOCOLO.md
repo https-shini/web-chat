@@ -39,16 +39,16 @@ extremidades são aparadas. O cliente aplica a mesma regra ao nome antes de envi
 
 ## Servidor → cliente
 
-| `type`            | `payload`                                         | Quando                                                                              |
-| ----------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `session`         | `{ id, name, resumeToken }`                       | Logo após um login aceito, **antes** de qualquer outro evento. Só para quem entrou. |
-| `message_history` | `Array<{ id, type: "chat_message", payload }>`    | Após `session`, se houver histórico (até `HISTORY_ON_JOIN`, padrão 50).             |
-| `chat_message`    | `{ userId, userName, content, timestamp }` + `id` | A cada mensagem aceita, para todos na sala (inclusive quem enviou).                 |
-| `user_joined`     | `{ userName, timestamp }`                         | Para os outros, quando alguém entra (não em retomada que substitui conexão antiga). |
-| `user_left`       | `{ userName, timestamp }`                         | Para os outros, quando alguém sai (não durante o desligamento do servidor).         |
-| `user_list`       | `Array<{ id, name, status: "online" }>`           | Após toda entrada e saída.                                                          |
-| `user_typing`     | `{ userId, userName, isTyping }`                  | Para os outros, a cada sinal de digitação aceito.                                   |
-| `error`           | `{ code, message }`                               | Recusa de uma operação. `message` é texto exibível; o cliente decide pelo `code`.   |
+| `type`            | `payload`                                         | Quando                                                                                                                             |
+| ----------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `session`         | `{ id, name, resumeToken }`                       | Logo após um login aceito, **antes** de qualquer outro evento. Só para quem entrou.                                                |
+| `message_history` | `Array<{ id, type: "chat_message", payload }>`    | Após `session`, se houver histórico (até `HISTORY_ON_JOIN`, padrão 50).                                                            |
+| `chat_message`    | `{ userId, userName, content, timestamp }` + `id` | A cada mensagem aceita, para todos na sala (inclusive quem enviou).                                                                |
+| `user_joined`     | `{ userName, timestamp }`                         | Para os outros, quando alguém entra (não em retomada que substitui conexão antiga).                                                |
+| `user_left`       | `{ userName, timestamp }`                         | Para os outros, quando alguém sai (não durante o desligamento do servidor).                                                        |
+| `user_list`       | `Array<{ id, name, status: "online" }>`           | Após entradas e saídas, **agrupada**: mudanças dentro de 50 ms geram um envio só, com o estado final (sempre depois de `session`). |
+| `user_typing`     | `{ userId, userName, isTyping }`                  | Para os outros, a cada sinal de digitação aceito.                                                                                  |
+| `error`           | `{ code, message }`                               | Recusa de uma operação. `message` é texto exibível; o cliente decide pelo `code`.                                                  |
 
 Só conexões que entraram na sala recebem eventos dela.
 
@@ -90,14 +90,31 @@ Por conexão, dois baldes independentes (padrões configuráveis por ambiente):
 
 - `ALLOWED_ORIGINS` definida: handshake de origem não listada recebe HTTP 403.
 - Acima de `MAX_CONNECTIONS` (padrão 500): fechamento com 1013.
-- Heartbeat: ping a cada `HEARTBEAT_MS` (padrão 30 s); sem pong até o ciclo
-  seguinte, a conexão é encerrada e a pessoa sai da sala.
+- Prazo de login: conexão que não entra na sala em `LOGIN_TIMEOUT_MS` (padrão 30 s)
+  é fechada com **4001**. Nome recusado não reinicia o prazo. O cliente oficial
+  faz login assim que conecta.
+- Heartbeat: ping a cada `HEARTBEAT_MS` (padrão 30 s). Pong **ou qualquer quadro
+  recebido** conta como sinal de vida. Só após `HEARTBEAT_MAX_MISSED` (padrão 2)
+  pings seguidos sem nenhum sinal a conexão é encerrada e a pessoa sai da sala —
+  detecção em 2–3 intervalos (60–90 s com os padrões); um ping perdido não derruba.
+- Cliente que para de ler: se a fila de envio de uma conexão passa de
+  `MAX_BUFFERED_BYTES` (padrão 1 MiB), a conexão é encerrada.
 - Desligamento do servidor: fechamento com 1001; o cliente reconecta sozinho.
+
+| Código de fechamento | Motivo                                                                      |
+| -------------------- | --------------------------------------------------------------------------- |
+| 1001                 | Servidor desligando                                                         |
+| 1006                 | Encerrada pelo heartbeat ou por cliente lento (sem handshake de fechamento) |
+| 1009                 | Quadro acima de `MAX_PAYLOAD_BYTES`                                         |
+| 1013                 | Servidor no teto de conexões                                                |
+| 4001                 | Não entrou na sala dentro do prazo                                          |
 
 ## HTTP na mesma porta
 
-| Rota            | Resposta                                               |
-| --------------- | ------------------------------------------------------ |
-| `GET /`         | `200 ok` (texto) — checagem de saúde simples           |
-| `GET /healthz`  | `200` JSON `{ status, uptimeSec, connections, users }` |
-| outros caminhos | `404`; métodos diferentes de GET/HEAD: `405`           |
+| Rota            | Resposta                                                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /`         | `200 ok` (texto) — checagem de saúde simples                                                                                    |
+| `GET /healthz`  | Liveness: `200` JSON `{ status, uptimeSec, connections, users }`                                                                |
+| `GET /readyz`   | Readiness: `200 {"status":"ready"}`; `503` com `draining` ou `full`                                                             |
+| `GET /metrics`  | Só com `METRICS_ENABLED=true` (senão `404`): contadores, tempo de processamento, event loop, CPU e memória — sem dados pessoais |
+| outros caminhos | `404`; métodos diferentes de GET/HEAD: `405`                                                                                    |
