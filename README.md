@@ -53,24 +53,28 @@ nativos no navegador — **nenhuma dependência de runtime no frontend**.
 
 Cada item corresponde a código neste repositório.
 
-| Funcionalidade                                                                                                                                                                                                    | Onde                                                             |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Entrada com um nome (até 30 caracteres), sem senha                                                                                                                                                                | `frontend/src/ui/entry.js`                                       |
-| Mensagens em tempo real para todos os conectados (até 1000 caracteres)                                                                                                                                            | `backend/src/server.js`, `frontend/src/state/events.js`          |
-| Últimas 50 mensagens enviadas a quem entra                                                                                                                                                                        | `backend/src/server.js`                                          |
-| Lista de pessoas online com monograma e cor estável por pessoa                                                                                                                                                    | `frontend/src/ui/people.js`, `frontend/src/ui/identity.js`       |
-| Indicador "está digitando" com expiração automática                                                                                                                                                               | `frontend/src/state/typing.js`, `frontend/src/ui/typing.js`      |
-| Avisos de entrada e saída na conversa                                                                                                                                                                             | `backend/src/server.js`                                          |
-| Horário em cada mensagem (pt-BR)                                                                                                                                                                                  | `frontend/src/ui/message.js`                                     |
-| Reconexão automática: backoff exponencial, teto, jitter e retry manual                                                                                                                                            | `frontend/src/transport/socket.js`, `frontend/src/ui/failure.js` |
-| Fila de envio enquanto a conexão está fora (até 50 mensagens)                                                                                                                                                     | `frontend/src/transport/socket.js`                               |
-| Quatro estados de conexão visíveis: conectando, conectado, reconectando, offline                                                                                                                                  | `frontend/src/ui/connection.js`                                  |
-| Tema claro e escuro, aplicado antes da primeira pintura e persistido                                                                                                                                              | `frontend/index.html`, `frontend/src/ui/themeToggle.js`          |
-| Notificação do navegador só com a aba oculta e após um gesto seu                                                                                                                                                  | `frontend/src/ui/notify.js`                                      |
-| Identidade atribuída pelo servidor e mantida na reconexão por token secreto de sessão                                                                                                                             | `backend/src/server.js`, `frontend/src/state/events.js`          |
-| Aviso quando uma mensagem é recusada por excesso de velocidade, com o texto devolvido ao campo                                                                                                                    | `frontend/src/state/events.js`, `frontend/src/ui/composer.js`    |
-| Proteções no servidor: payload máx. 16 KiB, limites de taxa separados para mensagens e digitação, teto de 500 conexões, allowlist de origem, validação de cada quadro recebido, heartbeat e desligamento gracioso | `backend/src/server.js`                                          |
-| Content-Security-Policy no HTML                                                                                                                                                                                   | `frontend/index.html`                                            |
+| Funcionalidade                                                                                                                                                                                                                       | Onde                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| Entrada com um nome (até 30 caracteres), sem senha                                                                                                                                                                                   | `frontend/src/ui/entry.js`                                                        |
+| Mensagens em tempo real para todos os conectados (até 1000 caracteres)                                                                                                                                                               | `backend/src/server.js`, `frontend/src/state/events.js`                           |
+| Últimas 50 mensagens enviadas a quem entra                                                                                                                                                                                           | `backend/src/server.js`                                                           |
+| Lista de pessoas online com monograma e cor estável por pessoa                                                                                                                                                                       | `frontend/src/ui/people.js`, `frontend/src/ui/identity.js`                        |
+| Indicador "está digitando" com expiração automática                                                                                                                                                                                  | `frontend/src/state/typing.js`, `frontend/src/ui/typing.js`                       |
+| Avisos de entrada e saída na conversa                                                                                                                                                                                                | `backend/src/server.js`                                                           |
+| Horário em cada mensagem (pt-BR)                                                                                                                                                                                                     | `frontend/src/ui/message.js`                                                      |
+| Reconexão automática: backoff exponencial, teto, jitter e retry manual                                                                                                                                                               | `frontend/src/transport/socket.js`, `frontend/src/ui/failure.js`                  |
+| Fila de envio enquanto a conexão está fora (até 50 mensagens)                                                                                                                                                                        | `frontend/src/transport/socket.js`                                                |
+| Quatro estados de conexão visíveis: conectando, conectado, reconectando, offline                                                                                                                                                     | `frontend/src/ui/connection.js`                                                   |
+| Tema claro e escuro, aplicado antes da primeira pintura e persistido                                                                                                                                                                 | `frontend/index.html`, `frontend/src/ui/themeToggle.js`                           |
+| Notificação do navegador só com a aba oculta e após um gesto seu                                                                                                                                                                     | `frontend/src/ui/notify.js`                                                       |
+| Identidade atribuída pelo servidor e mantida na reconexão por token secreto de sessão                                                                                                                                                | `backend/src/server.js`, `frontend/src/state/events.js`                           |
+| Confirmação de entrega: sua mensagem aparece como "enviando…" até o servidor confirmar; recusada ou sem confirmação, fica "não enviada" com o botão Tentar de novo (sem duplicar)                                                    | `frontend/src/main.js`, `frontend/src/state/store.js`, `backend/src/room/room.js` |
+| Proteções no servidor: payload máx. 16 KiB, limites de taxa separados para mensagens e digitação, teto de 500 conexões, allowlist de origem, validação de cada quadro recebido, heartbeat e desligamento gracioso                    | `backend/src/server.js`                                                           |
+| **Comandos no chat** (28): digite `/` para ver sugestões; `/help`, `/nick`, `/me`, `/roll`, `/flip`, `/afk`, `/users`, `/profile`, formatação (`/bold`, `/spoiler`…) e mais — ver [`docs/CHAT_COMMANDS.md`](./docs/CHAT_COMMANDS.md) | `backend/src/commands/`, `frontend/src/commands/`                                 |
+| Presença (ausente), papel (admin) e troca de nome visíveis na lista de pessoas                                                                                                                                                       | `frontend/src/ui/people.js`, `backend/src/room/room.js`                           |
+| Administração por chave do operador (`ADMIN_KEY`): `/clearall`, `/announce`, `/mute`, `/unmute`, `/kick`, com permissões verificadas no servidor                                                                                     | `backend/src/commands/handlers/admin.js`, `backend/src/room/policy.js`            |
+| Reconexão sem avisos repetidos: queda e volta em até 10 s não geram "saiu"/"entrou" para os outros                                                                                                                                   | `backend/src/room/room.js`                                                        |
+| Content-Security-Policy no HTML                                                                                                                                                                                                      | `frontend/index.html`                                                             |
 
 ### O que o servidor guarda
 
@@ -82,16 +86,16 @@ servidor apaga tudo**.
 
 Nenhum destes itens está implementado.
 
-| Recurso                                  | Situação                                               |
-| ---------------------------------------- | ------------------------------------------------------ |
-| Salas múltiplas                          | Não implementado. Há **uma** sala global.              |
-| Administração e moderação                | Não implementado. Não há papéis.                       |
-| Excluir ou editar mensagens              | Não implementado.                                      |
-| Fixar mensagens                          | Não implementado. `localStorage` guarda apenas o tema. |
-| Autenticação e registro                  | Não implementado, e fora do escopo.                    |
-| Upload de arquivos, voz, emojis, reações | Não implementado.                                      |
-| Mensagens com várias linhas              | Não implementado (o servidor remove quebras de linha). |
-| Criptografia ponta a ponta               | Não implementado.                                      |
+| Recurso                                  | Situação                                                                                                                          |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Salas múltiplas                          | Não implementado. Há **uma** sala global.                                                                                         |
+| Banimento e avisos de moderação          | Não implementado: a sala é anônima; `/kick` e `/mute` valem para a identidade atual (quem abre outra aba entra como pessoa nova). |
+| Excluir, editar ou responder mensagens   | Não implementado (só a limpeza da sala inteira por administrador).                                                                |
+| Fixar mensagens                          | Não implementado. `localStorage` guarda apenas o tema.                                                                            |
+| Autenticação e registro                  | Não implementado, e fora do escopo.                                                                                               |
+| Upload de arquivos, voz, emojis, reações | Não implementado.                                                                                                                 |
+| Mensagens com várias linhas              | Não implementado (o servidor remove quebras de linha).                                                                            |
+| Criptografia ponta a ponta               | Não implementado.                                                                                                                 |
 
 ## Tecnologias
 
@@ -218,12 +222,14 @@ leem o mesmo arquivo:
 cp .env.example .env
 ```
 
-| Variável          | Usada por                    | Para quê                                                                          | Padrão                          |
-| ----------------- | ---------------------------- | --------------------------------------------------------------------------------- | ------------------------------- |
-| `VITE_SOCKET_URL` | Frontend (embutida no build) | Endereço do servidor WebSocket; precisa ser `ws://` ou `wss://`                   | `ws(s)://<host da página>:8080` |
-| `ALLOWED_ORIGINS` | Backend                      | Origens autorizadas a conectar, separadas por vírgula. **Configure em produção.** | vazio = qualquer origem         |
-| `PORT`            | Backend                      | Porta HTTP/WebSocket                                                              | `8080`                          |
-| `HEARTBEAT_MS`    | Backend                      | Intervalo do ping que detecta conexões mortas (mínimo 50)                         | `30000`                         |
+| Variável          | Usada por                    | Para quê                                                                                                                 | Padrão                          |
+| ----------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
+| `VITE_SOCKET_URL` | Frontend (embutida no build) | Endereço do servidor WebSocket; precisa ser `ws://` ou `wss://`                                                          | `ws(s)://<host da página>:8080` |
+| `ALLOWED_ORIGINS` | Backend                      | Origens autorizadas a conectar, separadas por vírgula. **Configure em produção.**                                        | vazio = qualquer origem         |
+| `PORT`            | Backend                      | Porta HTTP/WebSocket                                                                                                     | `8080`                          |
+| `HEARTBEAT_MS`    | Backend                      | Intervalo do ping que detecta conexões mortas (mínimo 50)                                                                | `30000`                         |
+| `ADMIN_KEY`       | Backend                      | Chave secreta para `/admin` (16–200 caracteres, sem espaços). Vazia: administração desativada. Nunca use prefixo `VITE_` | vazio                           |
+| `LEAVE_GRACE_MS`  | Backend                      | Janela em que uma reconexão não anuncia saída/entrada (0 desliga)                                                        | `10000`                         |
 
 Parâmetros operacionais opcionais do backend — limite de conexões, tamanho de quadro,
 limites de taxa e tamanho do histórico — estão documentados, com os valores padrão,
@@ -249,6 +255,14 @@ compatibilidade. Um `frontend/.env` **não é mais lido** — o build avisa se e
 um; mova as variáveis para o `.env` da raiz.
 
 Nunca versione arquivos `.env` (o `.gitignore` já os exclui).
+
+### Administração
+
+Para moderar a sala, defina `ADMIN_KEY` no `.env` da raiz e entregue a chave a quem
+vai moderar. No chat, a pessoa digita `/admin <chave>` e passa a poder usar
+`/clearall`, `/announce`, `/mute`, `/unmute` e `/kick`. A chave nunca aparece em log
+nem na tela; tentativas erradas são bloqueadas após 5 erros. Sem `ADMIN_KEY`, a
+administração fica desativada.
 
 ## Executando localmente
 
@@ -432,6 +446,8 @@ da lista na reconexão) estão no plano de melhorias.
 | [`docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md) | Correções da Fase 1: decisões, testes e compatibilidade            |
 | [`docs/FASE_2_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_2_RELATORIO_DE_IMPLEMENTACAO.md) | Fase 2: arquitetura modular do backend, testes e CI                |
 | [`docs/FASE_3_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_3_RELATORIO_DE_IMPLEMENTACAO.md) | Fase 3: heartbeat, conexões, métricas, carga e otimizações medidas |
+| [`docs/CHAT_COMMANDS.md`](./docs/CHAT_COMMANDS.md)                                         | Comandos do chat: lista, permissões, respostas, como criar         |
+| [`docs/FASE_4_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_4_RELATORIO_DE_IMPLEMENTACAO.md) | Fase 4: evolução funcional, comandos e administração               |
 | [`docs/design-system.md`](./docs/design-system.md)                                         | Tokens, paleta, contraste medido                                   |
 | [`docs/refactor-report.md`](./docs/refactor-report.md)                                     | Antes → depois da refatoração do frontend                          |
 | [`docs/security-report.md`](./docs/security-report.md)                                     | Auditoria de segurança e riscos residuais                          |
@@ -447,7 +463,7 @@ Resumo — detalhes, dependências e critérios de aceite em
 | 1    | Correções críticas (concluída) | Testes do protocolo, identidade emitida pelo servidor, rate limit sem perda de mensagem, `.env` funcional, heartbeat |
 | 2    | Fundação técnica (concluída)   | Testes do frontend, CI completa, backend modular em ESM, contrato do protocolo verificado                            |
 | 3    | Performance (concluída)        | Heartbeat tolerante, conexões e memória sob controle, métricas, carga medida, renderização seletiva                  |
-| 4    | Funcionalidades                | Reconexão sem avisos repetidos, confirmação de entrega                                                               |
+| 4    | Funcionalidades (concluída)    | Comandos no chat, administração por chave, confirmação de entrega, presença, reconexão sem avisos repetidos          |
 | 5    | UX e acessibilidade            | Erros anunciados, indicador de mensagens novas, composer melhorado                                                   |
 | 6    | Atualizações                   | `npm audit` limpo, Vite atual, versão do Node fixada                                                                 |
 | 7    | Testes e validação             | E2E com Playwright, carga, acessibilidade automatizada                                                               |
@@ -455,19 +471,13 @@ Resumo — detalhes, dependências e critérios de aceite em
 
 ## Status do projeto
 
-**Em desenvolvimento ativo — protótipo funcional.** A **Fase 1** do roadmap
-(correções críticas de segurança e estabilidade) está concluída: identidade
-atribuída pelo servidor, limites de taxa separados com aviso ao usuário,
-configuração de ambiente funcional e validada, logs estruturados, validação de
-cada quadro recebido, heartbeat e desligamento gracioso. A **Fase 2** (fundação
-técnica) também está concluída: backend modular em ESM, contrato do protocolo
-verificado por teste, parâmetros operacionais configuráveis, `/healthz` e testes na
-CI. A **Fase 3** (performance, estabilidade e monitoramento) também: heartbeat
-tolerante a oscilações, prazo de login, proteção contra cliente lento, listas de
-pessoas agrupadas, renderização seletiva no navegador, `/readyz`, métricas e teste
-de carga — com 193 testes automatizados. Próximo passo: Fase 4 (melhorias
-funcionais).
-Antes de expor o chat publicamente, configure `ALLOWED_ORIGINS`.
+**Em desenvolvimento ativo.** As Fases 1 a 4 do roadmap estão concluídas: correções de
+segurança, fundação modular, performance e monitoramento, e a **Fase 4**, que trouxe
+28 comandos no chat com autocomplete, administração por chave do operador
+(`ADMIN_KEY`), confirmação de entrega com "tentar de novo", presença, troca de nome e
+reconexão sem avisos repetidos — com 265 testes automatizados. Próximo passo: Fase 5
+(UX/UI e acessibilidade). Antes de expor o chat publicamente, configure
+`ALLOWED_ORIGINS` e, se quiser moderação, `ADMIN_KEY`.
 
 ## Contribuindo
 

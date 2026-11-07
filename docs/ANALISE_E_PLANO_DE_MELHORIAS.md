@@ -20,6 +20,10 @@
 
 ---
 
+> **Atualização 2026-11-07 — Fase 4 concluída.** Confirmação de entrega (P22),
+> fila offline (P21), reconexão sem avisos (P08), sistema de comandos, administração
+> por chave e moderação (M08, M20; ver §18).
+>
 > **Atualização 2026-11-07 — Fase 3 concluída.** Renderização seletiva (P19),
 > métricas e health checks (P26), e quatro problemas novos encontrados por medição e
 > corrigidos (P38–P41: listas O(N²), cliente lento, teto de identidades, conexão sem
@@ -625,20 +629,20 @@ os dois números (configuráveis) — ou documentar o motivo.
 | P05 | Sem validação de envelope              | Média      | Baixa        | TESTADO           | Corrigido (Fase 1)              |
 | P06 | Nome vazio aceito                      | Média      | Baixa        | TESTADO           | Corrigido (Fase 1)              |
 | P07 | Login repetível                        | Média      | Baixa        | TESTADO           | Corrigido (Fase 1)              |
-| P08 | "Entrou/saiu" em reconexão             | Média      | Média        | INFERIDO          | Pendente                        |
+| P08 | "Entrou/saiu" em reconexão             | Média      | Média        | INFERIDO          | Corrigido (Fase 4)              |
 | P13 | Backend monolítico                     | Média      | Média        | CÓDIGO            | Corrigido (Fase 2)              |
 | P14 | CI incompleta                          | Média      | Baixa        | CÓDIGO            | Corrigido (Fase 2)              |
 | P15 | Vulnerabilidades dev                   | Média      | Média        | TESTADO           | Pendente                        |
 | P16 | Imagens órfãs no build                 | Média      | Baixa        | TESTADO           | Pendente                        |
 | P17 | Google Fonts / privacidade             | Média      | Baixa        | CÓDIGO            | Pendente                        |
 | P18 | Toasts sem anúncio                     | Média      | Baixa        | CÓDIGO            | Pendente                        |
-| P22 | Sem confirmação de entrega             | Média      | Média        | CÓDIGO            | Pendente                        |
+| P22 | Sem confirmação de entrega             | Média      | Média        | CÓDIGO            | Corrigido (Fase 4)              |
 | P30 | Allowlist desligada por padrão         | Média      | Baixa        | CÓDIGO            | Mitigado (Fase 1)               |
 | P11 | Sem shutdown gracioso                  | Baixa      | Baixa        | CÓDIGO            | Corrigido (Fase 1)              |
 | P19 | Render global                          | Baixa      | Baixa        | CÓDIGO            | Corrigido (Fase 3)              |
 | P20 | Lista ilimitada                        | Baixa      | Baixa        | CÓDIGO            | Não necessário (medido, Fase 3) |
-| P21 | Fila descarta sem aviso                | Baixa      | Baixa        | CÓDIGO            | Pendente                        |
-| P23 | Código morto                           | Baixa      | Baixa        | CÓDIGO            | Pendente                        |
+| P21 | Fila descarta sem aviso                | Baixa      | Baixa        | CÓDIGO            | Corrigido (Fase 4)              |
+| P23 | Código morto                           | Baixa      | Baixa        | CÓDIGO            | Parcial (Fase 4)                |
 | P24 | Docs desatualizadas                    | Baixa      | Baixa        | CÓDIGO            | Corrigido (Fase 2)              |
 | P25 | Node não fixado                        | Baixa      | Baixa        | CÓDIGO            | Pendente                        |
 | P26 | Healthcheck indiscriminado             | Baixa      | Baixa        | CÓDIGO            | Corrigido (Fase 2)              |
@@ -1081,3 +1085,20 @@ monitoramento); medições antes/depois em
 **Mudanças nas recomendações:** a recomendação de limitar mensagens no cliente (M17,
 parte 2) foi retirada por evidência; o teste de carga (antes F7-02) já existe e deve
 ser rodado antes de mudanças que afetem o broadcast ou o ciclo de conexão.
+
+### Fase 4 — concluída em 2026-11-07
+
+| Melhoria                   | Situação    | Observação                                                          |
+| -------------------------- | ----------- | ------------------------------------------------------------------- |
+| M08 Sessão retomável       | Concluída   | Janela de 10 s sem avisos de saída/entrada                          |
+| M20 Confirmação de entrega | Concluída   | Estados enviando/não enviada; reenvio idempotente por `clientMsgId` |
+| M13 Código morto           | Parcial     | Ver relatório da Fase 4                                             |
+| M22 Nomes distinguíveis    | Pendente    | V07                                                                 |
+| N04/N05 Anti-abuso         | Substituída | Moderação real (`/mute`, `/kick`) por administradores com chave     |
+| Novo: sistema de comandos  | Concluído   | 28 comandos; ver [`CHAT_COMMANDS.md`](./CHAT_COMMANDS.md)           |
+| Novo: administração        | Concluída   | `ADMIN_KEY`; permissões em `room/policy.js`                         |
+
+**Mudanças nas recomendações:** a análise inicial tratava "papel de administrador e
+moderação" como fora do escopo (sala anônima). A Fase 4 mostrou um modelo coerente
+com o anonimato — chave do operador, sem contas — e o implementou. Banimento continua
+fora (exige identificação persistente).

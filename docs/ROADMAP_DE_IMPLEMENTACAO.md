@@ -425,6 +425,24 @@ Objetivo: estrutura, padronização e automação que tornam as fases seguintes 
 
 ## Fase 4 — Melhorias funcionais
 
+> **Status: concluída em 2026-11-07**, com o escopo ampliado pelo pedido da fase
+> (evolução funcional + sistema de comandos). Detalhes em
+> [`FASE_4_RELATORIO_DE_IMPLEMENTACAO.md`](./FASE_4_RELATORIO_DE_IMPLEMENTACAO.md) e
+> [`CHAT_COMMANDS.md`](./CHAT_COMMANDS.md).
+>
+> | Tarefa                            | Situação                                                                                                                                     |
+> | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+> | F4-01 Sessão retomável sem avisos | Concluída — janela `LEAVE_GRACE_MS` (10 s)                                                                                                   |
+> | F4-02 Confirmação de entrega      | Concluída — `clientMsgId`, estados enviando/não enviada, reenvio idempotente                                                                 |
+> | F4-03 Fila offline com aviso      | Concluída de outra forma — mensagem na fila aparece como "enviando…" e o prazo só conta depois de sair pela rede                             |
+> | F4-04 Código morto                | Parcial — `chat_cleared` voltou a ter emissor; `typingTracker.remove` e `status` passaram a ser usados; restam `dom.toggle` e textos antigos |
+> | F4-05 Nomes distinguíveis         | Pendente — V07; `/users` mostra id curto                                                                                                     |
+>
+> Acrescentados: 28 comandos (registro central, executor único, autocomplete ARIA,
+> `/help`), administração por `ADMIN_KEY`, moderação (`/clearall`, `/announce`,
+> `/mute`, `/unmute`, `/kick` com hierarquia), presença (`/afk`), troca de nome
+> (`/nick`), variedades e formatação de mensagem.
+
 ### F4-01 — Sessão retomável na reconexão (M08, P08)
 
 | Campo                     | Conteúdo                                                                                                                                                                                                                                 |
@@ -777,11 +795,11 @@ em cada PR.
 | F3-03 | Renderização seletiva                 | 3    | Baixa      | Baixa        | F2-01        | concluída                          |
 | F3-04 | Limite de mensagens no cliente        | 3    | Baixa      | Baixa        | F1-10        | não necessária (medido)            |
 | F3-05 | Alinhar buffer do servidor            | 3    | Baixa      | Baixa        | F2-06        | não necessária (medido)            |
-| F4-01 | Sessão retomável                      | 4    | Média      | Média        | F1-06, F2-03 | pendente                           |
-| F4-02 | Confirmação de entrega                | 4    | Média      | Média        | F1-10, F1-09 | pendente                           |
-| F4-03 | Fila offline com aviso                | 4    | Baixa      | Baixa        | F2-01        | pendente                           |
-| F4-04 | Limpeza de código morto               | 4    | Baixa      | Baixa        | F2-05        | pendente                           |
-| F4-05 | Nomes distinguíveis                   | 4    | Baixa      | Baixa        | F1-05, V07   | pendente                           |
+| F4-01 | Sessão retomável                      | 4    | Média      | Média        | F1-06, F2-03 | concluída                          |
+| F4-02 | Confirmação de entrega                | 4    | Média      | Média        | F1-10, F1-09 | concluída                          |
+| F4-03 | Fila offline com aviso                | 4    | Baixa      | Baixa        | F2-01        | concluída                          |
+| F4-04 | Limpeza de código morto               | 4    | Baixa      | Baixa        | F2-05        | parcial                            |
+| F4-05 | Nomes distinguíveis                   | 4    | Baixa      | Baixa        | F1-05, V07   | pendente (aguarda V07)             |
 | F5-01 | Toasts anunciados                     | 5    | Alta       | Baixa        | —            | pendente                           |
 | F5-02 | Indicador de mensagens novas          | 5    | Média      | Baixa        | F3-03        | pendente                           |
 | F5-03 | `<time datetime>` + separador de data | 5    | Baixa      | Baixa        | —            | pendente                           |

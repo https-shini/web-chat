@@ -1,6 +1,6 @@
 # Inventário técnico · web-chat
 
-> Fotografia do repositório em 2026-11-07, **atualizada ao fim da Fase 3**. A
+> Fotografia do repositório em 2026-11-07, **atualizada ao fim da Fase 4**. A
 > fotografia original (commit `34b523c`) foi tirada antes das Fases 1 e 2. Todos os dados foram
 > extraídos dos arquivos do projeto ou de comandos executados sobre ele
 > (`npm outdated`, `npm audit`, `vite build`, `wc -l`). Para diagnóstico e
@@ -44,11 +44,12 @@ web-chat/
 │   ├── src/
 │   │   ├── server.js           ponto de entrada (bootstrap)
 │   │   ├── config.js, logger.js, errors.js, protocol.js, validation.js, rateLimiter.js, metrics.js
-│   │   ├── room/               room.js (regras da sala), sessions.js (identidades)
+│   │   ├── room/               room.js (regras da sala), sessions.js (identidades), policy.js (autorização)
+│   │   ├── commands/           registry, parser, validator, executor, response, adminAuth, handlers/ (28 comandos)
 │   │   └── transport/          chatServer.js, connection.js, http.js
 │   └── test/
-│       ├── unit/               8 arquivos, 77 testes
-│       └── integration/        helpers.js + 9 arquivos, 74 testes
+│       ├── unit/               10 arquivos, 106 testes
+│       └── integration/        helpers.js + 10 arquivos, 91 testes
 ├── docs/
 │   ├── ANALISE_E_PLANO_DE_MELHORIAS.md, ROADMAP_DE_IMPLEMENTACAO.md, INVENTARIO_TECNICO.md
 │   ├── FASE_1_RELATORIO_DE_IMPLEMENTACAO.md, FASE_2_RELATORIO_DE_IMPLEMENTACAO.md
@@ -60,9 +61,10 @@ web-chat/
 │   ├── public/images/          favicon.ico + 7 PNGs não referenciadas
 │   ├── src/
 │   │   ├── main.js, config.js, protocol.js, socketUrl.js
+│   │   ├── commands/           input.js, autocomplete.js, local.js
 │   │   ├── a11y/, i18n/, state/, transport/, ui/ (14 componentes)
 │   │   └── css/                index.css, tokens.css, base/ (4), components/ (17)
-│   └── test/                   8 arquivos, 42 testes
+│   └── test/                   10 arquivos, 68 testes
 ├── read-model/README.md        aviso: conteúdo movido (F2-08)
 ├── scripts/                    dev.mjs, check-contrast.mjs, contrast.pairs.json, load-test.mjs
 ├── .env.example                variáveis do frontend e do backend (lido da raiz)
@@ -145,6 +147,8 @@ processo > `.env` da raiz > `backend/.env` (compatibilidade). Leitura e validaç
 | `LOGIN_TIMEOUT_MS`        | Backend  | `30000`                            | Inteiro ≥ 100                                    |
 | `METRICS_ENABLED`         | Backend  | `false`                            | `true` ou `false`                                |
 | `METRICS_LOG_INTERVAL_MS` | Backend  | `60000`                            | `0` (desliga) ou ≥ 1000                          |
+| `ADMIN_KEY`               | Backend  | vazio (administração desativada)   | 16–200 caracteres, sem espaços; nunca em log     |
+| `LEAVE_GRACE_MS`          | Backend  | `10000`                            | 0–60000                                          |
 | `NODE_ENV`                | Backend  | —                                  | `production` eleva o aviso de allowlist a `warn` |
 
 Configuração inválida: linha `config_invalid` com a variável e saída com código 1.
@@ -225,6 +229,8 @@ no backend, `test` = `node --test test/*.test.js`.
 | `transport/connection.js` | `createConnectionHandler`, `RATE_LIMIT_NOTICE_INTERVAL_MS`                                                       | errors, protocol, rateLimiter        | Limites, envelope, encaminhamento, erros                     |
 | `transport/http.js`       | `createHttpHandler`                                                                                              | —                                    | `/`, `/healthz`, 404, 405                                    |
 | `transport/chatServer.js` | `createChatServer`, `SHUTDOWN_TIMEOUT_MS`                                                                        | `ws`, room/_, transport/_            | Composição, heartbeat, desligamento                          |
+| `room/policy.js`          | `PERMISSIONS`, `hasPermission`, `isMuted`, `canModerate`                                                         | protocol                             | Autorização (fonte única)                                    |
+| `commands/*`              | `createDefaultRegistry`, `createCommandExecutor`, `createAdminAuth`…                                             | room, protocol, validation           | Sistema de comandos (ver `docs/CHAT_COMMANDS.md`)            |
 
 ### Conexões, monitoramento e métricas (Fase 3)
 
@@ -251,9 +257,9 @@ Documentado em [`PROTOCOLO.md`](./PROTOCOLO.md). Fontes: `backend/src/protocol.j
 `errors.js` e o espelho `frontend/src/protocol.js`, comparados por
 `backend/test/unit/contract.test.js`.
 
-| Cliente → servidor                                          | Servidor → cliente                                                                                            |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `user_login`, `chat_message`, `typing_start`, `typing_stop` | `session`, `message_history`, `chat_message`, `user_joined`, `user_left`, `user_list`, `user_typing`, `error` |
+| Cliente → servidor                                                     | Servidor → cliente                                                                                                                                                           |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `user_login`, `chat_message`, `typing_start`, `typing_stop`, `command` | `session`, `message_history`, `chat_message`, `user_joined`, `user_left`, `user_list`, `user_typing`, `error`, `command_catalog`, `command_result`, `notice`, `chat_cleared` |
 
 ## 10. Integrações e infraestrutura
 
@@ -270,18 +276,18 @@ Documentado em [`PROTOCOLO.md`](./PROTOCOLO.md). Fontes: `backend/src/protocol.j
 
 ## 11. Qualidade e verificação existentes
 
-| Verificação                   | Ferramenta                                                       | Resultado em 2026-11-07                                                       |
-| ----------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Formatação                    | Prettier                                                         | ✅ passa                                                                      |
-| Lint JS                       | ESLint (proíbe `innerHTML`, `outerHTML`, `insertAdjacentHTML`)   | ✅ passa                                                                      |
-| Lint CSS                      | Stylelint (BEM, tokens, sem hex/rgb/`!important` em componentes) | ✅ passa                                                                      |
-| Tipos                         | `tsc` (JSDoc, `strict`, `noUncheckedIndexedAccess`)              | ✅ passa                                                                      |
-| Contraste                     | `scripts/check-contrast.mjs` (42 pares, 2 temas)                 | ✅ todos passam                                                               |
-| Build                         | Vite                                                             | ✅ `dist/` 1,9 MB (HTML 10 KB, JS 13,9 KB, CSS 17,6 KB, imagens ~1,8 MB)      |
-| Testes automatizados          | `node:test`                                                      | ✅ 193 após a Fase 3 (backend 77 unidade + 74 integração; frontend 42), na CI |
-| `npm audit` backend           | npm                                                              | ✅ 0                                                                          |
-| `npm audit` raiz              | npm                                                              | ⚠️ 7 (dev)                                                                    |
-| Análise estática de segurança | CodeQL                                                           | Configurada (resultado não acessível nesta análise)                           |
+| Verificação                   | Ferramenta                                                       | Resultado em 2026-11-07                                                        |
+| ----------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Formatação                    | Prettier                                                         | ✅ passa                                                                       |
+| Lint JS                       | ESLint (proíbe `innerHTML`, `outerHTML`, `insertAdjacentHTML`)   | ✅ passa                                                                       |
+| Lint CSS                      | Stylelint (BEM, tokens, sem hex/rgb/`!important` em componentes) | ✅ passa                                                                       |
+| Tipos                         | `tsc` (JSDoc, `strict`, `noUncheckedIndexedAccess`)              | ✅ passa                                                                       |
+| Contraste                     | `scripts/check-contrast.mjs` (42 pares, 2 temas)                 | ✅ todos passam                                                                |
+| Build                         | Vite                                                             | ✅ `dist/` 1,9 MB (HTML 10 KB, JS 13,9 KB, CSS 17,6 KB, imagens ~1,8 MB)       |
+| Testes automatizados          | `node:test`                                                      | ✅ 265 após a Fase 4 (backend 106 unidade + 91 integração; frontend 68), na CI |
+| `npm audit` backend           | npm                                                              | ✅ 0                                                                           |
+| `npm audit` raiz              | npm                                                              | ⚠️ 7 (dev)                                                                     |
+| Análise estática de segurança | CodeQL                                                           | Configurada (resultado não acessível nesta análise)                            |
 
 ## 12. Navegadores e plataforma
 
