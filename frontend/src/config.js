@@ -54,11 +54,8 @@ export const RECONNECT = {
     jitter: 0.3,
 };
 
-/** Limites do protocolo, espelhando o que o servidor aceita. */
-export const LIMITS = {
-    nameMaxLength: 30,
-    messageMaxLength: 1000,
-};
+/** Limites do protocolo — definidos no contrato (`protocol.js`). */
+export { LIMITS } from "./protocol.js";
 
 /** Tempos de interface, em ms. */
 export const TIMING = {

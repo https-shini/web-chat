@@ -1,5 +1,7 @@
 // @ts-check
 
+import { CLIENT_EVENTS } from "../protocol.js";
+
 /**
  * Emissor do sinal "estou digitando".
  *
@@ -17,7 +19,7 @@
 
 /**
  * @typedef {object} TypingSignalOptions
- * @property {(type: "typing_start" | "typing_stop") => void} send
+ * @property {(type: string) => void} send   Recebe `CLIENT_EVENTS.TYPING_START` ou `TYPING_STOP`.
  * @property {number} interval   Intervalo mínimo entre dois `typing_start`, em ms.
  * @property {number} idle       Silêncio no teclado que encerra a digitação, em ms.
  * @property {() => number} [now]
@@ -53,7 +55,7 @@ export const createTypingSignal = ({
         input() {
             const time = now();
             if (!active || time - lastStart >= interval) {
-                send("typing_start");
+                send(CLIENT_EVENTS.TYPING_START);
                 lastStart = time;
                 active = true;
             }
@@ -61,7 +63,7 @@ export const createTypingSignal = ({
             idleTimer = schedule(() => {
                 idleTimer = null;
                 active = false;
-                send("typing_stop");
+                send(CLIENT_EVENTS.TYPING_STOP);
             }, idle);
         },
 
@@ -70,7 +72,7 @@ export const createTypingSignal = ({
             clearIdle();
             if (!active) return;
             active = false;
-            send("typing_stop");
+            send(CLIENT_EVENTS.TYPING_STOP);
         },
     };
 };

@@ -1,6 +1,7 @@
 // @ts-check
 
 import { SOCKET_URL, TIMING } from "./config.js";
+import { CLIENT_EVENTS } from "./protocol.js";
 import { createAnnouncer } from "./a11y/announce.js";
 import { format, strings } from "./i18n/strings.js";
 import { createEventHandler } from "./state/events.js";
@@ -84,7 +85,7 @@ const transport = createTransport({
         if (!me) return;
         // `userId` é ignorado pelo servidor atual (que atribui a identidade)
         // e mantido só para compatibilidade com um servidor antigo.
-        transport.send("user_login", {
+        transport.send(CLIENT_EVENTS.LOGIN, {
             userId: me.id,
             userName: me.name,
             ...(resumeToken ? { resumeToken } : {}),
@@ -105,7 +106,7 @@ const composer = createComposer({
         // notificação pode ser pedida.
         notifier.requestOnGesture();
         lastSent = content;
-        transport.send("chat_message", { content });
+        transport.send(CLIENT_EVENTS.CHAT_MESSAGE, { content });
         typingSignal.stop();
     },
     onTyping: () => typingSignal.input(),

@@ -143,3 +143,86 @@ describe("erros com código", () => {
         );
     });
 });
+
+describe("presença e digitação", () => {
+    test("user_list normaliza entradas malformadas", () => {
+        const { store, handle } = setup();
+        handle({ type: "user_list", payload: [{ id: "1", name: "Ana" }, null, { id: 2 }] });
+        assert.deepEqual(store.getState().people, [
+            { id: "1", name: "Ana" },
+            { id: "", name: "" },
+            { id: "2", name: "" },
+        ]);
+        handle({ type: "user_list", payload: "lixo" });
+        assert.deepEqual(store.getState().people, []);
+    });
+
+    test("entrada e saída viram avisos de sistema com o horário do servidor", () => {
+        const { store, handle } = setup();
+        handle({
+            type: "user_joined",
+            payload: { userName: "Bia", timestamp: "2026-11-07T10:00:00Z" },
+        });
+        handle({
+            type: "user_left",
+            payload: { userName: "Bia", timestamp: "2026-11-07T10:05:00Z" },
+        });
+        assert.deepEqual(
+            store.getState().messages.map((m) => [m.kind, m.content, m.timestamp]),
+            [
+                ["system", "Bia entrou na sala", "2026-11-07T10:00:00Z"],
+                ["system", "Bia saiu da sala", "2026-11-07T10:05:00Z"],
+            ],
+        );
+    });
+
+    test("user_typing de outra pessoa vai para o rastreador; o próprio é ignorado", () => {
+        const store = createStore();
+        const typing = [];
+        const handle = createEventHandler({
+            store,
+            toasts: { show: () => {} },
+            notifier: { show: () => {} },
+            typingTracker: { set: (id, name, isTyping) => typing.push([id, name, isTyping]) },
+        });
+        store.actions.enterRoom({ id: "eu", name: "Eu" });
+        handle({
+            type: "user_typing",
+            payload: { userId: "outra", userName: "Bia", isTyping: true },
+        });
+        handle({ type: "user_typing", payload: { userId: "eu", userName: "Eu", isTyping: true } });
+        handle({ type: "user_typing", payload: { userName: "sem id", isTyping: true } });
+        assert.deepEqual(typing, [["outra", "Bia", true]]);
+    });
+
+    test("mensagem de outra pessoa notifica; a própria não", () => {
+        const store = createStore();
+        const notified = [];
+        const handle = createEventHandler({
+            store,
+            toasts: { show: () => {} },
+            notifier: { show: (title, body) => notified.push([title, body]) },
+            typingTracker: { set: () => {} },
+        });
+        store.actions.enterRoom({ id: "eu", name: "Eu" });
+        handle({
+            type: "chat_message",
+            id: "1",
+            payload: { userId: "outra", userName: "Bia", content: "oi" },
+        });
+        handle({
+            type: "chat_message",
+            id: "2",
+            payload: { userId: "eu", userName: "Eu", content: "olá" },
+        });
+        assert.deepEqual(notified, [["Bia", "oi"]]);
+    });
+
+    test("tipo desconhecido é ignorado (compatível com servidor mais novo)", () => {
+        const { store, toasts, handle } = setup();
+        const before = store.getState();
+        handle({ type: "evento_do_futuro", payload: {} });
+        assert.equal(store.getState(), before);
+        assert.equal(toasts.length, 0);
+    });
+});

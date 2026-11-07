@@ -144,14 +144,6 @@ export const createStore = () => {
             },
 
             /**
-             * Substitui o histórico inteiro.
-             * @param {Message[]} messages
-             */
-            replaceMessages(messages) {
-                patch({ messages });
-            },
-
-            /**
              * @param {Person[]} people
              */
             setPeople(people) {

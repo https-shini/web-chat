@@ -1,6 +1,7 @@
 // @ts-check
 
 import { format, strings } from "../i18n/strings.js";
+import { ERROR_CODES, SERVER_EVENTS } from "../protocol.js";
 
 /**
  * Tradutor de eventos: recebe um fato já decodificado e o transforma em
@@ -76,7 +77,7 @@ export const createEventHandler =
         const meId = state.me?.id ?? null;
 
         switch (event.type) {
-            case "session": {
+            case SERVER_EVENTS.SESSION: {
                 // Identidade atribuída pelo servidor (P01). Chega antes do
                 // histórico, então as próprias mensagens já são reconhecidas.
                 const payload = /** @type {any} */ (event.payload);
@@ -89,7 +90,7 @@ export const createEventHandler =
                 break;
             }
 
-            case "chat_message": {
+            case SERVER_EVENTS.CHAT_MESSAGE: {
                 const message = toMessage({ id: event.id, payload: event.payload }, meId);
                 if (!message) break;
                 // Quem envia para de "digitar" no instante em que a mensagem
@@ -102,7 +103,7 @@ export const createEventHandler =
                 break;
             }
 
-            case "message_history": {
+            case SERVER_EVENTS.MESSAGE_HISTORY: {
                 const list = Array.isArray(event.payload) ? event.payload : [];
                 const messages = list
                     .map((entry) => toMessage(entry, meId))
@@ -114,12 +115,7 @@ export const createEventHandler =
                 break;
             }
 
-            case "chat_cleared": {
-                store.actions.replaceMessages([]);
-                break;
-            }
-
-            case "user_list": {
+            case SERVER_EVENTS.USER_LIST: {
                 const list = Array.isArray(event.payload) ? event.payload : [];
                 store.actions.setPeople(
                     list.map((person) => ({
@@ -130,7 +126,7 @@ export const createEventHandler =
                 break;
             }
 
-            case "user_typing": {
+            case SERVER_EVENTS.USER_TYPING: {
                 const payload = /** @type {any} */ (event.payload);
                 const id = String(payload?.userId ?? "");
                 if (id && id !== meId) {
@@ -143,7 +139,7 @@ export const createEventHandler =
                 break;
             }
 
-            case "user_joined": {
+            case SERVER_EVENTS.USER_JOINED: {
                 const payload = /** @type {any} */ (event.payload);
                 store.actions.addMessage(
                     systemMessage(
@@ -154,7 +150,7 @@ export const createEventHandler =
                 break;
             }
 
-            case "user_left": {
+            case SERVER_EVENTS.USER_LEFT: {
                 const payload = /** @type {any} */ (event.payload);
                 store.actions.addMessage(
                     systemMessage(
@@ -165,18 +161,18 @@ export const createEventHandler =
                 break;
             }
 
-            case "error": {
+            case SERVER_EVENTS.ERROR: {
                 const payload = /** @type {any} */ (event.payload);
                 const code = typeof payload?.code === "string" ? payload.code : null;
                 const message = String(payload?.message ?? strings.errors.generic);
-                if (code === "rate_limited") {
+                if (code === ERROR_CODES.RATE_LIMITED) {
                     // A mensagem NÃO foi enviada: dizer isso e devolver o texto
                     // ao campo, em vez de deixar o usuário supor que foi.
                     toasts.show(strings.errors.rateLimited, "error");
                     onRateLimited();
                     break;
                 }
-                if (code === "invalid_name") {
+                if (code === ERROR_CODES.INVALID_NAME) {
                     onLoginRejected(strings.errors.invalidName);
                     break;
                 }
