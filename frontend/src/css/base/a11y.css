@@ -1,16 +1,12 @@
 /* Acessibilidade — foco, alvos de toque e conteúdo só para leitor de tela. */
 
-/* Um anel de foco para o projeto inteiro. `border-radius: inherit` evita
-   desenhar quadrado em alvo redondo. Medido em 9.19:1 (escuro) e 6.10:1
-   (claro) contra a superfície base — 1.4.11 exige 3:1. */
+/* Um anel de foco para o projeto inteiro (≥ 3:1 em todas as superfícies,
+   verificado por scripts/check-contrast.mjs). */
 :focus-visible {
     outline: var(--focus-ring-width) solid var(--color-focus-ring);
     outline-offset: var(--focus-ring-offset);
-    border-radius: inherit;
 }
 
-/* Sem :focus-visible, o navegador ainda desenha o foco padrão; o que se
-   remove é só o anel duplicado em clique de mouse. */
 :focus:not(:focus-visible) {
     outline: none;
 }
@@ -40,7 +36,7 @@ input,
         min-height: var(--tap-comfort);
     }
 
-    .c-button--icon {
+    .c-icon-button {
         min-width: var(--tap-comfort);
     }
 }

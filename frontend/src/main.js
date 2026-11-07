@@ -1,11 +1,17 @@
 // @ts-check
 
 import { SOCKET_URL, TIMING } from "./config.js";
+import { CLIENT_EVENTS, CLOSE_CODES } from "./protocol.js";
+import { routeInput } from "./commands/input.js";
+import { helpReply, timeReply } from "./commands/local.js";
+import { createCommandSuggestions } from "./ui/commandSuggestions.js";
 import { createAnnouncer } from "./a11y/announce.js";
 import { format, strings } from "./i18n/strings.js";
-import { createEventHandler } from "./state/events.js";
+import { createEventHandler, noticeMessage } from "./state/events.js";
 import { createStore } from "./state/store.js";
 import { createTypingTracker } from "./state/typing.js";
+import { createTypingSignal } from "./state/typingSignal.js";
+import { changed, createRenderLoop } from "./state/renderLoop.js";
 import { createTransport } from "./transport/socket.js";
 import { must } from "./ui/dom.js";
 import { createComposer } from "./ui/composer.js";
@@ -19,6 +25,12 @@ import { createThemeToggle } from "./ui/themeToggle.js";
 import { createToasts } from "./ui/toast.js";
 import { createTyping } from "./ui/typing.js";
 import { createNotifier } from "./ui/notify.js";
+import { createDialog } from "./ui/dialog.js";
+import { hydrateIcons } from "./ui/icons.js";
+import { createLayout } from "./ui/layout.js";
+import { createMemberCard } from "./ui/memberCard.js";
+import { createTooltips } from "./ui/tooltip.js";
+import { createUserPanel } from "./ui/userPanel.js";
 
 /**
  * Raiz de composição. É o único lugar em que transporte, estado e interface
@@ -28,17 +40,32 @@ import { createNotifier } from "./ui/notify.js";
 
 const store = createStore();
 
-const header = /** @type {HTMLElement} */ (must(".c-app__header"));
+// Ícones primeiro: os módulos abaixo podem trocar um ícone já desenhado.
+hydrateIcons();
+
 const room = /** @type {HTMLElement} */ (must(".c-room"));
 const shell = /** @type {HTMLElement} */ (must(".c-app"));
+const skeleton = /** @type {HTMLElement} */ (must(".c-skeleton"));
+
+const layout = createLayout();
+const dialog = createDialog();
+createTooltips();
 
 const announcer = createAnnouncer();
 const connection = createConnection();
 const empty = createEmpty();
-const messageList = createMessageList();
+const messageList = createMessageList({
+    onRetry: (message) => retryMessage(message),
+    onFailed: (message) =>
+        announcer.say(
+            format(strings.delivery.announceFailed, { reason: message.failReason ?? "" }),
+            {
+                force: true,
+            },
+        ),
+});
 const typing = createTyping();
 const notifier = createNotifier();
-const people = createPeople();
 const toasts = createToasts();
 
 const typingTracker = createTypingTracker((people) => store.actions.setTyping(people));
@@ -53,14 +80,37 @@ const themeToggle = createThemeToggle({
     },
 });
 
-/** @type {(event: {type: string, payload: unknown}) => void} */
+/** @type {(event: {type: string, payload: unknown, id?: string}) => void} */
 let handleEvent = () => {};
+
+/**
+ * Token secreto de retomada entregue pelo servidor no evento `session`.
+ * Prova, numa reconexão, que esta aba é a dona da identidade — sem ele o
+ * servidor atribuiria um id novo e as próprias mensagens anteriores
+ * deixariam de aparecer como "Você". Fica só em memória: fechar a aba
+ * encerra a identidade, como a sala promete.
+ * @type {string | null}
+ */
+let resumeToken = null;
+
+/** Sem confirmação do servidor nesse prazo, a mensagem vira "não enviada". */
+const DELIVERY_TIMEOUT_MS = 10_000;
+
+/**
+ * Comandos enviados ao servidor aguardando resposta (correlação pelo
+ * `requestId`). Guarda o nome e o instante, para o /ping medir a ida e volta.
+ * @type {Map<string, {name: string, sentAt: number}>}
+ */
+const pendingRequests = new Map();
 
 const transport = createTransport({
     url: SOCKET_URL,
     onStatus: (status, detail) => {
         if (status !== "online") typingTracker.clear();
         store.actions.setLink(status, detail);
+        // Mensagens que esperavam a conexão saem agora pela fila: o prazo
+        // de confirmação começa a contar daqui.
+        if (status === "online") store.actions.markPendingSent(Date.now());
     },
     onQueueChange: (queued) => {
         store.actions.setQueued(queued);
@@ -68,31 +118,191 @@ const transport = createTransport({
     onOpen: () => {
         const me = store.getState().me;
         if (!me) return;
-        transport.send("user_login", { userId: me.id, userName: me.name });
+        // `userId` é ignorado pelo servidor atual (que atribui a identidade)
+        // e mantido só para compatibilidade com um servidor antigo.
+        transport.send(CLIENT_EVENTS.LOGIN, {
+            userId: me.id,
+            userName: me.name,
+            ...(resumeToken ? { resumeToken } : {}),
+        });
     },
     onEvent: (event) => handleEvent(event),
 });
 
-handleEvent = createEventHandler({ store, toasts, notifier, typingTracker });
+const typingSignal = createTypingSignal({
+    send: (type) => transport.signal(type),
+    interval: TIMING.typingSignalInterval,
+    idle: TIMING.typingIdle,
+});
 
-/** @type {ReturnType<typeof setTimeout> | null} */
-let typingTimer = null;
+/**
+ * Envia uma mensagem comum. Ela aparece na hora como "enviando…" e é
+ * confirmada quando o servidor a devolve com o mesmo `clientMsgId`.
+ * @param {string} content
+ */
+const sendChat = (content) => {
+    const me = store.getState().me;
+    if (!me) return;
+    const clientMsgId = crypto.randomUUID();
+    const sent = transport.send(CLIENT_EVENTS.CHAT_MESSAGE, { content, clientMsgId });
+    store.actions.addMessage({
+        id: `local:${clientMsgId}`,
+        key: `c:${clientMsgId}`,
+        kind: "chat",
+        userId: me.id,
+        userName: me.name,
+        content,
+        timestamp: new Date().toISOString(),
+        own: true,
+        variant: "text",
+        format: null,
+        clientMsgId,
+        delivery: "pending",
+        sentAt: sent ? Date.now() : null,
+    });
+};
+
+/**
+ * "Tentar de novo": reenvia com o MESMO `clientMsgId` — se a original
+ * tiver chegado, o servidor não duplica.
+ * @param {import("./state/store.js").Message} message
+ */
+const retryMessage = (message) => {
+    if (!message.clientMsgId) return;
+    const sent = transport.send(CLIENT_EVENTS.CHAT_MESSAGE, {
+        content: message.content,
+        clientMsgId: message.clientMsgId,
+    });
+    store.actions.retryMessage(message.clientMsgId, sent ? Date.now() : null);
+};
+
+setInterval(() => {
+    store.actions.expirePending(Date.now(), DELIVERY_TIMEOUT_MS, strings.delivery.timeout);
+}, 1000);
+
+/**
+ * Comando local (`scope: "client"` no catálogo do servidor).
+ * @param {import("./state/store.js").CommandInfo} command
+ * @param {string} args
+ */
+const runLocalCommand = (command, args) => {
+    const catalog = store.getState().catalog;
+    switch (command.name) {
+        case "clear":
+            store.actions.clearLocal();
+            store.actions.addMessage(
+                noticeMessage({ tone: "success", text: strings.system.localCleared }),
+            );
+            break;
+        case "time":
+            store.actions.addMessage(noticeMessage(timeReply()));
+            break;
+        default:
+            store.actions.addMessage(noticeMessage(helpReply(catalog, args)));
+    }
+};
+
+/**
+ * Caminho único de envio: o campo de mensagem e os atalhos da interface
+ * (barra lateral, cartão de pessoa) passam por aqui. Um botão nunca fala
+ * com o servidor por fora do sistema de comandos — validação e permissão
+ * continuam todas no servidor.
+ * @param {string} content
+ */
+const submit = (content) => {
+    // Gesto do usuário: é aqui, e só aqui, que a permissão de
+    // notificação pode ser pedida.
+    notifier.requestOnGesture();
+    typingSignal.stop();
+    const route = routeInput(content, store.getState().catalog);
+    if (route.type === "message") {
+        sendChat(route.content);
+    } else if (route.type === "client") {
+        runLocalCommand(route.command, route.args);
+    } else {
+        // Comando do servidor: vai como texto bruto; quem interpreta,
+        // valida e autoriza é o servidor.
+        const requestId = crypto.randomUUID();
+        pendingRequests.set(requestId, { name: route.name, sentAt: Date.now() });
+        transport.send(CLIENT_EVENTS.COMMAND, { requestId, text: route.text });
+    }
+};
 
 const composer = createComposer({
-    onSend: (content) => {
-        // Gesto do usuário: é aqui, e só aqui, que a permissão de
-        // notificação pode ser pedida.
-        notifier.requestOnGesture();
-        transport.send("chat_message", { content });
-        if (typingTimer) clearTimeout(typingTimer);
-        transport.signal("typing_stop");
-    },
-    onTyping: () => {
-        transport.signal("typing_start");
-        if (typingTimer) clearTimeout(typingTimer);
-        typingTimer = setTimeout(() => transport.signal("typing_stop"), TIMING.typingIdle);
-    },
+    onSend: submit,
+    onTyping: () => typingSignal.input(),
+    onInput: (text, cursor) => suggestions.update(text, cursor),
+    onKeyDown: (event) => suggestions.handleKey(event),
 });
+
+const suggestions = createCommandSuggestions({
+    input: composer.input,
+    getCatalog: () => store.getState().catalog,
+    onChoose: (text) => composer.setValue(text),
+});
+
+/**
+ * Papel efetivo para a INTERFACE (mostrar ou não atalhos de moderação).
+ * O `session` só traz o papel da entrada; depois de um /admin, o valor
+ * atual chega na lista de pessoas do servidor. Permissão de verdade é
+ * sempre conferida no servidor, a cada comando.
+ * @param {import("./state/store.js").State} state
+ * @returns {"member" | "admin"}
+ */
+const effectiveRole = (state) => {
+    const listed = state.people.find((person) => person.id === state.me?.id);
+    return listed?.role ?? state.role;
+};
+
+const memberCard = createMemberCard({
+    getContext: () => {
+        const state = store.getState();
+        return { meId: state.me?.id ?? null, role: effectiveRole(state) };
+    },
+    runCommand: (text) => {
+        layout.closeDrawer();
+        submit(text);
+        composer.focus();
+    },
+    prefill: (text) => {
+        layout.closeDrawer();
+        composer.setValue(text);
+    },
+    confirm: (options) => dialog.confirm(options),
+    notify: (text, kind) => toasts.show(text, kind),
+});
+
+const people = createPeople({ onSelect: (person, button) => memberCard.open(person, button) });
+
+const userPanel = createUserPanel({ onToggleAway: () => submit("/afk") });
+
+/**
+ * Atalhos da barra lateral e do cabeçalho. Cada um é um comando que já
+ * existe — nada de botão decorativo.
+ * @type {Record<string, () => void | Promise<void>>}
+ */
+const shortcuts = {
+    help: () => submit("/help"),
+    "clear-local": () => submit("/clear"),
+    "clear-room": async () => {
+        const ok = await dialog.confirm({
+            title: strings.dialogs.clearAllTitle,
+            body: strings.dialogs.clearAllBody,
+            confirmLabel: strings.dialogs.clearAllConfirm,
+        });
+        if (ok) submit("/clearall confirmar");
+    },
+};
+
+for (const button of document.querySelectorAll("[data-action]")) {
+    const action = button.getAttribute("data-action") ?? "";
+    const run = shortcuts[action];
+    if (!run) continue;
+    button.addEventListener("click", () => {
+        layout.closeDrawer();
+        void Promise.resolve(run()).then(() => composer.focus());
+    });
+}
 
 const failure = createFailure({
     onRetry: () => transport.retryNow(),
@@ -100,8 +310,45 @@ const failure = createFailure({
 
 const entry = createEntry({
     onSubmit: (name) => {
+        // Id provisório: o definitivo chega do servidor no evento `session`.
         store.actions.enterRoom({ id: crypto.randomUUID(), name });
         transport.open();
+    },
+});
+
+handleEvent = createEventHandler({
+    store,
+    toasts,
+    notifier,
+    typingTracker,
+    onSession: (token) => {
+        resumeToken = token;
+    },
+    onCommandResult: (requestId, result) => {
+        const request = requestId ? pendingRequests.get(requestId) : undefined;
+        if (requestId) pendingRequests.delete(requestId);
+        // Texto vazio: confirmação de um comando cujo efeito já apareceu na sala.
+        if (!result.text) return;
+        // /ping: o servidor responde; a ida e volta é medida aqui.
+        const reply =
+            request?.name === "ping" && result.tone === "success"
+                ? {
+                      ...result,
+                      text: format(strings.commands.ping, { ms: Date.now() - request.sentAt }),
+                  }
+                : result;
+        store.actions.addMessage(noticeMessage(reply));
+    },
+    onLoginRejected: (message) => {
+        // Entrada recusada pelo servidor: a pessoa volta à tela do nome com
+        // a explicação, em vez de ficar numa sala em que não pode falar.
+        transport.close();
+        resumeToken = null;
+        typingTracker.clear();
+        store.actions.leaveRoom();
+        // A tela de entrada precisa estar visível antes de receber o foco.
+        renderLoop.flush();
+        entry.reset(message);
     },
 });
 
@@ -131,24 +378,62 @@ const linkAnnouncement = (state) => {
     }
 };
 
-store.subscribe((state) => {
+/**
+ * Pinta a tela a partir do estado. Cada componente só é redesenhado quando a
+ * parte do estado de que ele depende mudou — antes, todo evento recebido
+ * (inclusive cada sinal de digitação de outra pessoa) reconstruía a lista de
+ * pessoas e forçava um layout completo da conversa.
+ * @param {import("./state/store.js").State} state
+ * @param {import("./state/store.js").State | null} previous
+ */
+const render = (state, previous) => {
     const inRoom = state.screen === "room";
-
-    shell.dataset.screen = state.screen;
-    entry.setVisible(!inRoom);
-    header.hidden = !inRoom;
-    room.hidden = !inRoom;
-    composer.setVisible(inRoom);
-
     const noMessages = state.messages.length === 0;
-    connection.render(state.link, state.attempt, noMessages);
-    empty.render(inRoom && state.link === "online" && noMessages);
-    failure.render(inRoom && state.link === "offline", state.maxAttempts);
+    const wasEmpty = previous ? previous.messages.length === 0 : null;
 
-    typing.render(state.typing);
-    messageList.render(state.messages);
-    people.render(state.people, state.me?.id ?? null, state.link === "online");
-    composer.render(state.link, state.queued);
+    if (changed(state, previous, ["screen"])) {
+        shell.dataset.screen = state.screen;
+        entry.setVisible(!inRoom);
+        room.hidden = !inRoom;
+        composer.setVisible(inRoom);
+        layout.setInRoom(inRoom);
+        if (!inRoom) memberCard.close({ restoreFocus: false });
+    }
+
+    if (changed(state, previous, ["link", "attempt"])) {
+        connection.render(state.link, state.attempt);
+    }
+    if (changed(state, previous, ["screen", "link"]) || noMessages !== wasEmpty) {
+        empty.render(inRoom && state.link === "online" && noMessages);
+        // Primeira conexão ainda a caminho e nada para mostrar: esqueleto.
+        skeleton.hidden = !(
+            inRoom &&
+            noMessages &&
+            (state.link === "idle" || state.link === "connecting" || state.link === "retrying")
+        );
+    }
+    if (changed(state, previous, ["screen", "link", "maxAttempts", "closeCode"])) {
+        failure.render(
+            inRoom && state.link === "offline",
+            state.maxAttempts,
+            state.closeCode === CLOSE_CODES.REMOVED,
+        );
+    }
+    if (changed(state, previous, ["typing"])) typing.render(state.typing);
+    if (changed(state, previous, ["messages"])) messageList.render(state.messages);
+    if (changed(state, previous, ["people", "me", "link"])) {
+        people.render(state.people, state.me?.id ?? null, state.link === "online");
+    }
+    if (changed(state, previous, ["people", "me", "role", "link"])) {
+        const meId = state.me?.id;
+        userPanel.render(
+            state.me,
+            state.people.find((person) => person.id === meId),
+            effectiveRole(state),
+            state.link === "online",
+        );
+    }
+    if (changed(state, previous, ["link", "queued"])) composer.render(state.link, state.queued);
 
     // Trocar `display` sem mover o foco é bug de acessibilidade: na entrada
     // da sala o foco vai para o composer e a mudança de contexto é anunciada.
@@ -162,7 +447,10 @@ store.subscribe((state) => {
         announcer.say(linkAnnouncement(state));
         lastLink = state.link;
     }
-});
+};
+
+const renderLoop = createRenderLoop({ getState: () => store.getState(), render });
+store.subscribe(() => renderLoop.request());
 
 // Estado inicial: pinta a tela de entrada sem esperar por nenhum evento.
 //

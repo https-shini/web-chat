@@ -1,36 +1,58 @@
-/* Notificação. Elevação real — é o único lugar com sombra no projeto. */
+/* Avisos temporários, no canto inferior direito (centro em telas estreitas). */
 
 .c-toasts {
     position: fixed;
-    top: var(--space-5);
-    right: var(--space-5);
+    right: var(--space-4);
+    bottom: var(--space-4);
     z-index: var(--z-toast);
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
-    max-width: 40ch;
+    gap: var(--space-2);
+    align-items: flex-end;
+    pointer-events: none;
 }
 
+/* Cápsula flutuante com um marcador de tom à esquerda (ponto com halo).
+   O tom reforça; o texto é quem informa. */
 .c-toast {
-    padding: var(--space-3) var(--space-4);
-    border: var(--rule-1) solid var(--color-border-subtle);
-    border-left: var(--rule-2) solid var(--color-ok);
-    border-radius: var(--radius-md);
-    background-color: var(--color-surface-2);
-    color: var(--color-text-1);
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+    max-width: 24rem;
+    padding: var(--space-3) var(--space-5) var(--space-3) var(--space-4);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-bg-floating);
+    color: var(--color-text-on-floating);
     font-size: var(--text-sm);
-    box-shadow: var(--shadow-2);
-    animation: toast-enter var(--duration-base) var(--ease-out);
+    font-weight: var(--weight-medium);
+    box-shadow: var(--shadow-3);
+    animation: rise-in var(--duration-slow) var(--ease-out);
+    --toast-tone: var(--color-accent-2-on-floating);
+}
+
+.c-toast::before {
+    width: var(--space-2);
+    height: var(--space-2);
+    flex: none;
+    border-radius: var(--radius-full);
+    background-color: var(--toast-tone);
+    box-shadow: 0 0 0 var(--space-1) color-mix(in srgb, var(--toast-tone) 25%, transparent);
+    content: "";
 }
 
 .c-toast--error {
-    border-left-color: var(--color-danger);
+    --toast-tone: var(--color-danger-on-floating);
 }
 
-@media (max-width: 480px) {
+@media (max-width: 30rem) {
     .c-toasts {
-        left: var(--space-3);
-        right: var(--space-3);
+        right: var(--space-2);
+        bottom: var(--space-16);
+        left: var(--space-2);
+        align-items: stretch;
+    }
+
+    .c-toast {
         max-width: none;
     }
 }

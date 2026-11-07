@@ -1,9 +1,8 @@
-/* Movimento — toda animação nomeada do projeto vive aqui, e todas elas são
+/* Movimento — toda animação nomeada do projeto vive aqui, e todas são
    decorativas: nenhuma informação depende de movimento para chegar.
-   O desligamento global está em tokens.css; aqui ficam os casos em que
-   o elemento precisa de um estado parado explícito, não só mais rápido. */
+   O desligamento global (prefers-reduced-motion) está em tokens.css. */
 
-@keyframes message-enter {
+@keyframes fade-in {
     from {
         opacity: 0;
     }
@@ -13,14 +12,46 @@
     }
 }
 
-@keyframes toast-enter {
+@keyframes rise-in {
     from {
         opacity: 0;
-        transform: translateX(var(--space-4));
+        transform: translateY(var(--space-1));
     }
 
     to {
         opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pop-in {
+    from {
+        opacity: 0;
+        transform: scale(0.96);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes slide-in-left {
+    from {
+        transform: translateX(-100%);
+    }
+
+    to {
+        transform: translateX(0);
+    }
+}
+
+@keyframes slide-in-right {
+    from {
+        transform: translateX(100%);
+    }
+
+    to {
         transform: translateX(0);
     }
 }
@@ -30,36 +61,37 @@
     80%,
     100% {
         opacity: var(--opacity-disabled);
+        transform: translateY(0);
     }
 
     40% {
         opacity: var(--opacity-1);
+        transform: translateY(calc(var(--space-0-5) * -1));
     }
 }
 
-/* O tracejado do fio "caminha" enquanto reconecta. */
-@keyframes thread-travel {
+@keyframes shimmer {
+    from {
+        opacity: 0.55;
+    }
+
     to {
-        background-position-y: var(--space-6);
+        opacity: 1;
+    }
+}
+
+@keyframes pulse-dot {
+    50% {
+        opacity: var(--opacity-disabled);
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    /* Parado, o estado continua legível por cor, por padrão de traço e por
-       texto — três canais, nenhum dependendo de movimento. */
-    .c-thread[data-state="retrying"],
-    .c-thread[data-state="offline"] {
+    /* Parado, o estado continua legível por texto e por forma. */
+    .c-typing__dot,
+    .c-skeleton__row,
+    .c-connection__dot,
+    .c-status-pill__dot {
         animation: none;
-    }
-
-    .c-typing__dot {
-        animation: none;
-        opacity: var(--opacity-1);
-    }
-
-    /* Hover não desloca elemento quando o usuário pediu menos movimento. */
-    .c-button:hover,
-    .c-people__item:hover {
-        transform: none;
     }
 }

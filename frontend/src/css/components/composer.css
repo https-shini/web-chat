@@ -1,30 +1,80 @@
-/* Composer. O campo continua editável quando a conexão cai: o envio vai
-   para a fila em vez de ser descartado em silêncio, e o aviso ao lado diz
-   isso em texto. */
+/* Área do composer: aviso de fila, sugestões de comando, campo e
+   "digitando…" logo abaixo, como nos chats em grupo. */
+
+.c-composer-area {
+    position: relative;
+    flex: none;
+    padding: var(--space-0) var(--space-4);
+}
 
 .c-composer {
     display: flex;
-    align-items: flex-end;
-    gap: var(--space-3);
+    gap: var(--space-1);
+    align-items: center;
+    min-height: var(--space-12);
+    padding: var(--space-1) var(--space-1) var(--space-1) var(--space-4);
+    border: var(--rule-1) solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-bg-elevated);
+    transition:
+        border-color var(--duration-fast) var(--ease-standard),
+        box-shadow var(--duration-fast) var(--ease-standard);
 }
 
-.c-composer__field {
+/* O campo em si não desenha anel: o composer inteiro mostra o foco. */
+.c-composer:focus-within {
+    border-color: var(--color-focus-ring);
+    box-shadow: 0 0 0 var(--halo-width) var(--color-brand-soft);
+}
+
+.c-composer__input {
     flex: 1 1 auto;
     min-width: 0;
+    min-height: var(--space-10);
+    padding: var(--space-2) var(--space-0);
+    border: 0;
+    background: transparent;
+    color: var(--color-text-1);
+    font-size: var(--text-md);
+}
+
+.c-composer__input::placeholder {
+    color: var(--color-text-3);
+}
+
+.c-composer__input:focus-visible {
+    outline: none;
+}
+
+.c-composer__input:disabled {
+    cursor: not-allowed;
 }
 
 .c-composer__send {
-    flex: 0 0 auto;
+    color: var(--color-brand-text);
+}
+
+.c-composer__send:hover:not(:disabled) {
+    background-color: var(--color-brand-soft);
+    color: var(--color-brand-text);
+}
+
+.c-composer[data-state="blocked"] {
+    opacity: var(--opacity-disabled);
+}
+
+.c-composer__notice {
+    padding: var(--space-0) var(--space-1) var(--space-1);
+    font-size: var(--text-xs);
+    color: var(--color-warn-text);
 }
 
 .c-composer__notice:empty {
     display: none;
 }
 
-.c-composer[data-state="queued"] .c-field__input {
-    border-color: var(--color-brand);
-}
-
-.c-composer[data-state="blocked"] .c-field__input {
-    color: var(--color-text-disabled);
+@media (max-width: 30rem) {
+    .c-composer-area {
+        padding: var(--space-0) var(--space-2);
+    }
 }

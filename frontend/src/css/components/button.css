@@ -1,24 +1,40 @@
-/* Botão. Três variantes, todos os estados.
-   O par de cores é medido: --color-on-brand sobre --color-brand rende
-   9.19:1 no escuro e 6.10:1 no claro. O indigo anterior rendia 4.47:1 com
-   texto branco e reprovava 1.4.3. */
+/* Botões.
+   .c-button              base (texto)
+     --primary            ação principal (marca)
+     --secondary          ação neutra
+     --danger             ação destrutiva
+     --ghost              sem fundo, para ações em linha
+     --block              largura total
+     --sm                 compacto
+   .c-icon-button         só ícone; o nome vem de aria-label */
 
 .c-button {
     display: inline-flex;
+    gap: var(--space-2);
     align-items: center;
     justify-content: center;
-    gap: var(--space-2);
-    padding: var(--space-3) var(--space-4);
+    min-height: var(--space-10);
+    padding: var(--space-2) var(--space-4);
+    border: var(--rule-1) solid transparent;
     border-radius: var(--radius-md);
     font-size: var(--text-sm);
-    font-weight: var(--weight-bold);
-    line-height: var(--leading-snug);
-    text-align: center;
+    font-weight: var(--weight-semibold);
+    line-height: var(--leading-tight);
+    text-decoration: none;
+    white-space: nowrap;
     transition:
         background-color var(--duration-fast) var(--ease-standard),
         color var(--duration-fast) var(--ease-standard),
-        border-color var(--duration-fast) var(--ease-standard),
+        box-shadow var(--duration-fast) var(--ease-standard),
         transform var(--duration-fast) var(--ease-standard);
+}
+
+.c-button:active:not(:disabled) {
+    transform: translateY(var(--rule-1));
+}
+
+.c-button:disabled {
+    opacity: var(--opacity-disabled);
 }
 
 .c-button--primary {
@@ -26,40 +42,93 @@
     color: var(--color-on-brand);
 }
 
-.c-button--primary:hover {
+.c-button--primary:hover:not(:disabled) {
     background-color: var(--color-brand-hover);
+    box-shadow: var(--shadow-2);
 }
 
-.c-button--quiet {
-    color: var(--color-text-2);
-    border: var(--rule-1) solid var(--color-outline-control);
-    background-color: transparent;
-}
-
-.c-button--quiet:hover {
+.c-button--secondary {
+    border-color: var(--color-border-subtle);
+    background-color: var(--color-bg-elevated);
     color: var(--color-text-1);
-    border-color: var(--color-brand);
 }
 
-.c-button--icon {
-    padding: var(--space-2);
+.c-button--secondary:hover:not(:disabled) {
+    background-color: var(--color-bg-selected);
 }
 
-.c-button:active {
-    transform: translateY(var(--space-0-5));
+.c-button--danger {
+    background-color: var(--color-danger);
+    color: var(--color-on-danger);
 }
 
-.c-button[disabled],
-.c-button[aria-disabled="true"] {
-    color: var(--color-text-disabled);
+.c-button--danger:hover:not(:disabled) {
+    background-color: var(--color-danger-hover);
+}
+
+.c-button--ghost {
+    min-height: var(--space-8);
+    padding: var(--space-1) var(--space-2);
     background-color: transparent;
-    border: var(--rule-1) solid var(--color-outline-control);
-    cursor: not-allowed;
-    transform: none;
+    color: var(--color-brand-text);
 }
 
-/* Carregando: o rótulo cede lugar sem o botão mudar de tamanho. */
+.c-button--ghost:hover:not(:disabled) {
+    background-color: var(--color-bg-hover);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+
+.c-button--sm {
+    min-height: var(--space-8);
+    padding: var(--space-1) var(--space-3);
+}
+
+.c-button--block {
+    width: 100%;
+}
+
 .c-button[data-loading="true"] {
     cursor: progress;
-    color: var(--color-text-disabled);
+    opacity: 0.8;
+}
+
+/* Botão de ícone: quadrado, 32px, alvo ampliado em ponteiro grosso. */
+.c-icon-button {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    gap: var(--space-1);
+    align-items: center;
+    justify-content: center;
+    min-width: var(--space-8);
+    min-height: var(--space-8);
+    padding: var(--space-1);
+    border-radius: var(--radius-md);
+    color: var(--color-text-2);
+    transition:
+        background-color var(--duration-fast) var(--ease-standard),
+        color var(--duration-fast) var(--ease-standard);
+}
+
+.c-icon-button:hover:not(:disabled) {
+    background-color: var(--color-bg-hover);
+    color: var(--color-text-1);
+}
+
+/* Ligado/aberto: ladrilho tingido do acento — estado visível sem hover. */
+.c-icon-button[aria-pressed="true"],
+.c-icon-button[aria-expanded="true"] {
+    background-color: var(--color-brand-soft);
+    color: var(--color-brand-text);
+}
+
+/* O alternador de tema usa aria-pressed para "claro"; não é um "ligado". */
+.c-theme-toggle[aria-pressed="true"] {
+    background-color: transparent;
+    color: var(--color-text-2);
+}
+
+.c-icon-button:disabled {
+    opacity: var(--opacity-disabled);
 }

@@ -1,0 +1,149 @@
+/* Painel de pessoas: agrupado por papel e presença. Cada pessoa é um botão
+   que abre o cartão dela. */
+
+.c-members {
+    display: flex;
+    flex: 0 0 var(--members-width);
+    flex-direction: column;
+    width: var(--members-width);
+    min-height: 0;
+    border-left: var(--rule-1) solid var(--color-border);
+    background-color: var(--color-bg-sidebar);
+    --presence-ring: var(--color-bg-sidebar);
+}
+
+.c-members__top {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: space-between;
+    height: var(--header-height);
+    padding: var(--space-0) var(--space-2) var(--space-0) var(--space-4);
+    border-bottom: var(--rule-1) solid var(--color-border-subtle);
+}
+
+.c-members__heading {
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+}
+
+.c-people__count {
+    margin-left: var(--space-1);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-regular);
+    color: var(--color-text-2);
+}
+
+.c-members__close {
+    display: none;
+}
+
+.c-members__scroll {
+    flex: 1 1 auto;
+    padding: var(--space-2) var(--space-2) var(--space-6);
+    overflow-y: auto;
+}
+
+.c-people__group + .c-people__group {
+    margin-top: var(--space-4);
+}
+
+.c-people__title {
+    padding: var(--space-3) var(--space-2) var(--space-1);
+    font-size: var(--text-2xs);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-caps);
+    text-transform: uppercase;
+    color: var(--color-text-3);
+}
+
+.c-member {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+    width: 100%;
+    min-height: var(--space-10);
+    padding: var(--space-1) var(--space-2);
+    border: var(--rule-1) solid transparent;
+    border-radius: var(--radius-md);
+    text-align: left;
+    color: var(--color-text-2);
+    transition:
+        background-color var(--duration-fast) var(--ease-standard),
+        border-color var(--duration-fast) var(--ease-standard);
+}
+
+.c-member:hover {
+    background-color: var(--color-bg-hover);
+    --presence-ring: var(--color-bg-hover);
+}
+
+/* Cartão aberto: tingido e com contorno, como "selecionado". */
+.c-member[aria-expanded="true"] {
+    border-color: var(--color-border-subtle);
+    background-color: var(--color-bg-selected);
+    --presence-ring: var(--color-bg-selected);
+}
+
+.c-member__info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: var(--leading-snug);
+}
+
+.c-member__line {
+    display: flex;
+    gap: var(--space-1-5);
+    align-items: center;
+    min-width: 0;
+}
+
+.c-member__name {
+    overflow: hidden;
+    font-size: var(--text-md);
+    font-weight: var(--weight-medium);
+    color: var(--color-text-1);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.c-member__role {
+    flex: none;
+    color: var(--color-accent-2);
+    font-size: var(--text-sm);
+}
+
+.c-member__sub {
+    overflow: hidden;
+    font-size: var(--text-xs);
+    color: var(--color-text-2);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.c-member[data-status="away"] .c-member__name {
+    color: var(--color-text-2);
+}
+
+.c-people__empty {
+    padding: var(--space-4) var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--color-text-3);
+}
+
+/* < 64rem: gaveta à direita. */
+@media (max-width: 63.99rem) {
+    .c-members {
+        position: fixed;
+        inset: 0 0 0 auto;
+        z-index: calc(var(--z-drawer) + 1);
+        width: min(18rem, 85vw);
+        box-shadow: var(--shadow-3);
+        animation: slide-in-right var(--duration-slow) var(--ease-out);
+    }
+
+    .c-members__close {
+        display: inline-flex;
+    }
+}

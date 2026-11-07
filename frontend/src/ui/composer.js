@@ -11,10 +11,20 @@ import { must } from "./dom.js";
  */
 
 /**
- * @param {{onSend: (content: string) => void, onTyping: () => void}} handlers
+ * @param {{
+ *   onSend: (content: string) => void,
+ *   onTyping: () => void,
+ *   onInput?: (text: string, cursor: number) => void,
+ *   onKeyDown?: (event: KeyboardEvent) => boolean,
+ * }} handlers
  */
-export const createComposer = ({ onSend, onTyping }) => {
-    const footer = /** @type {HTMLElement} */ (must(".c-app__footer"));
+export const createComposer = ({
+    onSend,
+    onTyping,
+    onInput = () => {},
+    onKeyDown = () => false,
+}) => {
+    const footer = /** @type {HTMLElement} */ (must(".c-composer-area"));
     const form = /** @type {HTMLFormElement} */ (must(".c-composer"));
     const input = /** @type {HTMLInputElement} */ (must("#campo-mensagem"));
     const notice = /** @type {HTMLElement} */ (must(".c-composer__notice"));
@@ -25,10 +35,33 @@ export const createComposer = ({ onSend, onTyping }) => {
         const content = input.value.trim().slice(0, LIMITS.messageMaxLength);
         if (!content) return;
         input.value = "";
+        onInput("", 0);
         onSend(content);
     });
 
-    input.addEventListener("input", onTyping);
+    const reportInput = () => onInput(input.value, input.selectionStart ?? input.value.length);
+
+    input.addEventListener("input", () => {
+        // Comando não é digitação de mensagem: não avisa "digitando…".
+        if (!input.value.startsWith("/")) onTyping();
+        reportInput();
+    });
+    // O cursor também muda por clique e setas: a sugestão acompanha.
+    input.addEventListener("click", reportInput);
+    input.addEventListener("keyup", (event) => {
+        if (
+            event.key === "ArrowLeft" ||
+            event.key === "ArrowRight" ||
+            event.key === "Home" ||
+            event.key === "End"
+        ) {
+            reportInput();
+        }
+    });
+    // O autocomplete pode tomar a tecla (setas, Enter, Tab, Escape).
+    input.addEventListener("keydown", (event) => {
+        if (onKeyDown(event)) event.preventDefault();
+    });
 
     return {
         /**
@@ -43,6 +76,20 @@ export const createComposer = ({ onSend, onTyping }) => {
         },
 
         /**
+         * Substitui o texto do campo (autocomplete) e põe o cursor no fim.
+         * @param {string} text
+         */
+        setValue(text) {
+            input.value = text;
+            input.setSelectionRange(text.length, text.length);
+            input.focus();
+            reportInput();
+        },
+
+        /** O campo, para o autocomplete apontar atributos ARIA. */
+        input,
+
+        /**
          * @param {import("../state/store.js").LinkState} link
          * @param {number} queued
          */
@@ -52,7 +99,6 @@ export const createComposer = ({ onSend, onTyping }) => {
 
             input.disabled = blocked;
             send.disabled = blocked;
-            send.textContent = strings.room.send;
 
             notice.textContent = queued > 0 && !blocked ? strings.conn.queued : "";
         },

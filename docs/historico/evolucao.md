@@ -59,8 +59,13 @@ trançados, deu lugar a camadas com fronteira verificável por comando: `ui/` e
 URL do servidor por variável de ambiente, ESLint, Stylelint, Prettier,
 verificação de tipos por JSDoc e checagem de contraste — tudo na CI.
 
-## O que ainda não foi feito
+## O que ainda não foi feito (na época)
 
 No servidor, e conscientemente fora desta entrega: allowlist de `Origin`, rate
 limit, teto de conexões e validação da identidade que chega no `user_login`.
 Detalhado em `docs/refactor-report.md` §7.
+
+> **Atualização (Fase 2):** todos esses itens foram implementados depois — os
+> três primeiros na auditoria de segurança (`docs/security-report.md`) e a
+> identidade emitida pelo servidor na Fase 1
+> (`docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md`).

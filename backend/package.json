@@ -3,9 +3,11 @@
     "version": "1.0.0",
     "description": "Servidor WebSocket do web-chat: sala única, efêmera e anônima.",
     "main": "src/server.js",
+    "type": "module",
     "scripts": {
         "start": "node src/server.js",
-        "dev": "node --watch src/server.js"
+        "dev": "node --watch src/server.js",
+        "test": "node --test test/unit/*.test.js test/integration/*.test.js"
     },
     "keywords": [
         "websocket",

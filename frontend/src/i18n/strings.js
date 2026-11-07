@@ -18,6 +18,7 @@ export const strings = {
         composerLabel: "Mensagem",
         send: "Enviar",
         you: "Você",
+        youBadge: "você",
     },
     empty: {
         title: "Silêncio por enquanto.",
@@ -35,14 +36,92 @@ export const strings = {
         queued: "Sua mensagem fica na fila até a conexão voltar.",
         restored: "Conexão restabelecida.",
     },
-    people: {
+    peopleCount: {
         one: "1 pessoa",
         many: "{n} pessoas",
-        unknown: "— pessoas",
     },
     system: {
         joined: "{name} entrou na sala",
         left: "{name} saiu da sala",
+        cleared: "A conversa foi apagada para todos por {name}",
+        localCleared: "Conversa limpa só na sua tela. Ninguém mais foi afetado.",
+    },
+    delivery: {
+        pending: "enviando…",
+        failed: "não enviada",
+        retry: "Tentar de novo",
+        timeout: "O servidor não confirmou o recebimento.",
+        announceFailed: "Sua mensagem não foi enviada: {reason}",
+    },
+    message: {
+        announcement: "Aviso",
+        spoilerShow: "Mostrar spoiler",
+        spoilerHide: "Esconder spoiler",
+        private: "Só você vê isto",
+    },
+    commands: {
+        helpTitle: "Comandos",
+        helpIntro: "Digite / para ver sugestões enquanto escreve.",
+        helpFooter:
+            "Detalhes de um comando: /help nome (ex.: /help roll). 🔒 = só administradores.",
+        timeNote: "Horário deste dispositivo.",
+        ping: "pong — ida e volta até o servidor: {ms} ms",
+        suggestionsLabel: "Comandos sugeridos",
+        adminOnly: "só administradores",
+        syntax: "Uso: {syntax}",
+        removedTitle: "Você foi removido da sala.",
+        removedBody:
+            "Um administrador removeu você. Você pode entrar de novo, como uma nova pessoa.",
+        rejoin: "Entrar de novo",
+    },
+    people: {
+        admin: "admin",
+        away: "ausente",
+        groupAdmins: "Administradores — {n}",
+        groupOnline: "Online — {n}",
+        groupAway: "Ausentes — {n}",
+        unknown: "A lista volta junto com a conexão.",
+        openCard: "{name}: abrir cartão",
+    },
+    memberCard: {
+        roleAdmin: "Administrador da sala",
+        roleMember: "Participante",
+        online: "Online",
+        away: "Ausente",
+        awayWith: "Ausente: {reason}",
+        id: "id {id}",
+        profile: "Ver perfil completo",
+        copyId: "Copiar id",
+        copied: "Id copiado para a área de transferência.",
+        copyFailed: "Não foi possível copiar o id.",
+        nick: "Trocar meu nome",
+        goAway: "Ficar ausente",
+        comeBack: "Voltar a ficar presente",
+        mute: "Silenciar por 10 minutos",
+        unmute: "Liberar mensagens",
+        kick: "Remover da sala",
+    },
+    dialogs: {
+        clearAllTitle: "Apagar a conversa para todos?",
+        clearAllBody:
+            "Todas as mensagens da sala somem da tela de todas as pessoas conectadas. Não dá para desfazer.",
+        clearAllConfirm: "Apagar para todos",
+        kickTitle: "Remover {name} da sala?",
+        kickBody:
+            "A pessoa é desconectada agora. Se quiser voltar, entra de novo como uma pessoa nova.",
+        kickConfirm: "Remover",
+    },
+    layout: {
+        openSidebar: "Abrir barra lateral",
+        closeSidebar: "Fechar barra lateral",
+        members: "Pessoas",
+    },
+    userPanel: {
+        online: "Online",
+        away: "Ausente",
+        admin: "Admin",
+        goAway: "Ficar ausente",
+        comeBack: "Voltar a ficar presente",
     },
     typing: {
         one: "{name} está digitando…",
@@ -62,6 +141,9 @@ export const strings = {
     },
     errors: {
         generic: "Algo deu errado. Tente de novo.",
+        rateLimited:
+            "Sua mensagem não foi enviada: você está escrevendo rápido demais. Aguarde um instante e envie de novo.",
+        invalidName: "O servidor recusou esse nome. Escolha outro com letras ou números.",
     },
 };
 
@@ -82,4 +164,4 @@ export const format = (template, values) =>
  * @returns {string}
  */
 export const peopleCount = (count) =>
-    count === 1 ? strings.people.one : format(strings.people.many, { n: count });
+    count === 1 ? strings.peopleCount.one : format(strings.peopleCount.many, { n: count });

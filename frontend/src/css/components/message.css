@@ -1,13 +1,29 @@
-/* Mensagem. Sem balão e sem alinhamento à direita: o produto é uma
-   transcrição, e o balão custava 30% da largura (max-width: 70%) e uma
-   leitura em ziguezague. A posse é dita por três sinais redundantes —
-   monograma preenchido, rótulo "Você" e o traço de 2px na marca. */
+/* Mensagem — linha no estilo de chat em grupo:
+
+   [avatar]  Nome  VOCÊ  14:02
+             texto da mensagem
+             texto agrupado (mesma pessoa, menos de 5 min)   ← --compact
+
+   Variantes: --system (entrada/saída/avisos), --notice (só você vê),
+   --action (/me), --announcement (/announce), e o estado de entrega da
+   sua mensagem (data-delivery pending | failed). */
 
 .c-message {
+    position: relative;
     display: grid;
-    grid-template-columns: var(--rail-width) 1fr;
-    column-gap: var(--space-3);
-    animation: message-enter var(--duration-base) var(--ease-out);
+    grid-template-columns: var(--gutter-message) minmax(0, 1fr);
+    margin-top: var(--space-4);
+    padding: var(--space-0-5) var(--space-4) var(--space-0-5) var(--space-0);
+    animation: fade-in var(--duration-base) var(--ease-out);
+}
+
+.c-message:hover,
+.c-message:focus-within {
+    background-color: var(--color-bg-hover);
+}
+
+.c-message--compact {
+    margin-top: var(--space-0);
 }
 
 .c-message__aside {
@@ -16,70 +32,259 @@
     padding-top: var(--space-0-5);
 }
 
+.c-message__aside .c-identity__monogram {
+    width: var(--avatar-lg);
+    height: var(--avatar-lg);
+    font-size: var(--text-sm);
+}
+
 .c-message__body {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
     min-width: 0;
     max-width: var(--measure-message);
 }
 
 .c-message__head {
     display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-0) var(--space-2);
     align-items: baseline;
-    justify-content: space-between;
-    gap: var(--space-3);
+}
+
+.c-message__head .c-identity__name {
+    font-size: var(--text-md);
 }
 
 .c-message__time {
-    flex: 0 0 auto;
-    font-size: var(--text-2xs);
-    letter-spacing: var(--tracking-wide);
-    color: var(--color-text-2);
+    font-size: var(--text-xs);
+    color: var(--color-text-3);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* Agrupada: a hora mora na calha e só aparece no hover/foco. */
+.c-message__aside .c-message__time {
+    padding-top: var(--space-0-5);
+    font-size: var(--text-2xs);
+    line-height: var(--leading-normal);
+    opacity: 0;
+}
+
+.c-message--compact:hover .c-message__time,
+.c-message--compact:focus-within .c-message__time {
+    opacity: 1;
 }
 
 .c-message__text {
     color: var(--color-text-1);
+    line-height: var(--leading-normal);
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+.c-message__code {
+    padding: var(--space-0-5) var(--space-1-5);
+    border: var(--rule-1) solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-bg-app);
+}
+
+/* ─── Entrega ─────────────────────────────────────────────────────── */
+.c-message[data-delivery="pending"] .c-message__text {
+    color: var(--color-text-2);
+}
+
+.c-message__status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    align-items: center;
+    font-size: var(--text-xs);
+    color: var(--color-text-2);
+}
+
+.c-message[data-delivery="failed"] .c-message__status {
+    color: var(--color-danger-text);
+    font-weight: var(--weight-medium);
+}
+
+.c-message[data-delivery="failed"] .c-message__text {
+    color: var(--color-text-2);
+}
+
+.c-message__retry {
+    min-height: var(--space-6);
+}
+
+/* ─── Sistema: entrou, saiu, avisos da sala ───────────────────────── */
+.c-message--system {
+    margin-top: var(--space-2);
+}
+
+.c-message--system + .c-message--system {
+    margin-top: var(--space-0);
+}
+
+.c-message--system .c-message__aside {
+    padding-top: var(--space-0-5);
+    color: var(--color-text-3);
+}
+
+.c-message--system[data-event="join"] .c-message__aside {
+    color: var(--color-ok-text);
+}
+
+.c-message--system[data-event="leave"] .c-message__aside {
+    color: var(--color-danger-text);
+}
+
+.c-message--system[data-tone="admin"] .c-message__aside {
+    color: var(--color-accent-2);
+}
+
+.c-message--system .c-message__text {
+    font-size: var(--text-sm);
+    color: var(--color-text-2);
+}
+
+.c-message--system .c-message__time {
+    margin-left: var(--space-2);
+}
+
+/* ─── Ação (/me, /roll) ───────────────────────────────────────────── */
+.c-message--action .c-message__text {
+    font-style: italic;
+    color: var(--color-text-2);
+}
+
+.c-message__actor {
+    font-style: normal;
+    font-weight: var(--weight-semibold);
+    color: var(--color-text-1);
+}
+
+/* ─── Anúncio (/announce) ─────────────────────────────────────────── */
+.c-message--announcement {
+    margin-right: var(--space-4);
+    border-left: var(--rule-3) solid var(--color-warn);
+    border-radius: var(--radius-0) var(--radius-sm) var(--radius-sm) var(--radius-0);
+    background-color: color-mix(in srgb, var(--color-warn) 8%, transparent);
+}
+
+/* O tom não escurece no hover: a hora (text-3) precisa de 4.5:1 sobre o
+   fundo tingido. Com 8 %, medido: 6.19:1 (escuro) e 6.79:1 (claro). */
+.c-message--announcement:hover {
+    background-color: color-mix(in srgb, var(--color-warn) 8%, transparent);
+}
+
+.c-message__label {
+    display: inline-flex;
+    gap: var(--space-1);
+    align-items: center;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-caps);
+    text-transform: uppercase;
+    color: var(--color-warn-text);
+}
+
+/* ─── Resposta de comando: só você vê ─────────────────────────────── */
+.c-message--notice {
+    margin-top: var(--space-2);
+}
+
+.c-message--notice:hover {
+    background-color: transparent;
+}
+
+.c-message--notice .c-message__aside {
+    padding-top: var(--space-3);
+    color: var(--color-text-3);
+}
+
+.c-message__card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-3) var(--space-4);
+    border: var(--rule-1) solid var(--color-border-subtle);
+    border-left: var(--rule-3) solid var(--tone-color, var(--color-brand));
+    border-radius: var(--radius-sm) var(--radius-md) var(--radius-md) var(--radius-sm);
+    background-color: var(--color-bg-elevated);
+}
+
+.c-message--notice[data-tone="success"] {
+    --tone-color: var(--color-ok);
+}
+
+.c-message--notice[data-tone="warning"] {
+    --tone-color: var(--color-warn);
+}
+
+.c-message--notice[data-tone="error"] {
+    --tone-color: var(--color-danger);
+}
+
+.c-message--notice[data-tone="admin"] {
+    --tone-color: var(--color-accent-2);
+}
+
+.c-message__private {
+    display: flex;
+    gap: var(--space-1);
+    align-items: center;
+    font-size: var(--text-xs);
+    color: var(--color-text-3);
+}
+
+.c-message__title {
+    font-weight: var(--weight-semibold);
+}
+
+.c-message--notice .c-message__text {
+    font-size: var(--text-sm);
+}
+
+.c-message__lines {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-0-5);
+    font-size: var(--text-sm);
+    color: var(--color-text-2);
     overflow-wrap: anywhere;
 }
 
-/* Terceiro sinal de posse, não cromático na forma: um traço presente
-   apenas nas mensagens próprias. */
-.c-message--self .c-message__body {
-    border-left: var(--rule-2) solid var(--color-brand);
-    padding-left: var(--space-3);
-    margin-left: calc(var(--space-3) * -1);
+/* ─── Spoiler ─────────────────────────────────────────────────────── */
+.c-spoiler {
+    display: inline;
+    min-height: auto;
+    padding: var(--space-0) var(--space-1);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-bg-elevated);
+    text-align: left;
+    transition: background-color var(--duration-fast) var(--ease-standard);
 }
 
-/* Mensagem de sistema: linha centrada, sem balão, sem itálico decorativo.
-   Declarada depois das variantes para que a coluna única não seja
-   sobrescrita — com duas colunas, o texto caía no trilho e quebrava
-   letra a letra em telas estreitas. */
-.c-message--system .c-message__text {
-    font-size: var(--text-xs);
-    letter-spacing: var(--tracking-wide);
-    color: var(--color-text-2);
-    text-align: center;
+.c-spoiler[aria-expanded="false"] {
+    background-color: var(--color-bg-app);
 }
 
-/* Mensagem própria ainda na fila, aguardando a conexão voltar. */
-.c-message[data-pending="true"] .c-message__text {
-    color: var(--color-text-2);
+.c-spoiler[aria-expanded="false"] .c-spoiler__text {
+    visibility: hidden;
 }
 
-/* Coluna única, por último para vencer as regras acima. */
-.c-message--system {
-    grid-template-columns: 1fr;
-    justify-items: center;
+.c-spoiler[aria-expanded="false"]:hover {
+    background-color: var(--color-bg-selected);
 }
 
-@media (max-width: 480px) {
+@media (max-width: 30rem) {
     .c-message {
-        column-gap: var(--space-2);
+        grid-template-columns: var(--space-12) minmax(0, 1fr);
+        padding-right: var(--space-3);
     }
 
-    .c-message__body {
-        max-width: 100%;
+    .c-message__aside .c-identity__monogram {
+        width: var(--avatar-md);
+        height: var(--avatar-md);
+        font-size: var(--text-xs);
     }
 }

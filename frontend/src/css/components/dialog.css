@@ -1,0 +1,53 @@
+/* Modal de confirmação (<dialog> nativo: foco preso, Escape e ::backdrop
+   vêm do navegador). */
+
+.c-dialog {
+    width: min(28rem, calc(100vw - var(--space-8)));
+    margin: auto;
+    padding: var(--space-0);
+    border: 0;
+    border-radius: var(--radius-lg);
+    background-color: var(--color-bg-main);
+    color: var(--color-text-1);
+    box-shadow: var(--shadow-3);
+}
+
+.c-dialog[open] {
+    animation: pop-in var(--duration-base) var(--ease-out);
+}
+
+.c-dialog::backdrop {
+    /* --opacity-scrim (0.7) sobre a cor do fundo escurecido. */
+    background-color: color-mix(
+        in srgb,
+        var(--color-scrim) calc(var(--opacity-scrim) * 100%),
+        transparent
+    );
+}
+
+.c-dialog__panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.c-dialog__title {
+    padding: var(--space-5) var(--space-5) var(--space-0);
+    font-size: var(--text-xl);
+    font-weight: var(--weight-bold);
+}
+
+.c-dialog__body {
+    padding: var(--space-0) var(--space-5);
+    color: var(--color-text-2);
+}
+
+.c-dialog__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    justify-content: flex-end;
+    margin-top: var(--space-3);
+    padding: var(--space-4) var(--space-5);
+    background-color: var(--color-bg-sidebar);
+}

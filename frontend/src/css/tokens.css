@@ -1,142 +1,211 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   web-chat · tokens
+   web-chat · tokens (design system v4 — identidade do portfólio gcruz.dev.br)
    Camada 1 primitivos (--_*)  →  Camada 2 semânticos  →  Camada 3 tema.
    Regra: nenhum componente consome primitivo. Nenhuma cor fora deste arquivo.
-   Todo ratio em comentário foi medido por scripts/check-contrast.mjs.
+   Toda combinação texto/fundo usada pelos componentes está declarada em
+   scripts/contrast.pairs.json e é medida na CI (WCAG 2.2 AA).
+
+   Paleta: a mesma do portfólio (https://gcruz.dev.br). Carmim é a
+   assinatura — ação principal, item atual, foco. Índigo é a segunda voz,
+   pontual (papel de administrador, avisos informativos). Slate (azul-
+   marinho quase preto no escuro, cinza-azulado frio no claro) é a base.
+   Ajustes só onde o valor do portfólio reprovaria em contraste; cada um
+   está comentado no ponto em que acontece.
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* ─── Camada 1 · primitivos ────────────────────────────────────────────
-   Escala crua, sem papel. Degraus de tinta criados por medição: cada
-   superfície vizinha guarda ≥1.2:1 da anterior (o sistema antigo separava
-   surface-dark de surface-light por 1.07:1 — invisível).                */
+/* ─── Camada 1 · primitivos ──────────────────────────────────────────── */
 :root {
-    /* Tinta — matiz fria (~197°), croma baixo. Base do produto. */
-    --_ink-50: #f7f9fa;
-    --_ink-100: #e8eff1;
-    --_ink-200: #d9e3e6;
-    --_ink-300: #9fb4bc;
-    --_ink-400: #6e7f86;
-    --_ink-450: #63757c;
-    --_ink-500: #5b7883;
-    --_ink-600: #46595f;
-    --_ink-750: #24373f;
-    --_ink-800: #182930;
-    --_ink-900: #101d22;
-    --_ink-950: #0a1114;
+    /* Carmim — a cor da marca (valores do portfólio). */
+    --_crimson-100: #ffe4e6;
+    --_crimson-400: #fb7185;
+    --_crimson-600: #e11d48;
+    --_crimson-700: #be123c;
+    --_crimson-wash-dark: #31182f; /* carmim 16 % sobre slate-900 */
 
-    /* Âmbar — único calor do sistema. Marca e foco. */
-    --_amber-300: #f2c57e;
-    --_amber-400: #e9a83f;
-    --_amber-700: #8a5104;
-    --_amber-800: #6f4103;
+    /* Índigo — a segunda voz (valores do portfólio). */
+    --_indigo-100: #e0e7ff;
+    --_indigo-300: #a5b4fc;
+    --_indigo-400: #818cf8;
+    --_indigo-600: #4f46e5;
+    --_indigo-wash-dark: #1e254e; /* índigo-500 18 % sobre slate-900 */
 
-    /* Jade — conexão viva. */
-    --_jade-300: #45be97;
-    --_jade-350: #59c9a5;
-    --_jade-700: #0d5c40;
+    /* Slate — fundos, superfícies, texto e linhas (valores do portfólio). */
+    --_slate-0: #fff;
+    --_slate-50: #f8fafc;
+    --_slate-100: #f1f5f9;
+    --_slate-150: #eaeff5;
+    --_slate-200: #e2e8f0;
+    --_slate-300: #cbd5e1;
+    --_slate-400: #94a3b8;
+    --_slate-450: #8593a9;
+    --_slate-500: #64748b;
+    --_slate-600: #475569;
+    --_slate-700: #334155;
+    --_slate-750: #243044;
+    --_slate-800: #1e293b;
+    --_slate-850: #151f2e;
+    --_slate-900: #0f172a;
+    --_slate-920: #0b1120;
+    --_slate-950: #070d19;
+    --_slate-canvas-light: #f2f4f8; /* fundo do portfólio no tema claro */
+    --_slate-line-dark: #1a1f2d; /* branco 6 % sobre slate-920 */
+    --_slate-line-subtle-dark: #272e3f; /* branco 10 % sobre slate-900 */
 
-    /* Coral — perda de conexão e erro. Deliberadamente ≠ #ef4444. */
-    --_coral-300: #f2786a;
-    --_coral-600: #b23325;
+    /* Estados. Verde e âmbar do portfólio; os tons 700/800 entram no tema
+       claro porque os do portfólio (500) não chegam a 3:1 sobre branco. */
+    --_green-400: #4ade80;
+    --_green-500: #22c55e;
+    --_green-700: #15803d;
+    --_green-800: #166534;
+    --_amber-400: #fbbf24;
+    --_amber-500: #f59e0b;
+    --_amber-700: #b45309;
+    --_amber-800: #92400e;
+    /* Vermelho de erro: separado do carmim por tom e por tratamento. */
+    --_red-300: #fca5a5;
+    --_red-400: #f87171;
+    --_red-700: #b91c1c;
+    --_red-800: #991b1b;
 
-    /* Remetentes — seis matizes, dois degraus (claro p/ fundo escuro,
-       escuro p/ fundo claro). Nenhum deles cai na faixa quente do âmbar
-       (matiz 30°–70°): "você" nunca compete com "outra pessoa". O verde-folha
-       substituiu um ocre que, na tela, era indistinguível da marca. */
-    --_azure-300: #7fb6e8;
-    --_azure-700: #175597;
-    --_violet-300: #b49bf0;
-    --_violet-700: #5e3fb8;
-    --_rose-300: #f193b8;
-    --_rose-700: #932b59;
-    --_leaf-300: #8ed36e;
-    --_leaf-700: #3d6b1f;
-    --_cyan-300: #6fcbd4;
-    --_cyan-700: #11565e;
+    /* Remetentes — seis matizes (escuro: claros; claro: profundos). */
+    --_s-azure-300: #7cc4f8;
+    --_s-azure-700: #1561a3;
+    --_s-violet-300: #c3a6f8;
+    --_s-violet-700: #6a3fc0;
+    --_s-rose-300: #f4a2c4;
+    --_s-rose-700: #a52e63;
+    --_s-leaf-300: #9fdb8f;
+    --_s-leaf-700: #2f6f2a;
+    --_s-cyan-300: #6fd3dc;
+    --_s-cyan-700: #0f6670;
+    --_s-gold-300: #f2c76b;
+    --_s-gold-700: #7a5400;
 }
 
-/* ─── Camada 2 · semânticos · tema escuro (padrão) ─────────────────── */
+/* ─── Camada 2 · semânticos · tema escuro (padrão) ───────────────────── */
 :root {
-    /* Superfícies — duas, e só duas. A hierarquia é de espaço e tipografia;
-       elevação só existe onde é real: poço de campo, chip, toast. */
-    --color-surface-1: var(--_ink-950); /* página e lista de mensagens */
-    --color-surface-2: var(--_ink-800); /* poço de campo, chip, toast — 1.27:1 sobre surface-1 */
+    /* Superfícies — a escala de superfícies do portfólio, em degraus. */
+    --color-bg-app: var(--_slate-950); /* moldura, entrada, painel "você" */
+    --color-bg-sidebar: var(--_slate-920); /* barra lateral e pessoas */
+    --color-bg-main: var(--_slate-900); /* área da conversa */
+    --color-bg-elevated: var(--_slate-800); /* campos, cartões, popovers */
+    --color-bg-hover: var(--_slate-850); /* linha ou item sob o ponteiro */
+    --color-bg-selected: var(--_slate-750); /* item ativo, selo */
+    --color-bg-floating: var(--_slate-950); /* dica, toast */
+    --color-scrim: var(--_slate-950); /* fundo de modal/gaveta (com opacidade) */
 
     /* Texto */
-    --color-text-1: var(--_ink-100); /* 16.36:1 / s1 · 12.90:1 / s2 — 1.4.3 */
-    --color-text-2: var(--_ink-300); /*  8.82:1 / s1 ·  6.96:1 / s2 — 1.4.3 */
-    --color-text-disabled: var(
-        --_ink-400
-    ); /*  3.61:1 / s2 — isento por 1.4.3 (controle desabilitado) */
+    --color-text-1: var(--_slate-50); /* principal */
+    --color-text-2: var(--_slate-300); /* secundário */
+    --color-text-3: var(--_slate-400); /* metadados */
+    --color-text-disabled: var(--_slate-500); /* controle desabilitado — isento */
+    --color-text-on-floating: var(--_slate-50);
+    /* Marcadores de tom do toast (a superfície flutuante é escura nos dois temas). */
+    --color-accent-2-on-floating: var(--_indigo-400);
+    --color-danger-on-floating: var(--_red-400);
 
-    /* Marca — dois deveres, dois tokens (T3). */
-    --color-brand: var(--_amber-400); /* preenchimento — 9.19:1 / s1 (1.4.11 ≥3) */
-    --color-brand-hover: var(--_amber-300); /* preenchimento em hover */
-    --color-brand-text: var(--_amber-400); /* marca como texto — 9.19:1 / s1 (1.4.3 ≥4.5) */
-    --color-on-brand: var(--_ink-950); /* texto sobre preenchimento — 9.19:1 (1.4.3) */
+    /* Marca (carmim) */
+    --color-brand: var(--_crimson-600); /* preenchimento — texto branco sobre ele */
+    --color-brand-hover: var(--_crimson-700);
+    --color-on-brand: var(--_slate-0);
+    /* O portfólio usa crimson-500 como texto no escuro; ele reprova sobre os
+       cartões (slate-800), então o texto de marca é o crimson-400. */
+    --color-brand-text: var(--_crimson-400);
+    --color-brand-soft: var(--_crimson-wash-dark); /* fundo tingido: item atual */
 
-    /* Contornos — decorativo ≠ identificador de controle (T6). */
-    --color-border-subtle: var(--_ink-750); /* separador; isento de 1.4.11 */
-    --color-outline-control: var(--_ink-500); /* borda de campo/botão — 4.04:1 / s1 · 3.19:1 / s2 */
+    /* Segunda voz (índigo) */
+    --color-accent-2: var(--_indigo-300); /* texto/ícone */
+    --color-accent-2-soft: var(--_indigo-wash-dark); /* fundo do selo */
 
-    /* Foco */
-    --color-focus-ring: var(--_amber-400); /* 9.19:1 / s1 · 7.25:1 / s2 — 1.4.11 */
+    /* Linhas — o portfólio usa branco translúcido; aqui, o resultado opaco. */
+    --color-border: var(--_slate-line-dark); /* separador entre painéis */
+    --color-border-subtle: var(--_slate-line-subtle-dark); /* divisória dentro de painel */
+    --color-outline-control: var(--_slate-450); /* borda de controle (1.4.11) */
+    --color-focus-ring: var(--_crimson-400); /* foco em carmim, como no portfólio */
 
-    /* Estado da sessão — o fio (assinatura). */
-    --color-ok: var(--_jade-300); /* 8.22:1 / s1 */
-    --color-danger: var(--_coral-300); /* 6.95:1 / s1 · 5.48:1 / s2 */
-    --color-thread-live: var(--color-outline-control);
-    --color-thread-retry: var(--color-brand);
-    --color-thread-lost: var(--color-danger);
+    /* Estados */
+    --color-ok: var(--_green-500); /* ponto de presença */
+    --color-ok-text: var(--_green-400);
+    --color-warn: var(--_amber-500); /* anel de ausência */
+    --color-warn-text: var(--_amber-400);
+    /* Destrutivo: salmão com texto escuro — fundo e texto diferentes do botão
+       principal (carmim com texto branco). */
+    --color-danger: var(--_red-400);
+    --color-danger-hover: var(--_red-300);
+    --color-on-danger: var(--_slate-950);
+    --color-danger-text: var(--_red-400);
 
-    /* Remetentes — todo membro ≥4.5:1 em s1 e s2 (T9). */
-    --color-on-sender: var(--_ink-950);
-    --color-sender-1: var(--_azure-300);
-    --color-sender-2: var(--_jade-350);
-    --color-sender-3: var(--_violet-300);
-    --color-sender-4: var(--_rose-300);
-    --color-sender-5: var(--_leaf-300);
-    --color-sender-6: var(--_cyan-300);
+    /* Remetentes (nome colorido e avatar) */
+    --color-on-sender: var(--_slate-950);
+    --color-sender-1: var(--_s-azure-300);
+    --color-sender-2: var(--_s-violet-300);
+    --color-sender-3: var(--_s-rose-300);
+    --color-sender-4: var(--_s-leaf-300);
+    --color-sender-5: var(--_s-cyan-300);
+    --color-sender-6: var(--_s-gold-300);
+
+    /* Sombras: inalteradas nesta troca de paleta. */
+    --shadow-1: 0 1px 0 rgb(3 10 12 / 0.35);
+    --shadow-2: 0 6px 16px rgb(3 10 12 / 0.35), 0 1px 3px rgb(3 10 12 / 0.3);
+    --shadow-3: 0 16px 40px rgb(3 10 12 / 0.5), 0 2px 6px rgb(3 10 12 / 0.3);
+
+    color-scheme: dark;
 }
 
-/* ─── Camada 3 · tema claro (só sobrescreve a camada 2) ──────────────
-   Nenhuma regra de componente aqui. Nunca.
-   A marca inverte de papel: no escuro é âmbar claro com texto tinta;
-   no claro é ocre profundo com texto papel. Mesma família, mesma
-   identidade, as duas restrições (1.4.3 + 1.4.11) atendidas nos dois. */
+/* ─── Camada 3 · tema claro ──────────────────────────────────────────── */
 [data-theme="light"] {
-    --color-surface-1: var(--_ink-50);
-    --color-surface-2: var(--_ink-200); /* 1.24:1 sobre surface-1 */
+    --color-bg-app: var(--_slate-canvas-light);
+    --color-bg-sidebar: var(--_slate-50);
+    --color-bg-main: var(--_slate-0);
+    --color-bg-elevated: var(--_slate-100);
+    --color-bg-hover: var(--_slate-150);
+    --color-bg-selected: var(--_slate-200);
+    --color-bg-floating: var(--_slate-900);
+    --color-scrim: var(--_slate-950);
+    --color-text-1: var(--_slate-900);
+    --color-text-2: var(--_slate-700);
+    --color-text-3: var(--_slate-600);
+    --color-text-disabled: var(--_slate-400);
+    --color-text-on-floating: var(--_slate-50);
+    --color-accent-2-on-floating: var(--_indigo-400);
+    --color-danger-on-floating: var(--_red-400);
+    --color-brand: var(--_crimson-600);
+    --color-brand-hover: var(--_crimson-700);
+    --color-on-brand: var(--_slate-0);
+    --color-brand-text: var(--_crimson-700);
+    --color-brand-soft: var(--_crimson-100);
+    --color-accent-2: var(--_indigo-600);
+    --color-accent-2-soft: var(--_indigo-100);
+    --color-border: var(--_slate-200);
+    --color-border-subtle: var(--_slate-200);
+    --color-outline-control: var(--_slate-500);
+    --color-focus-ring: var(--_crimson-600);
+    --color-ok: var(--_green-700);
+    --color-ok-text: var(--_green-800);
+    --color-warn: var(--_amber-700);
+    --color-warn-text: var(--_amber-800);
+    /* Destrutivo: tijolo escuro, distante do carmim em tom e luminância. */
+    --color-danger: var(--_red-700);
+    --color-danger-hover: var(--_red-800);
+    --color-on-danger: var(--_slate-0);
+    --color-danger-text: var(--_red-700);
+    --color-on-sender: var(--_slate-0);
+    --color-sender-1: var(--_s-azure-700);
+    --color-sender-2: var(--_s-violet-700);
+    --color-sender-3: var(--_s-rose-700);
+    --color-sender-4: var(--_s-leaf-700);
+    --color-sender-5: var(--_s-cyan-700);
+    --color-sender-6: var(--_s-gold-700);
+    --shadow-1: 0 1px 0 rgb(19 34 42 / 0.06);
+    --shadow-2: 0 6px 16px rgb(19 34 42 / 0.1), 0 1px 3px rgb(19 34 42 / 0.08);
+    --shadow-3: 0 16px 40px rgb(19 34 42 / 0.16), 0 2px 6px rgb(19 34 42 / 0.08);
 
-    --color-text-1: var(--_ink-900); /* 16.29:1 / s1 · 13.17:1 / s2 */
-    --color-text-2: var(--_ink-600); /*  6.97:1 / s1 ·  5.63:1 / s2 */
-    --color-text-disabled: var(--_ink-400); /*  3.19:1 / s2 — isento */
-
-    --color-brand: var(--_amber-700); /* 6.10:1 / s1 · 4.93:1 / s2 (1.4.11) */
-    --color-brand-hover: var(--_amber-800);
-    --color-brand-text: var(--_amber-700); /* 6.10:1 / s1 · 4.93:1 / s2 (1.4.3) */
-    --color-on-brand: var(--_ink-50); /* 6.10:1 sobre o preenchimento */
-
-    --color-border-subtle: var(--_ink-200);
-    --color-outline-control: var(--_ink-450); /* 4.55:1 / s1 · 3.68:1 / s2 */
-
-    --color-focus-ring: var(--_amber-700); /* 6.10:1 / s1 · 4.93:1 / s2 */
-
-    --color-ok: var(--_jade-700); /* 7.58:1 / s1 */
-    --color-danger: var(--_coral-600); /* 5.86:1 / s1 · 4.74:1 / s2 */
-
-    --color-on-sender: var(--_ink-50);
-    --color-sender-1: var(--_azure-700);
-    --color-sender-2: var(--_jade-700);
-    --color-sender-3: var(--_violet-700);
-    --color-sender-4: var(--_rose-700);
-    --color-sender-5: var(--_leaf-700);
-    --color-sender-6: var(--_cyan-700);
+    color-scheme: light;
 }
 
-/* ─── Escalas não cromáticas (idênticas nos dois temas) ─────────────── */
+/* ─── Escalas (independentes de tema) ────────────────────────────────── */
 :root {
-    /* Espaço — base 4px. --space-0-5 e --space-1-5 legitimam 2px e 6px (T4). */
+    /* Espaço — base 4px. */
     --space-0: 0;
     --space-0-5: 0.125rem; /*  2px */
     --space-1: 0.25rem; /*  4px */
@@ -151,91 +220,97 @@
     --space-12: 3rem; /* 48px */
     --space-16: 4rem; /* 64px */
 
-    /* Raio — formas quase retas; o produto é transcrição, não balão. */
+    /* Raios */
     --radius-0: 0;
-    --radius-sm: 0.125rem; /* 2px — chip, monograma */
-    --radius-md: 0.25rem; /* 4px — campo, botão, toast */
-    --radius-lg: 0.5rem; /* 8px — painel de estado */
-    --radius-full: 9999px; /* só ponto de estado e trilho do fio */
+    --radius-sm: 0.375rem; /*  6px — selo, código, item de lista */
+    --radius-md: 0.625rem; /* 10px — campo, botão */
+    --radius-lg: 0.875rem; /* 14px — cartão, popover, modal, toast */
+    --radius-full: 9999px; /* avatar, ponto de presença, pílula */
 
-    /* Traço */
+    /* Linhas */
     --rule-1: 1px;
     --rule-2: 2px;
-    --rule-thread: 2px;
-    --focus-ring-width: 3px;
+    --rule-3: 3px;
+    --focus-ring-width: 2px;
     --focus-ring-offset: 2px;
+    --indicator-width: 3px; /* barra do item atual na barra lateral */
 
-    /* Sombra — usada só onde há elevação real (toast). */
+    /* Elevação: --shadow-1..3 são tingidas por tema (camadas 2 e 3). */
     --shadow-0: none;
-    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.3);
-    --shadow-2: 0 8px 24px -8px rgb(0 0 0 / 0.55);
+    /* Halo do foco em campos: soma ao anel, não o substitui. */
+    --halo-width: 3px;
 
-    /* Tempo e curva */
+    /* Movimento */
     --duration-0: 0ms;
-    --duration-fast: 120ms;
-    --duration-base: 200ms;
-    --duration-slow: 320ms;
+    --duration-fast: 100ms;
+    --duration-base: 160ms;
+    --duration-slow: 240ms;
     --ease-standard: cubic-bezier(0.2, 0, 0, 1);
     --ease-out: cubic-bezier(0, 0, 0, 1);
     --ease-in: cubic-bezier(0.3, 0, 1, 1);
 
-    /* Opacidade — nunca aplicada a texto que precisa passar em 1.4.3;
-       para texto apagado existe --color-text-2 / --color-text-disabled. */
     --opacity-0: 0;
     --opacity-disabled: 0.5;
-    --opacity-scrim: 0.6;
+    --opacity-scrim: 0.7;
     --opacity-1: 1;
 
     /* Camadas */
     --z-base: 0;
     --z-sticky: 10;
+    --z-drawer: 50;
     --z-overlay: 100;
+    --z-popover: 200;
     --z-toast: 1000;
 
-    /* Alvos de toque (T7) */
+    /* Alvos de toque (2.5.8) */
     --tap-min: 24px;
     --tap-comfort: 44px;
 
-    /* Breakpoints — declarados aqui como fonte única de verdade; media
-       queries não aceitam var(), então o literal na @media é a exceção
-       justificada do comando 2. */
-    --breakpoint-sm: 30rem; /* 480px */
-    --breakpoint-md: 48rem; /* 768px */
-    --breakpoint-lg: 64rem; /* 1024px */
+    /* Pontos de quebra — media queries não aceitam var(): os literais nas
+       @media espelham estes valores. */
+    --breakpoint-sm: 30rem; /*  480px — celular */
+    --breakpoint-md: 48rem; /*  768px — tablet */
+    --breakpoint-lg: 64rem; /* 1024px — notebook */
+    --breakpoint-xl: 80rem; /* 1280px — desktop */
 
-    /* Tipografia */
-    --font-display: "Syne", "Trebuchet MS", sans-serif;
-    --font-text: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
-
-    --text-2xs: 0.6875rem; /* 11px — carimbo de hora */
-    --text-xs: 0.75rem; /* 12px */
-    --text-sm: 0.875rem; /* 14px */
+    /* Tipografia — Inter para tudo; hierarquia por tamanho e peso. */
+    --font-text: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --font-display: var(--font-text);
+    --font-mono: ui-monospace, "SFMono-Regular", "Menlo", "Consolas", monospace;
+    --text-2xs: 0.6875rem; /* 11px — rótulo de seção, badge */
+    --text-xs: 0.75rem; /* 12px — metadados */
+    --text-sm: 0.875rem; /* 14px — texto auxiliar */
     --text-md: 1rem; /* 16px — corpo da mensagem */
-    --text-lg: 1.125rem; /* 18px */
-    --text-xl: 1.375rem; /* 22px */
-    --text-2xl: 1.75rem; /* 28px */
-    --text-3xl: 2.5rem; /* 40px — só a assinatura de entrada */
-
+    --text-lg: 1.125rem; /* 18px — subtítulo */
+    --text-xl: 1.25rem; /* 20px — título de painel */
+    --text-2xl: 1.5rem; /* 24px — título de página */
+    --text-3xl: 2rem; /* 32px — título de destaque */
     --weight-regular: 400;
+    --weight-medium: 500;
+    --weight-semibold: 600;
     --weight-bold: 700;
-    --weight-display: 700;
-
-    --leading-tight: 1.1;
-    --leading-snug: 1.3;
-    --leading-normal: 1.55;
-
-    --tracking-tight: -0.02em;
+    --weight-display: 800;
+    --leading-tight: 1.2;
+    --leading-snug: 1.35;
+    --leading-normal: 1.5;
+    --tracking-tight: -0.01em;
     --tracking-normal: 0;
-    --tracking-wide: 0.06em;
-    --tracking-caps: 0.12em;
+    --tracking-wide: 0.02em;
+    --tracking-caps: 0.06em;
 
-    /* Layout */
-    --measure-message: 62ch;
-    --rail-width: 3rem;
-    --layout-max: 56rem;
+    /* Medidas de layout */
+    --sidebar-width: 15rem; /* 240px */
+    --members-width: 15rem; /* 240px */
+    --header-height: 3rem; /*  48px */
+    --avatar-sm: 1.5rem; /*  24px */
+    --avatar-md: 2rem; /*  32px */
+    --avatar-lg: 2.5rem; /*  40px */
+    --avatar-xl: 5rem; /*  80px */
+    --measure-message: 70ch;
+    --gutter-message: 4.5rem; /* coluna do avatar nas mensagens */
 }
 
-/* ─── Movimento ─────────────────────────────────────────────────────── */
+/* Respeita "reduzir movimento": nenhuma informação depende de animação. */
 @media (prefers-reduced-motion: reduce) {
     *,
     *::before,

@@ -1,21 +1,34 @@
-/* Falha definitiva de conexão. O histórico continua legível acima; esta
-   tela diz o que aconteceu e oferece o caminho manual de volta, alcançável
-   por teclado. */
+/* Falha definitiva de conexão (ou remoção pela moderação). O histórico
+   continua legível acima; este cartão diz o que houve e dá o caminho. */
 
-.c-failure:not([hidden]) {
+.c-failure {
     display: flex;
+    flex: none;
     flex-direction: column;
+    gap: var(--space-2);
     align-items: flex-start;
-    gap: var(--space-3);
-    max-width: 44ch;
-    padding-left: var(--rail-width);
-    padding-block: var(--space-6);
+    margin: var(--space-0) var(--space-4) var(--space-4);
+    padding: var(--space-4);
+    border-left: var(--rule-3) solid var(--color-danger);
+    border-radius: var(--radius-md);
+    background-color: var(--color-bg-elevated);
+    animation: rise-in var(--duration-base) var(--ease-out);
+}
+
+.c-failure__icon {
+    color: var(--color-danger-text);
+    font-size: var(--text-xl);
 }
 
 .c-failure__title {
-    color: var(--color-text-1);
+    font-size: var(--text-lg);
+    font-weight: var(--weight-bold);
 }
 
 .c-failure__body {
     color: var(--color-text-2);
+}
+
+.c-failure__retry {
+    margin-top: var(--space-1);
 }

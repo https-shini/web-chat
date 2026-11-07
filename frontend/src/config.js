@@ -1,5 +1,7 @@
 // @ts-check
 
+import { isSocketUrl } from "./socketUrl.js";
+
 /**
  * Configuração do cliente. Nenhuma URL fica gravada no código de aplicação:
  * o valor vem de `VITE_SOCKET_URL` e, na ausência dela, de um padrão local —
@@ -30,7 +32,15 @@ const localFallback = () => {
  * antes da primeira linha útil.
  * @type {string}
  */
-export const SOCKET_URL = import.meta.env?.VITE_SOCKET_URL || localFallback();
+export const SOCKET_URL = (() => {
+    const configured = import.meta.env?.VITE_SOCKET_URL;
+    if (!configured) return localFallback();
+    if (isSocketUrl(configured)) return configured;
+    // O build já recusa um valor inválido (vite.config.js); isto só cobre
+    // um bundle gerado por outro caminho. Falha visível, não silenciosa.
+    console.error(`VITE_SOCKET_URL inválida ("${configured}"); usando o servidor local.`);
+    return localFallback();
+})();
 
 /** Parâmetros de reconexão: exponencial, com teto e jitter. */
 export const RECONNECT = {
@@ -44,16 +54,18 @@ export const RECONNECT = {
     jitter: 0.3,
 };
 
-/** Limites do protocolo, espelhando o que o servidor aceita. */
-export const LIMITS = {
-    nameMaxLength: 30,
-    messageMaxLength: 1000,
-};
+/** Limites do protocolo — definidos no contrato (`protocol.js`). */
+export { LIMITS } from "./protocol.js";
 
 /** Tempos de interface, em ms. */
 export const TIMING = {
     /** Silêncio no teclado que encerra o "está digitando". */
     typingIdle: 2000,
+    /**
+     * Intervalo mínimo entre dois sinais de "começou a digitar". Abaixo dos
+     * 6 s em que o receptor mantém alguém como digitando.
+     */
+    typingSignalInterval: 2000,
     /** Quanto um aviso fica na tela. */
     toastLife: 5000,
 };

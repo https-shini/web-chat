@@ -2,6 +2,7 @@
 
 import { THEME_STORAGE_KEY } from "../config.js";
 import { strings } from "../i18n/strings.js";
+import { setIcon } from "./icons.js";
 
 /**
  * Alternador de tema. O tema já foi aplicado pelo script inline do <head>
@@ -31,9 +32,13 @@ export const createThemeToggle = ({ onChange }) => {
     const paint = (theme) => {
         const label = theme === "light" ? strings.theme.toDark : strings.theme.toLight;
         for (const button of buttons) {
+            // O nome diz o que o botão FAZ ("Mudar para tema claro"); o
+            // desenho mostra o destino: sol leva ao claro, lua ao escuro.
             button.setAttribute("aria-pressed", String(theme === "light"));
-            const text = button.querySelector(".c-theme-toggle__label");
-            if (text) text.textContent = label;
+            button.setAttribute("aria-label", label);
+            button.dataset.tooltip = label;
+            const glyph = button.querySelector(".c-theme-toggle__icon");
+            if (glyph) setIcon(glyph, theme === "light" ? "moon" : "sun");
         }
     };
 

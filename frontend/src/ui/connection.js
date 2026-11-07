@@ -4,30 +4,14 @@ import { format, strings } from "../i18n/strings.js";
 import { must } from "./dom.js";
 
 /**
- * Indicador de estado da conexão e o fio da sessão.
+ * Estado da conexão em dois lugares: a linha da barra lateral (região de
+ * status, é ela que leitores de tela ouvem) e a pílula do cabeçalho
+ * (repetição visual, `aria-hidden`, some quando está tudo bem).
  *
- * O fio é a assinatura da interface e não é decoração: ele carrega o mesmo
- * estado que o rótulo, por cor E por padrão de traço. O rótulo em texto é
- * quem responde pela informação; o fio e o ponto são reforço.
- */
-
-/**
+ * O texto é quem informa; o ponto colorido é só reforço.
+ *
  * @typedef {import("../state/store.js").LinkState} LinkState
  */
-
-/**
- * Estado do fio a partir do estado do enlace. "empty" não vem do enlace:
- * é a sala sem nenhuma mensagem, em que o fio nasce e termina num cap.
- * @param {LinkState} link
- * @param {boolean} empty
- * @returns {string}
- */
-const threadState = (link, empty) => {
-    if (link === "retrying") return "retrying";
-    if (link === "offline") return "offline";
-    if (link === "online") return empty ? "empty" : "live";
-    return "connecting";
-};
 
 /**
  * @param {LinkState} link
@@ -47,24 +31,26 @@ const label = (link) => {
 };
 
 export const createConnection = () => {
-    const root = /** @type {HTMLElement} */ (must(".c-connection"));
-    const text = /** @type {HTMLElement} */ (must(".c-connection__label", root));
-    const thread = /** @type {HTMLElement} */ (must(".c-thread"));
+    const row = /** @type {HTMLElement} */ (must(".c-connection"));
+    const rowText = /** @type {HTMLElement} */ (must(".c-connection__label", row));
+    const pill = /** @type {HTMLElement} */ (must(".c-status-pill"));
+    const pillText = /** @type {HTMLElement} */ (must(".c-status-pill__label", pill));
 
     return {
         /**
          * @param {LinkState} link
          * @param {number} attempt
-         * @param {boolean} empty
          */
-        render(link, attempt, empty) {
+        render(link, attempt) {
             const state = link === "idle" ? "connecting" : link;
-            root.dataset.state = state;
-            text.textContent =
+            const text =
                 link === "retrying" && attempt > 0
                     ? format(strings.conn.retryingNth, { n: attempt })
                     : label(link);
-            thread.dataset.state = threadState(link, empty);
+            row.dataset.state = state;
+            pill.dataset.state = state;
+            rowText.textContent = text;
+            pillText.textContent = label(link);
         },
     };
 };

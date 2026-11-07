@@ -1,6 +1,14 @@
 // @ts-check
 
 import { RECONNECT } from "../config.js";
+import { CLOSE_CODES } from "../protocol.js";
+
+/**
+ * Fechamentos que encerram a sessão: o servidor removeu a pessoa da sala.
+ * Reconectar sozinho a colocaria de volta sem que ela pedisse.
+ */
+/** @type {Set<number>} */
+const TERMINAL_CLOSE_CODES = new Set([CLOSE_CODES.REMOVED]);
 
 /**
  * Camada de transporte. Conecta, reconecta com backoff exponencial com teto
@@ -18,16 +26,19 @@ import { RECONNECT } from "../config.js";
  */
 
 /**
- * Evento de domínio já decodificado.
+ * Evento de domínio já decodificado. `id` é o identificador que o servidor
+ * atribui a cada mensagem de chat; precisa chegar até o estado, porque é o
+ * mesmo que aparece depois no histórico (P09).
  * @typedef {object} DomainEvent
  * @property {string} type
  * @property {unknown} payload
+ * @property {string} [id]
  */
 
 /**
  * @typedef {object} TransportOptions
  * @property {string} url
- * @property {(status: LinkStatus, detail: {attempt: number, maxAttempts: number}) => void} onStatus
+ * @property {(status: LinkStatus, detail: {attempt: number, maxAttempts: number, closeCode?: number}) => void} onStatus
  * @property {(event: DomainEvent) => void} onEvent
  * @property {() => void} onOpen   Chamado antes de esvaziar a fila.
  * @property {(queued: number) => void} onQueueChange
@@ -89,7 +100,10 @@ export const createTransport = ({ url, onStatus, onEvent, onOpen, onQueueChange 
         try {
             const decoded = JSON.parse(String(event.data));
             if (decoded && typeof decoded.type === "string") {
-                onEvent({ type: decoded.type, payload: decoded.payload });
+                /** @type {DomainEvent} */
+                const domainEvent = { type: decoded.type, payload: decoded.payload };
+                if (typeof decoded.id === "string") domainEvent.id = decoded.id;
+                onEvent(domainEvent);
             }
         } catch {
             // Quadro ilegível: descartar é melhor do que derrubar a sessão.
@@ -131,9 +145,17 @@ export const createTransport = ({ url, onStatus, onEvent, onOpen, onQueueChange 
 
         socket.addEventListener("message", handleMessage);
 
-        socket.addEventListener("close", () => {
+        socket.addEventListener("close", (event) => {
             socket = null;
             if (closedByUs) return;
+            if (TERMINAL_CLOSE_CODES.has(event.code)) {
+                onStatus("offline", {
+                    attempt,
+                    maxAttempts: RECONNECT.maxAttempts,
+                    closeCode: event.code,
+                });
+                return;
+            }
             scheduleRetry();
         });
 
@@ -150,16 +172,18 @@ export const createTransport = ({ url, onStatus, onEvent, onOpen, onQueueChange 
          * silêncio — a interface informa que a mensagem está na fila.
          * @param {string} type
          * @param {Record<string, unknown>} [payload]
+         * @returns {boolean} true se saiu agora; false se ficou na fila
          */
         send(type, payload = {}) {
             const frame = JSON.stringify({ type, payload });
             if (socket && socket.readyState === WebSocket.OPEN) {
                 socket.send(frame);
-                return;
+                return true;
             }
             queue.push(frame);
             if (queue.length > MAX_QUEUE) queue.shift();
             publishQueue();
+            return false;
         },
 
         /**
