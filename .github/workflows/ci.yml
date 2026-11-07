@@ -25,6 +25,9 @@ jobs:
             - name: Instalar dependências
               run: npm ci
 
+            - name: Instalar dependências do backend
+              run: npm --prefix backend ci
+
             - name: Formatação
               run: npm run format:check
 
@@ -46,3 +49,21 @@ jobs:
 
             - name: Build
               run: npm run build
+
+            # Integração do protocolo (servidor real) + unidade dos dois lados,
+            # incluindo o teste de contrato entre cliente e servidor.
+            - name: Testes
+              run: npm test
+
+            # Bloqueante: dependências que vão para produção (o backend; o
+            # frontend não tem dependência de runtime).
+            - name: Auditoria de dependências de produção
+              run: |
+                  npm audit --omit=dev --audit-level=high
+                  npm --prefix backend audit --omit=dev --audit-level=high
+
+            # Informativa até a Fase 6 (F6-01/F6-03): as ferramentas de
+            # desenvolvimento ainda têm avisos que exigem upgrade de major.
+            - name: Auditoria completa (informativa)
+              continue-on-error: true
+              run: npm audit
