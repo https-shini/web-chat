@@ -35,7 +35,7 @@ export const strings = {
         queued: "Sua mensagem fica na fila até a conexão voltar.",
         restored: "Conexão restabelecida.",
     },
-    people: {
+    peopleCount: {
         one: "1 pessoa",
         many: "{n} pessoas",
         unknown: "— pessoas",
@@ -43,6 +43,39 @@ export const strings = {
     system: {
         joined: "{name} entrou na sala",
         left: "{name} saiu da sala",
+        cleared: "A conversa foi apagada para todos por {name}",
+        localCleared: "Conversa limpa só na sua tela. Ninguém mais foi afetado.",
+    },
+    delivery: {
+        pending: "enviando…",
+        failed: "não enviada",
+        retry: "Tentar de novo",
+        timeout: "O servidor não confirmou o recebimento.",
+        announceFailed: "Sua mensagem não foi enviada: {reason}",
+    },
+    message: {
+        announcement: "Aviso",
+        spoilerShow: "Mostrar spoiler",
+        spoilerHide: "Esconder spoiler",
+    },
+    commands: {
+        helpTitle: "Comandos",
+        helpIntro: "Digite / para ver sugestões enquanto escreve.",
+        helpFooter:
+            "Detalhes de um comando: /help nome (ex.: /help roll). 🔒 = só administradores.",
+        timeNote: "Horário deste dispositivo.",
+        ping: "pong — ida e volta até o servidor: {ms} ms",
+        suggestionsLabel: "Comandos sugeridos",
+        adminOnly: "só administradores",
+        syntax: "Uso: {syntax}",
+        removedTitle: "Você foi removido da sala.",
+        removedBody:
+            "Um administrador removeu você. Você pode entrar de novo, como uma nova pessoa.",
+        rejoin: "Entrar de novo",
+    },
+    people: {
+        admin: "admin",
+        away: "ausente",
     },
     typing: {
         one: "{name} está digitando…",
@@ -85,4 +118,4 @@ export const format = (template, values) =>
  * @returns {string}
  */
 export const peopleCount = (count) =>
-    count === 1 ? strings.people.one : format(strings.people.many, { n: count });
+    count === 1 ? strings.peopleCount.one : format(strings.peopleCount.many, { n: count });

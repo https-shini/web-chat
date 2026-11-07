@@ -1,15 +1,26 @@
 // @ts-check
 
 import { format, strings } from "../i18n/strings.js";
-import { ERROR_CODES, SERVER_EVENTS } from "../protocol.js";
+import { ERROR_CODES, MESSAGE_FORMATS, MESSAGE_KINDS, SERVER_EVENTS, TONES } from "../protocol.js";
 
 /**
  * Tradutor de eventos: recebe um fato já decodificado e o transforma em
  * ação de estado. Não sabe por onde o fato chegou — só o que ele significa.
+ * Todo payload vem de fora e é normalizado aqui antes de chegar ao estado.
  *
  * @typedef {import("./store.js").Message} Message
  * @typedef {import("./store.js").Store} Store
  */
+
+/** @type {Set<string>} */
+const VARIANTS = new Set(Object.values(MESSAGE_KINDS));
+/** @type {Set<string>} */
+const FORMATS = new Set(Object.values(MESSAGE_FORMATS));
+/** @type {Set<string>} */
+const KNOWN_TONES = new Set(Object.values(TONES));
+
+/** @param {unknown} value */
+const text = (value) => (typeof value === "string" ? value : "");
 
 /**
  * Converte uma mensagem de chat em fato de domínio. O `id` é o atribuído
@@ -17,48 +28,83 @@ import { ERROR_CODES, SERVER_EVENTS } from "../protocol.js";
  * servidor antigo, que não o envia, faz cair no id local.
  * @param {any} raw `{ id, payload }`
  * @param {string | null} meId
- * @returns {import("./store.js").Message | null}
+ * @returns {Message | null}
  */
 const toMessage = (raw, meId) => {
     const payload = raw?.payload;
     if (!payload || typeof payload.content !== "string") return null;
+    const id = typeof raw.id === "string" && raw.id !== "" ? raw.id : crypto.randomUUID();
     return {
-        id: typeof raw.id === "string" && raw.id !== "" ? raw.id : crypto.randomUUID(),
+        id,
+        key: id,
         kind: "chat",
         userId: String(payload.userId ?? ""),
         userName: String(payload.userName ?? ""),
         content: payload.content,
         timestamp: String(payload.timestamp ?? new Date().toISOString()),
         own: Boolean(meId) && payload.userId === meId,
-        pending: false,
+        variant: VARIANTS.has(payload.kind) ? payload.kind : "text",
+        format: FORMATS.has(payload.format) ? payload.format : null,
+        clientMsgId: typeof payload.clientMsgId === "string" ? payload.clientMsgId : null,
+        delivery: "confirmed",
     };
 };
 
 /**
+ * Entrada de sistema (entrada/saída, avisos do servidor).
  * @param {string} content
  * @param {string} timestamp
- * @returns {import("./store.js").Message}
+ * @param {{id?: string, tone?: string}} [extra]
+ * @returns {Message}
  */
-const systemMessage = (content, timestamp) => ({
-    id: crypto.randomUUID(),
-    kind: "system",
-    userId: "",
-    userName: "",
-    content,
-    timestamp,
-    own: false,
-    pending: false,
-});
+export const systemMessage = (content, timestamp, extra = {}) => {
+    const id = extra.id ?? crypto.randomUUID();
+    return {
+        id,
+        key: id,
+        kind: "system",
+        userId: "",
+        userName: "",
+        content,
+        timestamp,
+        own: false,
+        delivery: "confirmed",
+        tone: extra.tone,
+    };
+};
+
+/**
+ * Resposta visível só para você (comando ou aviso local).
+ * @param {{tone: string, text: string, title?: string, lines?: string[]}} notice
+ * @returns {Message}
+ */
+export const noticeMessage = ({ tone, text: content, title, lines }) => {
+    const id = `notice:${crypto.randomUUID()}`;
+    return {
+        id,
+        key: id,
+        kind: "notice",
+        userId: "",
+        userName: "",
+        content,
+        timestamp: new Date().toISOString(),
+        own: false,
+        delivery: "confirmed",
+        tone: KNOWN_TONES.has(tone) ? tone : TONES.INFO,
+        ...(title ? { title } : {}),
+        ...(lines && lines.length ? { lines } : {}),
+    };
+};
 
 /**
  * @param {{
  *   store: Store,
  *   toasts: {show: (text: string, kind?: "info" | "error") => void},
  *   notifier: {show: (title: string, body: string) => void},
- *   typingTracker: {set: (id: string, name: string, isTyping: boolean) => void},
+ *   typingTracker: {set: (id: string, name: string, isTyping: boolean) => void, remove?: (id: string) => void},
  *   onSession?: (resumeToken: string | null) => void,
- *   onRateLimited?: () => void,
  *   onLoginRejected?: (message: string) => void,
+ *   onCommandResult?: (requestId: string | null, result: {tone: string, text: string, title?: string, lines?: string[], code?: string, data?: Record<string, unknown>}) => void,
  * }} deps
  * @returns {(event: {type: string, payload: unknown, id?: string}) => void}
  */
@@ -69,29 +115,40 @@ export const createEventHandler =
         notifier,
         typingTracker,
         onSession = () => {},
-        onRateLimited = () => {},
         onLoginRejected = () => {},
+        onCommandResult = () => {},
     }) =>
     (event) => {
         const state = store.getState();
         const meId = state.me?.id ?? null;
+        const payload = /** @type {any} */ (event.payload);
 
         switch (event.type) {
             case SERVER_EVENTS.SESSION: {
                 // Identidade atribuída pelo servidor (P01). Chega antes do
                 // histórico, então as próprias mensagens já são reconhecidas.
-                const payload = /** @type {any} */ (event.payload);
                 if (typeof payload?.id !== "string" || payload.id === "") break;
-                store.actions.setIdentity({
-                    id: payload.id,
-                    name: typeof payload.name === "string" ? payload.name : (state.me?.name ?? ""),
-                });
+                store.actions.setIdentity(
+                    {
+                        id: payload.id,
+                        name:
+                            typeof payload.name === "string"
+                                ? payload.name
+                                : (state.me?.name ?? ""),
+                    },
+                    payload.role === "admin" ? "admin" : "member",
+                );
+                if (typeof payload.historyVersion === "number") {
+                    // A sala foi limpa enquanto você estava fora: a conversa
+                    // local deixa de valer antes do histórico novo chegar.
+                    store.actions.syncHistoryVersion(payload.historyVersion);
+                }
                 onSession(typeof payload.resumeToken === "string" ? payload.resumeToken : null);
                 break;
             }
 
             case SERVER_EVENTS.CHAT_MESSAGE: {
-                const message = toMessage({ id: event.id, payload: event.payload }, meId);
+                const message = toMessage({ id: event.id, payload }, meId);
                 if (!message) break;
                 // Quem envia para de "digitar" no instante em que a mensagem
                 // chega, mesmo que o sinal de parada se perca no caminho.
@@ -104,11 +161,11 @@ export const createEventHandler =
             }
 
             case SERVER_EVENTS.MESSAGE_HISTORY: {
-                const list = Array.isArray(event.payload) ? event.payload : [];
+                const list = Array.isArray(payload) ? payload : [];
                 const messages = list
                     .map((entry) => toMessage(entry, meId))
                     .filter(
-                        /** @returns {item is import("./store.js").Message} */
+                        /** @returns {item is Message} */
                         (item) => item !== null,
                     );
                 store.actions.mergeHistory(messages);
@@ -116,18 +173,22 @@ export const createEventHandler =
             }
 
             case SERVER_EVENTS.USER_LIST: {
-                const list = Array.isArray(event.payload) ? event.payload : [];
+                const list = Array.isArray(payload) ? payload : [];
                 store.actions.setPeople(
                     list.map((person) => ({
                         id: String(person?.id ?? ""),
                         name: String(person?.name ?? ""),
+                        status: person?.status === "away" ? "away" : "online",
+                        role: person?.role === "admin" ? "admin" : "member",
+                        ...(typeof person?.statusText === "string"
+                            ? { statusText: person.statusText }
+                            : {}),
                     })),
                 );
                 break;
             }
 
             case SERVER_EVENTS.USER_TYPING: {
-                const payload = /** @type {any} */ (event.payload);
                 const id = String(payload?.userId ?? "");
                 if (id && id !== meId) {
                     typingTracker.set(
@@ -140,7 +201,6 @@ export const createEventHandler =
             }
 
             case SERVER_EVENTS.USER_JOINED: {
-                const payload = /** @type {any} */ (event.payload);
                 store.actions.addMessage(
                     systemMessage(
                         format(strings.system.joined, { name: String(payload?.userName ?? "") }),
@@ -151,7 +211,10 @@ export const createEventHandler =
             }
 
             case SERVER_EVENTS.USER_LEFT: {
-                const payload = /** @type {any} */ (event.payload);
+                // Quem saiu deixa de "digitar" na hora.
+                if (typeof payload?.userId === "string") typingTracker.remove?.(payload.userId);
+                // Remoção por administrador já gera um `notice` próprio.
+                if (payload?.reason === "removed") break;
                 store.actions.addMessage(
                     systemMessage(
                         format(strings.system.left, { name: String(payload?.userName ?? "") }),
@@ -161,22 +224,93 @@ export const createEventHandler =
                 break;
             }
 
+            case SERVER_EVENTS.NOTICE: {
+                if (typeof payload?.text !== "string") break;
+                store.actions.addMessage(
+                    systemMessage(
+                        payload.text,
+                        String(payload.timestamp ?? new Date().toISOString()),
+                        {
+                            id: typeof payload.id === "string" ? payload.id : undefined,
+                            tone: KNOWN_TONES.has(payload.tone) ? payload.tone : TONES.INFO,
+                        },
+                    ),
+                );
+                break;
+            }
+
+            case SERVER_EVENTS.CHAT_CLEARED: {
+                const version = Number(payload?.historyVersion);
+                if (!Number.isFinite(version)) break;
+                store.actions.roomCleared(
+                    version,
+                    systemMessage(
+                        format(strings.system.cleared, { name: text(payload?.byName) }),
+                        String(payload?.timestamp ?? new Date().toISOString()),
+                        { tone: TONES.ADMIN },
+                    ),
+                );
+                break;
+            }
+
+            case SERVER_EVENTS.COMMAND_CATALOG: {
+                /** @type {any[]} */
+                const list = Array.isArray(payload?.commands) ? payload.commands : [];
+                store.actions.setCatalog(
+                    list
+                        .filter((command) => typeof command?.name === "string")
+                        .map((command) => ({
+                            name: command.name,
+                            aliases: Array.isArray(command.aliases)
+                                ? command.aliases.map(String)
+                                : [],
+                            category: text(command.category),
+                            categoryLabel: text(command.categoryLabel) || text(command.category),
+                            description: text(command.description),
+                            syntax: text(command.syntax) || `/${command.name}`,
+                            examples: Array.isArray(command.examples)
+                                ? command.examples.map(String)
+                                : [],
+                            permission: text(command.permission),
+                            scope: command.scope === "client" ? "client" : "server",
+                            allowed: Boolean(command.allowed),
+                        })),
+                );
+                break;
+            }
+
+            case SERVER_EVENTS.COMMAND_RESULT: {
+                if (typeof payload?.text !== "string") break;
+                onCommandResult(typeof payload.requestId === "string" ? payload.requestId : null, {
+                    tone: KNOWN_TONES.has(payload.tone) ? payload.tone : TONES.INFO,
+                    text: payload.text,
+                    ...(typeof payload.title === "string" ? { title: payload.title } : {}),
+                    ...(Array.isArray(payload.lines) ? { lines: payload.lines.map(String) } : {}),
+                    ...(typeof payload.code === "string" ? { code: payload.code } : {}),
+                    ...(payload.data && typeof payload.data === "object"
+                        ? { data: payload.data }
+                        : {}),
+                });
+                break;
+            }
+
             case SERVER_EVENTS.ERROR: {
-                const payload = /** @type {any} */ (event.payload);
                 const code = typeof payload?.code === "string" ? payload.code : null;
                 const message = String(payload?.message ?? strings.errors.generic);
-                if (code === ERROR_CODES.RATE_LIMITED) {
-                    // A mensagem NÃO foi enviada: dizer isso e devolver o texto
-                    // ao campo, em vez de deixar o usuário supor que foi.
-                    toasts.show(strings.errors.rateLimited, "error");
-                    onRateLimited();
-                    break;
-                }
+                const ref = typeof payload?.ref === "string" ? payload.ref : null;
                 if (code === ERROR_CODES.INVALID_NAME) {
                     onLoginRejected(strings.errors.invalidName);
                     break;
                 }
-                toasts.show(message, "error");
+                // Recusa de uma mensagem específica: ela fica marcada como não
+                // enviada, com a opção de tentar de novo.
+                const failedOne = ref !== null && store.actions.failMessage(ref, message);
+                if (code === ERROR_CODES.RATE_LIMITED) {
+                    toasts.show(strings.errors.rateLimited, "error");
+                    break;
+                }
+                if (!failedOne) toasts.show(message, "error");
+                else if (code === ERROR_CODES.MUTED) toasts.show(message, "error");
                 break;
             }
 

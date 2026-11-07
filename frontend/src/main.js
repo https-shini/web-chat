@@ -1,10 +1,13 @@
 // @ts-check
 
 import { SOCKET_URL, TIMING } from "./config.js";
-import { CLIENT_EVENTS } from "./protocol.js";
+import { CLIENT_EVENTS, CLOSE_CODES } from "./protocol.js";
+import { routeInput } from "./commands/input.js";
+import { helpReply, timeReply } from "./commands/local.js";
+import { createCommandSuggestions } from "./ui/commandSuggestions.js";
 import { createAnnouncer } from "./a11y/announce.js";
 import { format, strings } from "./i18n/strings.js";
-import { createEventHandler } from "./state/events.js";
+import { createEventHandler, noticeMessage } from "./state/events.js";
 import { createStore } from "./state/store.js";
 import { createTypingTracker } from "./state/typing.js";
 import { createTypingSignal } from "./state/typingSignal.js";
@@ -38,7 +41,16 @@ const shell = /** @type {HTMLElement} */ (must(".c-app"));
 const announcer = createAnnouncer();
 const connection = createConnection();
 const empty = createEmpty();
-const messageList = createMessageList();
+const messageList = createMessageList({
+    onRetry: (message) => retryMessage(message),
+    onFailed: (message) =>
+        announcer.say(
+            format(strings.delivery.announceFailed, { reason: message.failReason ?? "" }),
+            {
+                force: true,
+            },
+        ),
+});
 const typing = createTyping();
 const notifier = createNotifier();
 const people = createPeople();
@@ -69,14 +81,24 @@ let handleEvent = () => {};
  */
 let resumeToken = null;
 
-/** Último texto enviado, para devolvê-lo ao campo se o servidor recusar. */
-let lastSent = "";
+/** Sem confirmação do servidor nesse prazo, a mensagem vira "não enviada". */
+const DELIVERY_TIMEOUT_MS = 10_000;
+
+/**
+ * Comandos enviados ao servidor aguardando resposta (correlação pelo
+ * `requestId`). Guarda o nome e o instante, para o /ping medir a ida e volta.
+ * @type {Map<string, {name: string, sentAt: number}>}
+ */
+const pendingRequests = new Map();
 
 const transport = createTransport({
     url: SOCKET_URL,
     onStatus: (status, detail) => {
         if (status !== "online") typingTracker.clear();
         store.actions.setLink(status, detail);
+        // Mensagens que esperavam a conexão saem agora pela fila: o prazo
+        // de confirmação começa a contar daqui.
+        if (status === "online") store.actions.markPendingSent(Date.now());
     },
     onQueueChange: (queued) => {
         store.actions.setQueued(queued);
@@ -101,16 +123,101 @@ const typingSignal = createTypingSignal({
     idle: TIMING.typingIdle,
 });
 
+/**
+ * Envia uma mensagem comum. Ela aparece na hora como "enviando…" e é
+ * confirmada quando o servidor a devolve com o mesmo `clientMsgId`.
+ * @param {string} content
+ */
+const sendChat = (content) => {
+    const me = store.getState().me;
+    if (!me) return;
+    const clientMsgId = crypto.randomUUID();
+    const sent = transport.send(CLIENT_EVENTS.CHAT_MESSAGE, { content, clientMsgId });
+    store.actions.addMessage({
+        id: `local:${clientMsgId}`,
+        key: `c:${clientMsgId}`,
+        kind: "chat",
+        userId: me.id,
+        userName: me.name,
+        content,
+        timestamp: new Date().toISOString(),
+        own: true,
+        variant: "text",
+        format: null,
+        clientMsgId,
+        delivery: "pending",
+        sentAt: sent ? Date.now() : null,
+    });
+};
+
+/**
+ * "Tentar de novo": reenvia com o MESMO `clientMsgId` — se a original
+ * tiver chegado, o servidor não duplica.
+ * @param {import("./state/store.js").Message} message
+ */
+const retryMessage = (message) => {
+    if (!message.clientMsgId) return;
+    const sent = transport.send(CLIENT_EVENTS.CHAT_MESSAGE, {
+        content: message.content,
+        clientMsgId: message.clientMsgId,
+    });
+    store.actions.retryMessage(message.clientMsgId, sent ? Date.now() : null);
+};
+
+setInterval(() => {
+    store.actions.expirePending(Date.now(), DELIVERY_TIMEOUT_MS, strings.delivery.timeout);
+}, 1000);
+
+/**
+ * Comando local (`scope: "client"` no catálogo do servidor).
+ * @param {import("./state/store.js").CommandInfo} command
+ * @param {string} args
+ */
+const runLocalCommand = (command, args) => {
+    const catalog = store.getState().catalog;
+    switch (command.name) {
+        case "clear":
+            store.actions.clearLocal();
+            store.actions.addMessage(
+                noticeMessage({ tone: "success", text: strings.system.localCleared }),
+            );
+            break;
+        case "time":
+            store.actions.addMessage(noticeMessage(timeReply()));
+            break;
+        default:
+            store.actions.addMessage(noticeMessage(helpReply(catalog, args)));
+    }
+};
+
 const composer = createComposer({
     onSend: (content) => {
         // Gesto do usuário: é aqui, e só aqui, que a permissão de
         // notificação pode ser pedida.
         notifier.requestOnGesture();
-        lastSent = content;
-        transport.send(CLIENT_EVENTS.CHAT_MESSAGE, { content });
         typingSignal.stop();
+        const route = routeInput(content, store.getState().catalog);
+        if (route.type === "message") {
+            sendChat(route.content);
+        } else if (route.type === "client") {
+            runLocalCommand(route.command, route.args);
+        } else {
+            // Comando do servidor: vai como texto bruto; quem interpreta,
+            // valida e autoriza é o servidor.
+            const requestId = crypto.randomUUID();
+            pendingRequests.set(requestId, { name: route.name, sentAt: Date.now() });
+            transport.send(CLIENT_EVENTS.COMMAND, { requestId, text: route.text });
+        }
     },
     onTyping: () => typingSignal.input(),
+    onInput: (text, cursor) => suggestions.update(text, cursor),
+    onKeyDown: (event) => suggestions.handleKey(event),
+});
+
+const suggestions = createCommandSuggestions({
+    input: composer.input,
+    getCatalog: () => store.getState().catalog,
+    onChoose: (text) => composer.setValue(text),
 });
 
 const failure = createFailure({
@@ -133,7 +240,21 @@ handleEvent = createEventHandler({
     onSession: (token) => {
         resumeToken = token;
     },
-    onRateLimited: () => composer.restoreDraft(lastSent),
+    onCommandResult: (requestId, result) => {
+        const request = requestId ? pendingRequests.get(requestId) : undefined;
+        if (requestId) pendingRequests.delete(requestId);
+        // Texto vazio: confirmação de um comando cujo efeito já apareceu na sala.
+        if (!result.text) return;
+        // /ping: o servidor responde; a ida e volta é medida aqui.
+        const reply =
+            request?.name === "ping" && result.tone === "success"
+                ? {
+                      ...result,
+                      text: format(strings.commands.ping, { ms: Date.now() - request.sentAt }),
+                  }
+                : result;
+        store.actions.addMessage(noticeMessage(reply));
+    },
     onLoginRejected: (message) => {
         // Entrada recusada pelo servidor: a pessoa volta à tela do nome com
         // a explicação, em vez de ficar numa sala em que não pode falar.
@@ -200,8 +321,12 @@ const render = (state, previous) => {
     if (changed(state, previous, ["screen", "link"]) || noMessages !== wasEmpty) {
         empty.render(inRoom && state.link === "online" && noMessages);
     }
-    if (changed(state, previous, ["screen", "link", "maxAttempts"])) {
-        failure.render(inRoom && state.link === "offline", state.maxAttempts);
+    if (changed(state, previous, ["screen", "link", "maxAttempts", "closeCode"])) {
+        failure.render(
+            inRoom && state.link === "offline",
+            state.maxAttempts,
+            state.closeCode === CLOSE_CODES.REMOVED,
+        );
     }
     if (changed(state, previous, ["typing"])) typing.render(state.typing);
     if (changed(state, previous, ["messages"])) messageList.render(state.messages);

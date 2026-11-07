@@ -187,6 +187,18 @@
             <footer class="c-app__footer" hidden>
                 <p class="c-composer__notice u-meta" role="status"></p>
 
+                <!-- Autocomplete de comandos: listbox do campo de mensagem. -->
+                <div class="c-command-suggestions" hidden>
+                    <ul
+                        class="c-command-suggestions__list"
+                        id="sugestoes-comandos"
+                        role="listbox"
+                        aria-label="Comandos sugeridos"
+                        hidden
+                    ></ul>
+                    <p class="c-command-suggestions__hint u-meta" hidden></p>
+                </div>
+
                 <form class="c-composer" novalidate>
                     <div class="c-field c-composer__field">
                         <label class="c-field__label sr-only" for="campo-mensagem">Mensagem</label>
@@ -198,6 +210,7 @@
                             maxlength="1000"
                             autocomplete="off"
                             enterkeyhint="send"
+                            placeholder="Mensagem — digite / para comandos"
                         />
                     </div>
                     <button type="submit" class="c-button c-button--primary c-composer__send">

@@ -52,3 +52,14 @@
         flex: 0 0 auto;
     }
 }
+
+/* Papel e presença em texto, não só em cor. */
+.c-people__tag {
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wide);
+    color: var(--color-text-2);
+}
+
+.c-people__item[data-status="away"] .c-identity__name {
+    color: var(--color-text-2);
+}

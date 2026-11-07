@@ -83,3 +83,142 @@
         max-width: 100%;
     }
 }
+
+/* ─── Fase 4: variantes, formatação, entrega e respostas de comando ──── */
+
+/* Ação em terceira pessoa (/me, /roll, /flip): o nome faz parte da frase. */
+.c-message__actor {
+    font-weight: var(--weight-bold);
+}
+
+.c-message--action .c-message__text {
+    font-style: italic;
+}
+
+/* Aviso de administrador (/announce): traço e rótulo na cor da marca. */
+.c-message--announcement .c-message__body {
+    border-left: var(--rule-2) solid var(--color-brand);
+    padding-left: var(--space-3);
+    margin-left: calc(var(--space-3) * -1);
+}
+
+/* Rótulo, nome e hora: o rótulo encosta no nome e a hora vai para a direita. */
+.c-message--announcement .c-message__head {
+    justify-content: flex-start;
+}
+
+.c-message--announcement .c-message__time {
+    margin-left: auto;
+}
+
+.c-message__label {
+    font-size: var(--text-2xs);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-caps);
+    text-transform: uppercase;
+    color: var(--color-brand-text);
+}
+
+.c-message__code {
+    padding: var(--space-0-5) var(--space-1);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-surface-2);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: var(--text-sm);
+}
+
+/* Spoiler: escondido até a pessoa pedir. */
+.c-spoiler {
+    padding: var(--space-0-5) var(--space-1);
+    border: var(--rule-1) solid var(--color-outline-control);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-surface-2);
+    font: inherit;
+    color: var(--color-text-1);
+    cursor: pointer;
+}
+
+.c-spoiler[aria-expanded="false"] .c-spoiler__text {
+    color: transparent;
+    user-select: none;
+}
+
+/* Entrega da sua mensagem: "enviando…" e "não enviada". */
+.c-message[data-delivery="pending"] .c-message__text {
+    color: var(--color-text-2);
+}
+
+.c-message__status:not([hidden]) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0;
+    font-size: var(--text-xs);
+    color: var(--color-text-2);
+}
+
+.c-message[data-delivery="failed"] .c-message__status-text {
+    color: var(--color-danger);
+}
+
+.c-message[data-delivery="failed"] .c-message__body {
+    border-left: var(--rule-2) solid var(--color-danger);
+    padding-left: var(--space-3);
+    margin-left: calc(var(--space-3) * -1);
+}
+
+/* Resposta de comando (só você vê) e avisos do servidor por tom. */
+/* Na coluna do conteúdo, como as mensagens: o trilho fica livre para o fio. */
+.c-message--notice .c-message__body {
+    grid-column: 2;
+    max-width: var(--measure-message);
+    border-left: var(--rule-2) solid var(--color-outline-control);
+    padding-left: var(--space-3);
+}
+
+.c-message__title {
+    font-weight: var(--weight-bold);
+    color: var(--color-text-1);
+}
+
+.c-message--notice .c-message__text,
+.c-message__lines {
+    font-size: var(--text-sm);
+    color: var(--color-text-2);
+}
+
+.c-message__lines {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-0-5);
+    margin: 0;
+    padding-left: var(--space-4);
+}
+
+.c-message--notice[data-tone="success"] .c-message__body {
+    border-left-color: var(--color-ok);
+}
+
+.c-message--notice[data-tone="success"] .c-message__text {
+    color: var(--color-ok);
+}
+
+.c-message--notice[data-tone="error"] .c-message__body {
+    border-left-color: var(--color-danger);
+}
+
+.c-message--notice[data-tone="error"] .c-message__text {
+    color: var(--color-danger);
+}
+
+.c-message--notice[data-tone="warning"] .c-message__body,
+.c-message--notice[data-tone="admin"] .c-message__body {
+    border-left-color: var(--color-brand);
+}
+
+.c-message--notice[data-tone="warning"] .c-message__text,
+.c-message--notice[data-tone="admin"] .c-message__text,
+.c-message--system[data-tone="admin"] .c-message__text {
+    color: var(--color-brand-text);
+}

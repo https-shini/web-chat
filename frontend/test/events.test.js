@@ -17,9 +17,6 @@ const setup = () => {
         notifier: { show: () => {} },
         typingTracker: { set: () => {} },
         onSession: (token) => calls.sessions.push(token),
-        onRateLimited: () => {
-            calls.rateLimited += 1;
-        },
         onLoginRejected: (message) => calls.rejected.push(message),
     });
     store.actions.enterRoom({ id: "id-local-provisorio", name: "Ana" });
@@ -119,10 +116,24 @@ describe("identificadores de mensagem", () => {
 });
 
 describe("erros com código", () => {
-    test("rate_limited avisa que a mensagem não foi enviada e pede o rascunho de volta", () => {
-        const { toasts, calls, handle } = setup();
-        handle({ type: "error", payload: { code: "rate_limited", message: "texto do servidor" } });
-        assert.equal(calls.rateLimited, 1);
+    test("rate_limited com ref marca a mensagem como não enviada e avisa", () => {
+        const { store, toasts, handle } = setup();
+        store.actions.addMessage({
+            id: "local:c1",
+            key: "c:c1",
+            kind: "chat",
+            userId: "id-local-provisorio",
+            userName: "Ana",
+            content: "oi",
+            timestamp: "2026-11-07T10:00:00Z",
+            own: true,
+            clientMsgId: "c1",
+            delivery: "pending",
+            sentAt: 1,
+        });
+        handle({ type: "error", payload: { code: "rate_limited", message: "texto", ref: "c1" } });
+        const [message] = store.getState().messages;
+        assert.equal(message?.delivery, "failed");
         assert.deepEqual(toasts, [{ text: strings.errors.rateLimited, kind: "error" }]);
     });
 
@@ -149,9 +160,9 @@ describe("presença e digitação", () => {
         const { store, handle } = setup();
         handle({ type: "user_list", payload: [{ id: "1", name: "Ana" }, null, { id: 2 }] });
         assert.deepEqual(store.getState().people, [
-            { id: "1", name: "Ana" },
-            { id: "", name: "" },
-            { id: "2", name: "" },
+            { id: "1", name: "Ana", status: "online", role: "member" },
+            { id: "", name: "", status: "online", role: "member" },
+            { id: "2", name: "", status: "online", role: "member" },
         ]);
         handle({ type: "user_list", payload: "lixo" });
         assert.deepEqual(store.getState().people, []);
