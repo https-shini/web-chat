@@ -97,14 +97,54 @@ export const createStore = () => {
             },
 
             /**
+             * Identidade confirmada pelo servidor (evento `session`). O id
+             * local provisório gerado na entrada é substituído pelo id que o
+             * servidor atribuiu à conexão.
+             * @param {Person} me
+             */
+            setIdentity(me) {
+                if (state.me?.id === me.id && state.me.name === me.name) return;
+                patch({ me });
+            },
+
+            /**
+             * Volta para a tela de entrada (o servidor recusou a entrada).
+             */
+            leaveRoom() {
+                patch({ ...initialState() });
+            },
+
+            /**
+             * Acrescenta uma mensagem. Um id já presente é ignorado: a mesma
+             * mensagem nunca aparece duas vezes.
              * @param {Message} message
              */
             addMessage(message) {
+                if (state.messages.some((existing) => existing.id === message.id)) return;
                 patch({ messages: [...state.messages, message] });
             },
 
             /**
-             * Substitui o histórico inteiro (chegada de `message_history`).
+             * Mescla o histórico enviado pelo servidor (`message_history`)
+             * com o que já está na tela. Antes, o histórico substituía tudo:
+             * na reconexão a lista inteira era redesenhada e os avisos de
+             * entrada/saída sumiam (P09). Agora só entram, no fim e na ordem
+             * do servidor, as mensagens que ainda não estão na tela.
+             * @param {Message[]} history
+             */
+            mergeHistory(history) {
+                const known = new Set(state.messages.map((message) => message.id));
+                const fresh = history.filter((message) => {
+                    if (known.has(message.id)) return false;
+                    known.add(message.id);
+                    return true;
+                });
+                if (fresh.length === 0) return;
+                patch({ messages: [...state.messages, ...fresh] });
+            },
+
+            /**
+             * Substitui o histórico inteiro.
              * @param {Message[]} messages
              */
             replaceMessages(messages) {

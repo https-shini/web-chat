@@ -6,6 +6,7 @@ import { format, strings } from "./i18n/strings.js";
 import { createEventHandler } from "./state/events.js";
 import { createStore } from "./state/store.js";
 import { createTypingTracker } from "./state/typing.js";
+import { createTypingSignal } from "./state/typingSignal.js";
 import { createTransport } from "./transport/socket.js";
 import { must } from "./ui/dom.js";
 import { createComposer } from "./ui/composer.js";
@@ -53,8 +54,21 @@ const themeToggle = createThemeToggle({
     },
 });
 
-/** @type {(event: {type: string, payload: unknown}) => void} */
+/** @type {(event: {type: string, payload: unknown, id?: string}) => void} */
 let handleEvent = () => {};
+
+/**
+ * Token secreto de retomada entregue pelo servidor no evento `session`.
+ * Prova, numa reconexão, que esta aba é a dona da identidade — sem ele o
+ * servidor atribuiria um id novo e as próprias mensagens anteriores
+ * deixariam de aparecer como "Você". Fica só em memória: fechar a aba
+ * encerra a identidade, como a sala promete.
+ * @type {string | null}
+ */
+let resumeToken = null;
+
+/** Último texto enviado, para devolvê-lo ao campo se o servidor recusar. */
+let lastSent = "";
 
 const transport = createTransport({
     url: SOCKET_URL,
@@ -68,30 +82,33 @@ const transport = createTransport({
     onOpen: () => {
         const me = store.getState().me;
         if (!me) return;
-        transport.send("user_login", { userId: me.id, userName: me.name });
+        // `userId` é ignorado pelo servidor atual (que atribui a identidade)
+        // e mantido só para compatibilidade com um servidor antigo.
+        transport.send("user_login", {
+            userId: me.id,
+            userName: me.name,
+            ...(resumeToken ? { resumeToken } : {}),
+        });
     },
     onEvent: (event) => handleEvent(event),
 });
 
-handleEvent = createEventHandler({ store, toasts, notifier, typingTracker });
-
-/** @type {ReturnType<typeof setTimeout> | null} */
-let typingTimer = null;
+const typingSignal = createTypingSignal({
+    send: (type) => transport.signal(type),
+    interval: TIMING.typingSignalInterval,
+    idle: TIMING.typingIdle,
+});
 
 const composer = createComposer({
     onSend: (content) => {
         // Gesto do usuário: é aqui, e só aqui, que a permissão de
         // notificação pode ser pedida.
         notifier.requestOnGesture();
+        lastSent = content;
         transport.send("chat_message", { content });
-        if (typingTimer) clearTimeout(typingTimer);
-        transport.signal("typing_stop");
+        typingSignal.stop();
     },
-    onTyping: () => {
-        transport.signal("typing_start");
-        if (typingTimer) clearTimeout(typingTimer);
-        typingTimer = setTimeout(() => transport.signal("typing_stop"), TIMING.typingIdle);
-    },
+    onTyping: () => typingSignal.input(),
 });
 
 const failure = createFailure({
@@ -100,8 +117,29 @@ const failure = createFailure({
 
 const entry = createEntry({
     onSubmit: (name) => {
+        // Id provisório: o definitivo chega do servidor no evento `session`.
         store.actions.enterRoom({ id: crypto.randomUUID(), name });
         transport.open();
+    },
+});
+
+handleEvent = createEventHandler({
+    store,
+    toasts,
+    notifier,
+    typingTracker,
+    onSession: (token) => {
+        resumeToken = token;
+    },
+    onRateLimited: () => composer.restoreDraft(lastSent),
+    onLoginRejected: (message) => {
+        // Entrada recusada pelo servidor: a pessoa volta à tela do nome com
+        // a explicação, em vez de ficar numa sala em que não pode falar.
+        transport.close();
+        resumeToken = null;
+        typingTracker.clear();
+        store.actions.leaveRoom();
+        entry.reset(message);
     },
 });
 

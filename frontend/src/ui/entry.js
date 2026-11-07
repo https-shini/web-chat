@@ -9,6 +9,20 @@ import { must } from "./dom.js";
  * aplicação; não sabe o que acontece depois.
  */
 
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARS = /[\x00-\x1f\x7f]/g;
+
+/**
+ * Normaliza o nome com a mesma regra do servidor: caracteres de controle
+ * viram espaço, extremidades aparadas, no máximo `LIMITS.nameMaxLength`.
+ * Assim um nome que o servidor recusaria é recusado aqui, com a mensagem de
+ * validação da própria tela, antes de qualquer conexão.
+ * @param {string} value
+ * @returns {string}
+ */
+export const normalizeName = (value) =>
+    value.replace(CONTROL_CHARS, " ").trim().slice(0, LIMITS.nameMaxLength);
+
 /**
  * @param {{onSubmit: (name: string) => void}} handlers
  */
@@ -35,7 +49,7 @@ export const createEntry = ({ onSubmit }) => {
 
     form.addEventListener("submit", (event) => {
         event.preventDefault();
-        const name = input.value.trim().slice(0, LIMITS.nameMaxLength);
+        const name = normalizeName(input.value);
         if (!name) {
             showError(strings.entry.nameRequired);
             return;
@@ -58,6 +72,17 @@ export const createEntry = ({ onSubmit }) => {
 
         focus() {
             input.focus();
+        },
+
+        /**
+         * Volta ao estado inicial do formulário com um erro, quando o
+         * servidor recusa a entrada. Chamar depois que a tela estiver visível.
+         * @param {string} message
+         */
+        reset(message) {
+            delete submit.dataset.loading;
+            submit.textContent = strings.entry.submit;
+            showError(message);
         },
     };
 };

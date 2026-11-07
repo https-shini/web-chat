@@ -62,6 +62,9 @@ export const strings = {
     },
     errors: {
         generic: "Algo deu errado. Tente de novo.",
+        rateLimited:
+            "Sua mensagem não foi enviada: você está escrevendo rápido demais. Aguarde um instante e envie de novo.",
+        invalidName: "O servidor recusou esse nome. Escolha outro com letras ou números.",
     },
 };
 

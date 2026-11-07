@@ -18,10 +18,13 @@ import { RECONNECT } from "../config.js";
  */
 
 /**
- * Evento de domínio já decodificado.
+ * Evento de domínio já decodificado. `id` é o identificador que o servidor
+ * atribui a cada mensagem de chat; precisa chegar até o estado, porque é o
+ * mesmo que aparece depois no histórico (P09).
  * @typedef {object} DomainEvent
  * @property {string} type
  * @property {unknown} payload
+ * @property {string} [id]
  */
 
 /**
@@ -89,7 +92,10 @@ export const createTransport = ({ url, onStatus, onEvent, onOpen, onQueueChange 
         try {
             const decoded = JSON.parse(String(event.data));
             if (decoded && typeof decoded.type === "string") {
-                onEvent({ type: decoded.type, payload: decoded.payload });
+                /** @type {DomainEvent} */
+                const domainEvent = { type: decoded.type, payload: decoded.payload };
+                if (typeof decoded.id === "string") domainEvent.id = decoded.id;
+                onEvent(domainEvent);
             }
         } catch {
             // Quadro ilegível: descartar é melhor do que derrubar a sessão.

@@ -43,6 +43,16 @@ export const createComposer = ({ onSend, onTyping }) => {
         },
 
         /**
+         * Devolve ao campo um texto que o servidor recusou, sem apagar o que
+         * a pessoa já tiver começado a escrever depois.
+         * @param {string} text
+         */
+        restoreDraft(text) {
+            if (input.disabled || input.value !== "" || text === "") return;
+            input.value = text;
+        },
+
+        /**
          * @param {import("../state/store.js").LinkState} link
          * @param {number} queued
          */
