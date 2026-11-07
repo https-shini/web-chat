@@ -128,8 +128,10 @@ backend.
 | `ALLOWED_ORIGINS` | `backend/src/server.js:14` | Inicialização    | vazio → qualquer origem aceita      | Ambiente do processo ou `backend/.env`  |
 | `PORT`            | `backend/src/server.js:51` | Inicialização    | `8080`                              | Ambiente do processo ou `backend/.env`  |
 
-> O `.env.example` fica na raiz, mas nenhum dos dois processos lê `./.env`
-> (problema P03 da análise, tarefa F1-02 do roadmap).
+> **Atualizado após a Fase 1:** frontend e backend leem o `.env` da **raiz**
+> (backend: ambiente do processo > raiz > `backend/.env`). Nova variável
+> `HEARTBEAT_MS` (padrão 30000). `PORT`, `ALLOWED_ORIGINS` e `VITE_SOCKET_URL` são
+> validadas. A coluna "Onde é lida de fato" acima descreve o estado anterior.
 
 ## 6. Scripts
 
@@ -150,7 +152,9 @@ backend.
 | `format`         | `prettier --write .`                                      |
 | `format:check`   | `prettier --check .`                                      |
 
-Não há script `test`.
+Após a Fase 1: `test` (roda os dois abaixo), `test:front`
+(`node --test frontend/test/*.test.js`) e `test:back` (`npm --prefix backend test`);
+no backend, `test` = `node --test test/*.test.js`.
 
 ### Backend
 
@@ -235,7 +239,7 @@ têm também `id` no topo). Tabela completa em
 | Tipos                         | `tsc` (JSDoc, `strict`, `noUncheckedIndexedAccess`)              | ✅ passa                                                                 |
 | Contraste                     | `scripts/check-contrast.mjs` (42 pares, 2 temas)                 | ✅ todos passam                                                          |
 | Build                         | Vite                                                             | ✅ `dist/` 1,9 MB (HTML 10 KB, JS 13,9 KB, CSS 17,6 KB, imagens ~1,8 MB) |
-| Testes automatizados          | —                                                                | ❌ inexistentes                                                          |
+| Testes automatizados          | `node:test`                                                      | ✅ 78 após a Fase 1 (55 backend + 23 frontend)                           |
 | `npm audit` backend           | npm                                                              | ✅ 0                                                                     |
 | `npm audit` raiz              | npm                                                              | ⚠️ 7 (dev)                                                               |
 | Análise estática de segurança | CodeQL                                                           | Configurada (resultado não acessível nesta análise)                      |

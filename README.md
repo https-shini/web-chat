@@ -53,22 +53,24 @@ nativos no navegador — **nenhuma dependência de runtime no frontend**.
 
 Cada item corresponde a código neste repositório.
 
-| Funcionalidade                                                                                                         | Onde                                                             |
-| ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Entrada com um nome (até 30 caracteres), sem senha                                                                     | `frontend/src/ui/entry.js`                                       |
-| Mensagens em tempo real para todos os conectados (até 1000 caracteres)                                                 | `backend/src/server.js`, `frontend/src/state/events.js`          |
-| Últimas 50 mensagens enviadas a quem entra                                                                             | `backend/src/server.js`                                          |
-| Lista de pessoas online com monograma e cor estável por pessoa                                                         | `frontend/src/ui/people.js`, `frontend/src/ui/identity.js`       |
-| Indicador "está digitando" com expiração automática                                                                    | `frontend/src/state/typing.js`, `frontend/src/ui/typing.js`      |
-| Avisos de entrada e saída na conversa                                                                                  | `backend/src/server.js`                                          |
-| Horário em cada mensagem (pt-BR)                                                                                       | `frontend/src/ui/message.js`                                     |
-| Reconexão automática: backoff exponencial, teto, jitter e retry manual                                                 | `frontend/src/transport/socket.js`, `frontend/src/ui/failure.js` |
-| Fila de envio enquanto a conexão está fora (até 50 mensagens)                                                          | `frontend/src/transport/socket.js`                               |
-| Quatro estados de conexão visíveis: conectando, conectado, reconectando, offline                                       | `frontend/src/ui/connection.js`                                  |
-| Tema claro e escuro, aplicado antes da primeira pintura e persistido                                                   | `frontend/index.html`, `frontend/src/ui/themeToggle.js`          |
-| Notificação do navegador só com a aba oculta e após um gesto seu                                                       | `frontend/src/ui/notify.js`                                      |
-| Proteções no servidor: payload máx. 16 KiB, rate limit por conexão, teto de 500 conexões, allowlist de origem opcional | `backend/src/server.js`                                          |
-| Content-Security-Policy no HTML                                                                                        | `frontend/index.html`                                            |
+| Funcionalidade                                                                                                                                                                                                    | Onde                                                             |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Entrada com um nome (até 30 caracteres), sem senha                                                                                                                                                                | `frontend/src/ui/entry.js`                                       |
+| Mensagens em tempo real para todos os conectados (até 1000 caracteres)                                                                                                                                            | `backend/src/server.js`, `frontend/src/state/events.js`          |
+| Últimas 50 mensagens enviadas a quem entra                                                                                                                                                                        | `backend/src/server.js`                                          |
+| Lista de pessoas online com monograma e cor estável por pessoa                                                                                                                                                    | `frontend/src/ui/people.js`, `frontend/src/ui/identity.js`       |
+| Indicador "está digitando" com expiração automática                                                                                                                                                               | `frontend/src/state/typing.js`, `frontend/src/ui/typing.js`      |
+| Avisos de entrada e saída na conversa                                                                                                                                                                             | `backend/src/server.js`                                          |
+| Horário em cada mensagem (pt-BR)                                                                                                                                                                                  | `frontend/src/ui/message.js`                                     |
+| Reconexão automática: backoff exponencial, teto, jitter e retry manual                                                                                                                                            | `frontend/src/transport/socket.js`, `frontend/src/ui/failure.js` |
+| Fila de envio enquanto a conexão está fora (até 50 mensagens)                                                                                                                                                     | `frontend/src/transport/socket.js`                               |
+| Quatro estados de conexão visíveis: conectando, conectado, reconectando, offline                                                                                                                                  | `frontend/src/ui/connection.js`                                  |
+| Tema claro e escuro, aplicado antes da primeira pintura e persistido                                                                                                                                              | `frontend/index.html`, `frontend/src/ui/themeToggle.js`          |
+| Notificação do navegador só com a aba oculta e após um gesto seu                                                                                                                                                  | `frontend/src/ui/notify.js`                                      |
+| Identidade atribuída pelo servidor e mantida na reconexão por token secreto de sessão                                                                                                                             | `backend/src/server.js`, `frontend/src/state/events.js`          |
+| Aviso quando uma mensagem é recusada por excesso de velocidade, com o texto devolvido ao campo                                                                                                                    | `frontend/src/state/events.js`, `frontend/src/ui/composer.js`    |
+| Proteções no servidor: payload máx. 16 KiB, limites de taxa separados para mensagens e digitação, teto de 500 conexões, allowlist de origem, validação de cada quadro recebido, heartbeat e desligamento gracioso | `backend/src/server.js`                                          |
+| Content-Security-Policy no HTML                                                                                                                                                                                   | `frontend/index.html`                                            |
 
 ### O que o servidor guarda
 
@@ -90,7 +92,6 @@ Nenhum destes itens está implementado.
 | Upload de arquivos, voz, emojis, reações | Não implementado.                                      |
 | Mensagens com várias linhas              | Não implementado (o servidor remove quebras de linha). |
 | Criptografia ponta a ponta               | Não implementado.                                      |
-| Testes automatizados                     | Ainda não existem — ver [Roadmap](#roadmap).           |
 
 ## Tecnologias
 
@@ -134,7 +135,9 @@ grep -rn 'document\.\|querySelector' frontend/src/transport
 ```
 
 O contrato de mensagens está descrito em
-[`docs/ANALISE_E_PLANO_DE_MELHORIAS.md` §3.3](./docs/ANALISE_E_PLANO_DE_MELHORIAS.md#33-protocolo-websocket-contrato-implícito).
+[`docs/ANALISE_E_PLANO_DE_MELHORIAS.md` §3.3](./docs/ANALISE_E_PLANO_DE_MELHORIAS.md#33-protocolo-websocket-contrato-implícito),
+com as mudanças da Fase 1 (evento `session`, `resumeToken`, códigos de erro) em
+[`docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md).
 
 ## Estrutura de diretórios
 
@@ -152,9 +155,11 @@ web-chat/
 │       ├── a11y/announce.js    região live única, com fila e deduplicação
 │       ├── i18n/strings.js     textos de interface
 │       └── css/                tokens.css → base/ → components/
+│   └── test/                   testes de unidade do cliente (node:test)
 ├── backend/
 │   ├── package.json            dependências e scripts do servidor
-│   └── src/server.js           servidor HTTP + WebSocket
+│   ├── src/server.js           servidor HTTP + WebSocket
+│   └── test/                   testes de integração do protocolo (node:test)
 ├── scripts/                    dev.mjs (sobe tudo) e checagem de contraste
 ├── docs/                       análise, roadmap, inventário, design system, relatórios
 ├── read-model/                 documentação histórica (parcialmente desatualizada)
@@ -194,29 +199,35 @@ Nenhuma configuração é necessária para rodar localmente: sem variáveis, o f
 conecta em `ws://<host da página>:8080` (ou `wss://` sob HTTPS) e o servidor escuta
 na porta 8080.
 
+Para configurar, copie o exemplo para a **raiz** do repositório — frontend e backend
+leem o mesmo arquivo:
+
+```bash
+cp .env.example .env
+```
+
 | Variável          | Usada por                    | Para quê                                                                          | Padrão                          |
 | ----------------- | ---------------------------- | --------------------------------------------------------------------------------- | ------------------------------- |
-| `VITE_SOCKET_URL` | Frontend (embutida no build) | Endereço do servidor WebSocket                                                    | `ws(s)://<host da página>:8080` |
+| `VITE_SOCKET_URL` | Frontend (embutida no build) | Endereço do servidor WebSocket; precisa ser `ws://` ou `wss://`                   | `ws(s)://<host da página>:8080` |
 | `ALLOWED_ORIGINS` | Backend                      | Origens autorizadas a conectar, separadas por vírgula. **Configure em produção.** | vazio = qualquer origem         |
 | `PORT`            | Backend                      | Porta HTTP/WebSocket                                                              | `8080`                          |
+| `HEARTBEAT_MS`    | Backend                      | Intervalo do ping que detecta conexões mortas (mínimo 50)                         | `30000`                         |
 
-> **Atenção — onde colocar o `.env` hoje.** O `.env.example` está na raiz, mas, com
-> a configuração atual:
->
-> - o **Vite** lê variáveis de `frontend/.env` (a raiz do Vite é `frontend/`);
-> - o **backend** lê `backend/.env` (o `dotenv` usa o diretório de onde o processo
->   roda) ou, preferencialmente, as variáveis do próprio ambiente.
->
-> Um `.env` apenas na raiz **não tem efeito**. A correção está planejada
-> (tarefa F1-02 do [roadmap](./docs/ROADMAP_DE_IMPLEMENTACAO.md)). Até lá:
+Comportamento previsível quando algo está errado:
 
-```bash
-cp .env.example frontend/.env
-```
+- `VITE_SOCKET_URL` inválida faz `npm run build` (e `npm run dev:front`) falhar com
+  a explicação, em vez de gerar um bundle que nunca conecta.
+- `ALLOWED_ORIGINS` ou `PORT` inválidas impedem o servidor de subir, com uma linha
+  de log `config_invalid` dizendo qual variável corrigir.
+- Sem `ALLOWED_ORIGINS`, o servidor sobe e registra `allowed_origins_disabled`
+  (como aviso quando `NODE_ENV=production`).
+- Só variáveis com prefixo `VITE_` chegam ao navegador; as do backend no mesmo
+  arquivo nunca são expostas.
 
-```bash
-cp .env.example backend/.env
-```
+No backend, a precedência é: variável do ambiente do processo (ex.: painel da
+plataforma) > `.env` da raiz > `backend/.env`. O `backend/.env` continua aceito por
+compatibilidade. Um `frontend/.env` **não é mais lido** — o build avisa se encontrar
+um; mova as variáveis para o `.env` da raiz.
 
 Nunca versione arquivos `.env` (o `.gitignore` já os exclui).
 
@@ -248,8 +259,20 @@ consigo mesmo.
 
 ## Qualidade e testes
 
-**Ainda não há testes automatizados** (não existe script `npm test`). A qualidade
-é verificada por análise estática, executada também na CI:
+```bash
+npm test
+```
+
+Roda as duas suítes, ambas com o executor de testes nativo do Node (`node:test`, sem
+dependência extra). Pré-requisito: dependências do backend instaladas
+(`npm --prefix backend install`).
+
+| Comando              | O que cobre                                                                                                                                                                                          |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run test:back`  | Integração do protocolo: sobe o servidor real numa porta livre e conversa com clientes WebSocket — identidade, personificação, mensagens, limites, validação, logs, `.env`, heartbeat e desligamento |
+| `npm run test:front` | Unidade: tradutor de eventos, estado, transporte, sinal de digitação e validações do cliente                                                                                                         |
+
+Análise estática, executada também na CI:
 
 | Comando                  | O que faz                                                                 |
 | ------------------------ | ------------------------------------------------------------------------- |
@@ -261,8 +284,7 @@ consigo mesmo.
 | `npm run format:check`   | Verifica formatação (Prettier)                                            |
 | `npm run format`         | Formata o projeto                                                         |
 
-A criação da suíte de testes (protocolo, unidade e E2E) é a primeira tarefa do
-roadmap.
+A CI ainda não executa `npm test` — isso é a tarefa F2-02 do roadmap.
 
 ## Build
 
@@ -311,6 +333,11 @@ domínio do frontend. O servidor responde `200 ok` a requisições HTTP comuns, 
 serve como checagem de saúde. Termine TLS na plataforma ou num proxy reverso para
 servir `wss://`.
 
+O servidor escreve **uma linha JSON por evento** (`ts`, `level`, `event` e campos
+como `connection` e `user`), sem conteúdo de mensagem, nomes ou tokens. Ao receber
+`SIGTERM`, fecha as conexões com o código 1001 e encerra em até 5 s — os clientes
+reconectam sozinhos quando o novo processo sobe.
+
 Recomendações de produção (detalhes em [`docs/security-report.md`](./docs/security-report.md) §5):
 configure `frame-ancestors` e HSTS como cabeçalhos HTTP na hospedagem, e limite de
 conexões por IP no proxy.
@@ -346,40 +373,42 @@ da lista na reconexão) estão no plano de melhorias.
 
 ## Documentação complementar
 
-| Documento                                                                        | Conteúdo                                                |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| [`docs/ANALISE_E_PLANO_DE_MELHORIAS.md`](./docs/ANALISE_E_PLANO_DE_MELHORIAS.md) | Diagnóstico técnico, problemas, melhorias e riscos      |
-| [`docs/ROADMAP_DE_IMPLEMENTACAO.md`](./docs/ROADMAP_DE_IMPLEMENTACAO.md)         | 49 tarefas em 8 fases, estratégia e plano de testes     |
-| [`docs/INVENTARIO_TECNICO.md`](./docs/INVENTARIO_TECNICO.md)                     | Tecnologias, dependências, módulos, variáveis e scripts |
-| [`docs/design-system.md`](./docs/design-system.md)                               | Tokens, paleta, contraste medido                        |
-| [`docs/refactor-report.md`](./docs/refactor-report.md)                           | Antes → depois da refatoração do frontend               |
-| [`docs/security-report.md`](./docs/security-report.md)                           | Auditoria de segurança e riscos residuais               |
-| [`read-model/CONTRIBUTING.md`](./read-model/CONTRIBUTING.md)                     | Como contribuir                                         |
+| Documento                                                                                  | Conteúdo                                                |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
+| [`docs/ANALISE_E_PLANO_DE_MELHORIAS.md`](./docs/ANALISE_E_PLANO_DE_MELHORIAS.md)           | Diagnóstico técnico, problemas, melhorias e riscos      |
+| [`docs/ROADMAP_DE_IMPLEMENTACAO.md`](./docs/ROADMAP_DE_IMPLEMENTACAO.md)                   | 49 tarefas em 8 fases, estratégia e plano de testes     |
+| [`docs/INVENTARIO_TECNICO.md`](./docs/INVENTARIO_TECNICO.md)                               | Tecnologias, dependências, módulos, variáveis e scripts |
+| [`docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md) | Correções da Fase 1: decisões, testes e compatibilidade |
+| [`docs/design-system.md`](./docs/design-system.md)                                         | Tokens, paleta, contraste medido                        |
+| [`docs/refactor-report.md`](./docs/refactor-report.md)                                     | Antes → depois da refatoração do frontend               |
+| [`docs/security-report.md`](./docs/security-report.md)                                     | Auditoria de segurança e riscos residuais               |
+| [`read-model/CONTRIBUTING.md`](./read-model/CONTRIBUTING.md)                               | Como contribuir                                         |
 
 ## Roadmap
 
 Resumo — detalhes, dependências e critérios de aceite em
 [`docs/ROADMAP_DE_IMPLEMENTACAO.md`](./docs/ROADMAP_DE_IMPLEMENTACAO.md).
 
-| Fase | Foco                | Destaques                                                                                                            |
-| ---- | ------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| 1    | Correções críticas  | Testes do protocolo, identidade emitida pelo servidor, rate limit sem perda de mensagem, `.env` funcional, heartbeat |
-| 2    | Fundação técnica    | Testes do frontend, CI completa, backend modular e tipado, protocolo compartilhado                                   |
-| 3    | Performance         | Build enxuto, fontes auto-hospedadas, renderização seletiva                                                          |
-| 4    | Funcionalidades     | Reconexão sem avisos repetidos, confirmação de entrega                                                               |
-| 5    | UX e acessibilidade | Erros anunciados, indicador de mensagens novas, composer melhorado                                                   |
-| 6    | Atualizações        | `npm audit` limpo, Vite atual, versão do Node fixada                                                                 |
-| 7    | Testes e validação  | E2E com Playwright, carga, acessibilidade automatizada                                                               |
-| 8    | Evolução            | Deploy declarativo com cabeçalhos de segurança, anti-abuso, PWA                                                      |
+| Fase | Foco                           | Destaques                                                                                                            |
+| ---- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| 1    | Correções críticas (concluída) | Testes do protocolo, identidade emitida pelo servidor, rate limit sem perda de mensagem, `.env` funcional, heartbeat |
+| 2    | Fundação técnica               | Testes do frontend, CI completa, backend modular e tipado, protocolo compartilhado                                   |
+| 3    | Performance                    | Build enxuto, fontes auto-hospedadas, renderização seletiva                                                          |
+| 4    | Funcionalidades                | Reconexão sem avisos repetidos, confirmação de entrega                                                               |
+| 5    | UX e acessibilidade            | Erros anunciados, indicador de mensagens novas, composer melhorado                                                   |
+| 6    | Atualizações                   | `npm audit` limpo, Vite atual, versão do Node fixada                                                                 |
+| 7    | Testes e validação             | E2E com Playwright, carga, acessibilidade automatizada                                                               |
+| 8    | Evolução                       | Deploy declarativo com cabeçalhos de segurança, anti-abuso, PWA                                                      |
 
 ## Status do projeto
 
-**Em desenvolvimento ativo — protótipo funcional.** O frontend está estável e
-verificado (lint, tipos, contraste e build passam na CI). O backend funciona, mas
-ainda não tem testes automatizados e possui problemas conhecidos de integridade de
-protocolo — o principal: a identidade de cada pessoa é declarada pelo próprio
-cliente e pode ser imitada. Esses pontos são a Fase 1 do roadmap. Antes de expor o
-chat publicamente, configure `ALLOWED_ORIGINS`.
+**Em desenvolvimento ativo — protótipo funcional.** A **Fase 1** do roadmap
+(correções críticas de segurança e estabilidade) está concluída: identidade
+atribuída pelo servidor, limites de taxa separados com aviso ao usuário,
+configuração de ambiente funcional e validada, logs estruturados, validação de
+cada quadro recebido, heartbeat e desligamento gracioso — cobertos por 78 testes
+automatizados. Próximo passo: Fase 2 (testes na CI, backend modular).
+Antes de expor o chat publicamente, configure `ALLOWED_ORIGINS`.
 
 ## Contribuindo
 
@@ -388,7 +417,7 @@ A regra que governa o CSS: **nenhuma cor, espaço, raio ou duração fora de
 hex, `rgba()`, `!important` e `px` de densidade nos componentes. No JavaScript,
 nenhum HTML injetado: use `textContent` e `createElement`.
 
-Antes de abrir um PR, rode `npm run lint` e `npm run format:check`. Detalhes em
+Antes de abrir um PR, rode `npm test`, `npm run lint` e `npm run format:check`. Detalhes em
 [`read-model/CONTRIBUTING.md`](./read-model/CONTRIBUTING.md).
 
 ## Licença
