@@ -1,252 +1,426 @@
 [
     {
-        "label": "texto principal / superfície base",
+        "label": "texto principal / área da conversa",
         "fg": "--color-text-1",
-        "bg": "--color-surface-1",
+        "bg": "--color-bg-main",
         "min": 4.5
     },
     {
-        "label": "texto principal / superfície elevada",
+        "label": "texto principal / barra lateral",
         "fg": "--color-text-1",
-        "bg": "--color-surface-2",
+        "bg": "--color-bg-sidebar",
         "min": 4.5
     },
     {
-        "label": "texto secundário / superfície base",
+        "label": "texto principal / campo/cartão",
+        "fg": "--color-text-1",
+        "bg": "--color-bg-elevated",
+        "min": 4.5
+    },
+    {
+        "label": "texto principal / linha em hover",
+        "fg": "--color-text-1",
+        "bg": "--color-bg-hover",
+        "min": 4.5
+    },
+    {
+        "label": "texto principal / moldura/entrada",
+        "fg": "--color-text-1",
+        "bg": "--color-bg-app",
+        "min": 4.5
+    },
+    {
+        "label": "texto secundário / área da conversa",
         "fg": "--color-text-2",
-        "bg": "--color-surface-1",
+        "bg": "--color-bg-main",
         "min": 4.5
     },
     {
-        "label": "texto secundário / superfície elevada",
+        "label": "texto secundário / barra lateral",
         "fg": "--color-text-2",
-        "bg": "--color-surface-2",
+        "bg": "--color-bg-sidebar",
         "min": 4.5
     },
     {
-        "label": "texto sobre preenchimento de marca",
+        "label": "texto secundário / campo/cartão",
+        "fg": "--color-text-2",
+        "bg": "--color-bg-elevated",
+        "min": 4.5
+    },
+    {
+        "label": "texto secundário / linha em hover",
+        "fg": "--color-text-2",
+        "bg": "--color-bg-hover",
+        "min": 4.5
+    },
+    {
+        "label": "texto secundário / moldura/entrada",
+        "fg": "--color-text-2",
+        "bg": "--color-bg-app",
+        "min": 4.5
+    },
+    {
+        "label": "metadado / área da conversa",
+        "fg": "--color-text-3",
+        "bg": "--color-bg-main",
+        "min": 4.5
+    },
+    {
+        "label": "metadado / barra lateral",
+        "fg": "--color-text-3",
+        "bg": "--color-bg-sidebar",
+        "min": 4.5
+    },
+    {
+        "label": "metadado / campo/cartão",
+        "fg": "--color-text-3",
+        "bg": "--color-bg-elevated",
+        "min": 4.5
+    },
+    {
+        "label": "metadado / linha em hover",
+        "fg": "--color-text-3",
+        "bg": "--color-bg-hover",
+        "min": 4.5
+    },
+    {
+        "label": "metadado / moldura/entrada",
+        "fg": "--color-text-3",
+        "bg": "--color-bg-app",
+        "min": 4.5
+    },
+    {
+        "label": "texto principal / item selecionado",
+        "fg": "--color-text-1",
+        "bg": "--color-bg-selected",
+        "min": 4.5
+    },
+    {
+        "label": "texto secundário / item selecionado",
+        "fg": "--color-text-2",
+        "bg": "--color-bg-selected",
+        "min": 4.5
+    },
+    {
+        "label": "acento como texto / área da conversa",
+        "fg": "--color-brand-text",
+        "bg": "--color-bg-main",
+        "min": 4.5
+    },
+    {
+        "label": "acento como texto / barra lateral",
+        "fg": "--color-brand-text",
+        "bg": "--color-bg-sidebar",
+        "min": 4.5
+    },
+    {
+        "label": "acento como texto / campo/cartão",
+        "fg": "--color-brand-text",
+        "bg": "--color-bg-elevated",
+        "min": 4.5
+    },
+    {
+        "label": "texto sobre botão primário",
         "fg": "--color-on-brand",
         "bg": "--color-brand",
         "min": 4.5
     },
     {
-        "label": "texto sobre preenchimento de marca em hover",
+        "label": "texto sobre botão primário em hover",
         "fg": "--color-on-brand",
         "bg": "--color-brand-hover",
         "min": 4.5
     },
     {
-        "label": "preenchimento de marca / superfície base (1.4.11)",
-        "fg": "--color-brand",
-        "bg": "--color-surface-1",
-        "min": 3.0
-    },
-    {
-        "label": "preenchimento de marca / superfície elevada (1.4.11)",
-        "fg": "--color-brand",
-        "bg": "--color-surface-2",
-        "min": 3.0
-    },
-    {
-        "label": "preenchimento de marca em hover / superfície base (1.4.11)",
-        "fg": "--color-brand-hover",
-        "bg": "--color-surface-1",
-        "min": 3.0
-    },
-    {
-        "label": "marca como texto / superfície base",
-        "fg": "--color-brand-text",
-        "bg": "--color-surface-1",
+        "label": "texto sobre botão destrutivo",
+        "fg": "--color-on-danger",
+        "bg": "--color-danger",
         "min": 4.5
     },
     {
-        "label": "marca como texto / superfície elevada",
-        "fg": "--color-brand-text",
-        "bg": "--color-surface-2",
+        "label": "texto sobre botão destrutivo em hover",
+        "fg": "--color-on-danger",
+        "bg": "--color-danger-hover",
         "min": 4.5
     },
     {
-        "label": "contorno de controle / superfície base (1.4.11)",
-        "fg": "--color-outline-control",
-        "bg": "--color-surface-1",
-        "min": 3.0
+        "label": "sucesso como texto / área da conversa",
+        "fg": "--color-ok-text",
+        "bg": "--color-bg-main",
+        "min": 4.5
     },
     {
-        "label": "contorno de controle / superfície elevada (1.4.11)",
-        "fg": "--color-outline-control",
-        "bg": "--color-surface-2",
-        "min": 3.0
+        "label": "sucesso como texto / barra lateral",
+        "fg": "--color-ok-text",
+        "bg": "--color-bg-sidebar",
+        "min": 4.5
     },
     {
-        "label": "anel de foco / superfície base (1.4.11)",
-        "fg": "--color-focus-ring",
-        "bg": "--color-surface-1",
-        "min": 3.0
+        "label": "sucesso como texto / campo/cartão",
+        "fg": "--color-ok-text",
+        "bg": "--color-bg-elevated",
+        "min": 4.5
     },
     {
-        "label": "anel de foco / superfície elevada (1.4.11)",
-        "fg": "--color-focus-ring",
-        "bg": "--color-surface-2",
-        "min": 3.0
+        "label": "aviso como texto / área da conversa",
+        "fg": "--color-warn-text",
+        "bg": "--color-bg-main",
+        "min": 4.5
     },
     {
-        "label": "fio vivo / superfície base (1.4.11)",
-        "fg": "--color-thread-live",
-        "bg": "--color-surface-1",
-        "min": 3.0
+        "label": "aviso como texto / barra lateral",
+        "fg": "--color-warn-text",
+        "bg": "--color-bg-sidebar",
+        "min": 4.5
     },
     {
-        "label": "fio reconectando / superfície base (1.4.11)",
-        "fg": "--color-thread-retry",
-        "bg": "--color-surface-1",
-        "min": 3.0
+        "label": "aviso como texto / campo/cartão",
+        "fg": "--color-warn-text",
+        "bg": "--color-bg-elevated",
+        "min": 4.5
     },
     {
-        "label": "fio perdido / superfície base (1.4.11)",
-        "fg": "--color-thread-lost",
-        "bg": "--color-surface-1",
-        "min": 3.0
+        "label": "erro como texto / área da conversa",
+        "fg": "--color-danger-text",
+        "bg": "--color-bg-main",
+        "min": 4.5
     },
     {
-        "label": "estado conectado como texto / base",
+        "label": "erro como texto / barra lateral",
+        "fg": "--color-danger-text",
+        "bg": "--color-bg-sidebar",
+        "min": 4.5
+    },
+    {
+        "label": "erro como texto / campo/cartão",
+        "fg": "--color-danger-text",
+        "bg": "--color-bg-elevated",
+        "min": 4.5
+    },
+    {
+        "label": "ponto online / barra lateral",
         "fg": "--color-ok",
-        "bg": "--color-surface-1",
-        "min": 4.5
+        "bg": "--color-bg-sidebar",
+        "min": 3
     },
     {
-        "label": "estado conectado como ponto / base (1.4.11)",
+        "label": "ponto ausente / barra lateral",
+        "fg": "--color-warn",
+        "bg": "--color-bg-sidebar",
+        "min": 3
+    },
+    {
+        "label": "ponto online / área da conversa",
         "fg": "--color-ok",
-        "bg": "--color-surface-1",
-        "min": 3.0
+        "bg": "--color-bg-main",
+        "min": 3
     },
     {
-        "label": "estado de erro como texto / base",
-        "fg": "--color-danger",
-        "bg": "--color-surface-1",
+        "label": "ponto ausente / área da conversa",
+        "fg": "--color-warn",
+        "bg": "--color-bg-main",
+        "min": 3
+    },
+    {
+        "label": "contorno de controle / área da conversa",
+        "fg": "--color-outline-control",
+        "bg": "--color-bg-main",
+        "min": 3
+    },
+    {
+        "label": "contorno de controle / campo/cartão",
+        "fg": "--color-outline-control",
+        "bg": "--color-bg-elevated",
+        "min": 3
+    },
+    {
+        "label": "contorno de controle / barra lateral",
+        "fg": "--color-outline-control",
+        "bg": "--color-bg-sidebar",
+        "min": 3
+    },
+    {
+        "label": "anel de foco / área da conversa",
+        "fg": "--color-focus-ring",
+        "bg": "--color-bg-main",
+        "min": 3
+    },
+    {
+        "label": "anel de foco / barra lateral",
+        "fg": "--color-focus-ring",
+        "bg": "--color-bg-sidebar",
+        "min": 3
+    },
+    {
+        "label": "anel de foco / campo/cartão",
+        "fg": "--color-focus-ring",
+        "bg": "--color-bg-elevated",
+        "min": 3
+    },
+    {
+        "label": "anel de foco / linha em hover",
+        "fg": "--color-focus-ring",
+        "bg": "--color-bg-hover",
+        "min": 3
+    },
+    {
+        "label": "anel de foco / moldura/entrada",
+        "fg": "--color-focus-ring",
+        "bg": "--color-bg-app",
+        "min": 3
+    },
+    {
+        "label": "anel de foco / item selecionado",
+        "fg": "--color-focus-ring",
+        "bg": "--color-bg-selected",
+        "min": 3
+    },
+    {
+        "label": "texto de tooltip/menu flutuante",
+        "fg": "--color-text-on-floating",
+        "bg": "--color-bg-floating",
         "min": 4.5
     },
     {
-        "label": "estado de erro como texto / elevada",
-        "fg": "--color-danger",
-        "bg": "--color-surface-2",
-        "min": 4.5
-    },
-    {
-        "label": "degrau de elevação: superfície 2 sobre superfície 1",
-        "fg": "--color-surface-2",
-        "bg": "--color-surface-1",
-        "min": 1.2
-    },
-    {
-        "label": "texto desabilitado / superfície elevada (isento de 1.4.3)",
-        "fg": "--color-text-disabled",
-        "bg": "--color-surface-2",
-        "min": 3.0
-    },
-    {
-        "label": "remetente 1 como texto / superfície base",
+        "label": "remetente 1 / área da conversa",
         "fg": "--color-sender-1",
-        "bg": "--color-surface-1",
+        "bg": "--color-bg-main",
         "min": 4.5
     },
     {
-        "label": "remetente 1 como texto / superfície elevada",
+        "label": "remetente 1 / linha em hover",
         "fg": "--color-sender-1",
-        "bg": "--color-surface-2",
+        "bg": "--color-bg-hover",
         "min": 4.5
     },
     {
-        "label": "monograma 1: texto sobre preenchimento do remetente",
+        "label": "remetente 1 / barra lateral",
+        "fg": "--color-sender-1",
+        "bg": "--color-bg-sidebar",
+        "min": 4.5
+    },
+    {
+        "label": "avatar 1: inicial sobre a cor",
         "fg": "--color-on-sender",
         "bg": "--color-sender-1",
         "min": 4.5
     },
     {
-        "label": "remetente 2 como texto / superfície base",
+        "label": "remetente 2 / área da conversa",
         "fg": "--color-sender-2",
-        "bg": "--color-surface-1",
+        "bg": "--color-bg-main",
         "min": 4.5
     },
     {
-        "label": "remetente 2 como texto / superfície elevada",
+        "label": "remetente 2 / linha em hover",
         "fg": "--color-sender-2",
-        "bg": "--color-surface-2",
+        "bg": "--color-bg-hover",
         "min": 4.5
     },
     {
-        "label": "monograma 2: texto sobre preenchimento do remetente",
+        "label": "remetente 2 / barra lateral",
+        "fg": "--color-sender-2",
+        "bg": "--color-bg-sidebar",
+        "min": 4.5
+    },
+    {
+        "label": "avatar 2: inicial sobre a cor",
         "fg": "--color-on-sender",
         "bg": "--color-sender-2",
         "min": 4.5
     },
     {
-        "label": "remetente 3 como texto / superfície base",
+        "label": "remetente 3 / área da conversa",
         "fg": "--color-sender-3",
-        "bg": "--color-surface-1",
+        "bg": "--color-bg-main",
         "min": 4.5
     },
     {
-        "label": "remetente 3 como texto / superfície elevada",
+        "label": "remetente 3 / linha em hover",
         "fg": "--color-sender-3",
-        "bg": "--color-surface-2",
+        "bg": "--color-bg-hover",
         "min": 4.5
     },
     {
-        "label": "monograma 3: texto sobre preenchimento do remetente",
+        "label": "remetente 3 / barra lateral",
+        "fg": "--color-sender-3",
+        "bg": "--color-bg-sidebar",
+        "min": 4.5
+    },
+    {
+        "label": "avatar 3: inicial sobre a cor",
         "fg": "--color-on-sender",
         "bg": "--color-sender-3",
         "min": 4.5
     },
     {
-        "label": "remetente 4 como texto / superfície base",
+        "label": "remetente 4 / área da conversa",
         "fg": "--color-sender-4",
-        "bg": "--color-surface-1",
+        "bg": "--color-bg-main",
         "min": 4.5
     },
     {
-        "label": "remetente 4 como texto / superfície elevada",
+        "label": "remetente 4 / linha em hover",
         "fg": "--color-sender-4",
-        "bg": "--color-surface-2",
+        "bg": "--color-bg-hover",
         "min": 4.5
     },
     {
-        "label": "monograma 4: texto sobre preenchimento do remetente",
+        "label": "remetente 4 / barra lateral",
+        "fg": "--color-sender-4",
+        "bg": "--color-bg-sidebar",
+        "min": 4.5
+    },
+    {
+        "label": "avatar 4: inicial sobre a cor",
         "fg": "--color-on-sender",
         "bg": "--color-sender-4",
         "min": 4.5
     },
     {
-        "label": "remetente 5 como texto / superfície base",
+        "label": "remetente 5 / área da conversa",
         "fg": "--color-sender-5",
-        "bg": "--color-surface-1",
+        "bg": "--color-bg-main",
         "min": 4.5
     },
     {
-        "label": "remetente 5 como texto / superfície elevada",
+        "label": "remetente 5 / linha em hover",
         "fg": "--color-sender-5",
-        "bg": "--color-surface-2",
+        "bg": "--color-bg-hover",
         "min": 4.5
     },
     {
-        "label": "monograma 5: texto sobre preenchimento do remetente",
+        "label": "remetente 5 / barra lateral",
+        "fg": "--color-sender-5",
+        "bg": "--color-bg-sidebar",
+        "min": 4.5
+    },
+    {
+        "label": "avatar 5: inicial sobre a cor",
         "fg": "--color-on-sender",
         "bg": "--color-sender-5",
         "min": 4.5
     },
     {
-        "label": "remetente 6 como texto / superfície base",
+        "label": "remetente 6 / área da conversa",
         "fg": "--color-sender-6",
-        "bg": "--color-surface-1",
+        "bg": "--color-bg-main",
         "min": 4.5
     },
     {
-        "label": "remetente 6 como texto / superfície elevada",
+        "label": "remetente 6 / linha em hover",
         "fg": "--color-sender-6",
-        "bg": "--color-surface-2",
+        "bg": "--color-bg-hover",
         "min": 4.5
     },
     {
-        "label": "monograma 6: texto sobre preenchimento do remetente",
+        "label": "remetente 6 / barra lateral",
+        "fg": "--color-sender-6",
+        "bg": "--color-bg-sidebar",
+        "min": 4.5
+    },
+    {
+        "label": "avatar 6: inicial sobre a cor",
         "fg": "--color-on-sender",
         "bg": "--color-sender-6",
         "min": 4.5
