@@ -1,6 +1,6 @@
 # Inventário técnico · web-chat
 
-> Fotografia do repositório em 2026-11-07, **atualizada ao fim da Fase 4**. A
+> Fotografia do repositório em 2026-11-07, **atualizada na Fase 5 (redesign de UI/UX)**. A
 > fotografia original (commit `34b523c`) foi tirada antes das Fases 1 e 2. Todos os dados foram
 > extraídos dos arquivos do projeto ou de comandos executados sobre ele
 > (`npm outdated`, `npm audit`, `vite build`, `wc -l`). Para diagnóstico e
@@ -54,7 +54,7 @@ web-chat/
 │   ├── ANALISE_E_PLANO_DE_MELHORIAS.md, ROADMAP_DE_IMPLEMENTACAO.md, INVENTARIO_TECNICO.md
 │   ├── FASE_1_RELATORIO_DE_IMPLEMENTACAO.md, FASE_2_RELATORIO_DE_IMPLEMENTACAO.md
 │   ├── PROTOCOLO.md            contrato do WebSocket
-│   ├── design-system.md, refactor-report.md, security-report.md
+│   ├── design-system.md (v2), refactor-report.md, security-report.md
 │   └── historico/              documentação anterior à refatoração (só registro)
 ├── frontend/
 │   ├── index.html              raiz do Vite, CSP, bootstrap de tema
@@ -62,8 +62,8 @@ web-chat/
 │   ├── src/
 │   │   ├── main.js, config.js, protocol.js, socketUrl.js
 │   │   ├── commands/           input.js, autocomplete.js, local.js
-│   │   ├── a11y/, i18n/, state/, transport/, ui/ (14 componentes)
-│   │   └── css/                index.css, tokens.css, base/ (4), components/ (17)
+│   │   ├── a11y/, i18n/, state/, transport/, ui/ (21 módulos)
+│   │   └── css/                index.css, tokens.css, base/ (4), components/ (24)
 │   └── test/                   10 arquivos, 68 testes
 ├── read-model/README.md        aviso: conteúdo movido (F2-08)
 ├── scripts/                    dev.mjs, check-contrast.mjs, contrast.pairs.json, load-test.mjs
@@ -187,30 +187,37 @@ no backend, `test` = `node --test test/*.test.js`.
 
 ## 7. Módulos do frontend
 
-| Arquivo               | Linhas | Exporta                                                            | Papel                                                                                              |
-| --------------------- | -----: | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| `main.js`             |    174 | —                                                                  | Composição, assinatura do store, anúncios                                                          |
-| `config.js`           |     62 | `SOCKET_URL`, `RECONNECT`, `LIMITS`, `TIMING`, `THEME_STORAGE_KEY` | Configuração                                                                                       |
-| `transport/socket.js` |    192 | `createTransport`                                                  | WebSocket, backoff (500 ms → 15 s, ±30 %, 6 tentativas), fila (50)                                 |
-| `state/store.js`      |    150 | `createStore`                                                      | Estado: `screen`, `me`, `messages`, `people`, `typing`, `link`, `attempt`, `maxAttempts`, `queued` |
-| `state/events.js`     |    154 | `createEventHandler`                                               | Protocolo → ações                                                                                  |
-| `state/typing.js`     |     77 | `createTypingTracker`                                              | Expiração de digitação (6 s)                                                                       |
-| `a11y/announce.js`    |     61 | `createAnnouncer`                                                  | Região live com fila (150 ms) e deduplicação                                                       |
-| `i18n/strings.js`     |     85 | `strings`, `format`, `peopleCount`                                 | Textos                                                                                             |
-| `ui/dom.js`           |     55 | `must`, `el`, `clear`, `toggle`                                    | Utilitários DOM sem HTML                                                                           |
-| `ui/entry.js`         |     63 | `createEntry`                                                      | Tela de entrada e validação do nome                                                                |
-| `ui/composer.js`      |     60 | `createComposer`                                                   | Campo de mensagem                                                                                  |
-| `ui/connection.js`    |     70 | `createConnection`                                                 | Rótulo de estado + "fio"                                                                           |
-| `ui/messageList.js`   |     57 | `createMessageList`                                                | Lista incremental, rolagem condicional                                                             |
-| `ui/message.js`       |     82 | `renderMessage`                                                    | Item de mensagem (chat/sistema)                                                                    |
-| `ui/identity.js`      |     70 | `hueFor`, `initialsFor`, `renderIdentity`                          | Monograma e cor por id (6 matizes)                                                                 |
-| `ui/people.js`        |     44 | `createPeople`                                                     | Lista de pessoas                                                                                   |
-| `ui/typing.js`        |     45 | `createTyping`                                                     | Indicador de digitação                                                                             |
-| `ui/toast.js`         |     28 | `createToasts`                                                     | Avisos temporários (5 s)                                                                           |
-| `ui/notify.js`        |     45 | `createNotifier`                                                   | Notificação do navegador                                                                           |
-| `ui/failure.js`       |     36 | `createFailure`                                                    | Tela de falha + retry                                                                              |
-| `ui/empty.js`         |     20 | `createEmpty`                                                      | Estado vazio                                                                                       |
-| `ui/themeToggle.js`   |     64 | `createThemeToggle`                                                | Alternância de tema                                                                                |
+| Arquivo                    | Linhas | Exporta                                                            | Papel                                                                                              |
+| -------------------------- | -----: | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `main.js`                  |    462 | —                                                                  | Composição, assinatura do store, anúncios                                                          |
+| `config.js`                |     74 | `SOCKET_URL`, `RECONNECT`, `LIMITS`, `TIMING`, `THEME_STORAGE_KEY` | Configuração                                                                                       |
+| `transport/socket.js`      |    216 | `createTransport`                                                  | WebSocket, backoff (500 ms → 15 s, ±30 %, 6 tentativas), fila (50)                                 |
+| `state/store.js`           |    365 | `createStore`                                                      | Estado: `screen`, `me`, `messages`, `people`, `typing`, `link`, `attempt`, `maxAttempts`, `queued` |
+| `state/events.js`          |    329 | `createEventHandler`                                               | Protocolo → ações                                                                                  |
+| `state/typing.js`          |     77 | `createTypingTracker`                                              | Expiração de digitação (6 s)                                                                       |
+| `a11y/announce.js`         |     61 | `createAnnouncer`                                                  | Região live com fila (150 ms) e deduplicação                                                       |
+| `i18n/strings.js`          |    167 | `strings`, `format`, `peopleCount`                                 | Textos                                                                                             |
+| `ui/dom.js`                |     55 | `must`, `el`, `clear`, `toggle`                                    | Utilitários DOM sem HTML                                                                           |
+| `ui/entry.js`              |     88 | `createEntry`                                                      | Tela de entrada e validação do nome                                                                |
+| `ui/composer.js`           |    106 | `createComposer`                                                   | Campo de mensagem                                                                                  |
+| `ui/connection.js`         |     56 | `createConnection`                                                 | Estado da conexão: linha na barra lateral + pílula no cabeçalho                                    |
+| `ui/messageList.js`        |     94 | `createMessageList`, `continuesGroup`                              | `role="log"` com `<ol>`; lista incremental, agrupamento em 5 min                                   |
+| `ui/message.js`            |    296 | `renderMessage`, `patchDelivery`                                   | Linha de mensagem (agrupada, sistema, aviso privado, ação, anúncio, entrega)                       |
+| `ui/identity.js`           |     95 | `hueFor`, `initialsFor`, `renderIdentity`, `badge`                 | Avatar, cor por id (6 matizes), presença, selos                                                    |
+| `ui/people.js`             |    155 | `createPeople`                                                     | Painel de pessoas agrupado (admins/online/ausentes)                                                |
+| `ui/typing.js`             |     45 | `createTyping`                                                     | Indicador de digitação                                                                             |
+| `ui/toast.js`              |     32 | `createToasts`                                                     | Avisos temporários (5 s), `role="status"`                                                          |
+| `ui/notify.js`             |     45 | `createNotifier`                                                   | Notificação do navegador                                                                           |
+| `ui/failure.js`            |     42 | `createFailure`                                                    | Tela de falha + retry                                                                              |
+| `ui/empty.js`              |     20 | `createEmpty`                                                      | Estado vazio                                                                                       |
+| `ui/themeToggle.js`        |     69 | `createThemeToggle`                                                | Alternância de tema (sol/lua)                                                                      |
+| `ui/icons.js`              |    131 | `icon`, `setIcon`, `hydrateIcons`                                  | Ícones SVG por `createElementNS`                                                                   |
+| `ui/layout.js`             |    124 | `createLayout`                                                     | Painéis e gavetas (`inert`, Escape, foco)                                                          |
+| `ui/dialog.js`             |     54 | `createDialog`                                                     | Confirmação com `<dialog>`                                                                         |
+| `ui/tooltip.js`            |     89 | `createTooltips`                                                   | Dicas de botões de ícone                                                                           |
+| `ui/memberCard.js`         |    244 | `createMemberCard`                                                 | Cartão de pessoa com ações reais                                                                   |
+| `ui/userPanel.js`          |     66 | `createUserPanel`                                                  | Painel "você" e seção de administração                                                             |
+| `ui/commandSuggestions.js` |    180 | `createCommandSuggestions`                                         | Autocomplete de comandos (combobox ARIA)                                                           |
 
 ## 8. Módulos do backend
 
@@ -284,7 +291,7 @@ Documentado em [`PROTOCOLO.md`](./PROTOCOLO.md). Fontes: `backend/src/protocol.j
 | Tipos                         | `tsc` (JSDoc, `strict`, `noUncheckedIndexedAccess`)              | ✅ passa                                                                       |
 | Contraste                     | `scripts/check-contrast.mjs` (42 pares, 2 temas)                 | ✅ todos passam                                                                |
 | Build                         | Vite                                                             | ✅ `dist/` 1,9 MB (HTML 10 KB, JS 13,9 KB, CSS 17,6 KB, imagens ~1,8 MB)       |
-| Testes automatizados          | `node:test`                                                      | ✅ 265 após a Fase 4 (backend 106 unidade + 91 integração; frontend 68), na CI |
+| Testes automatizados          | `node:test`                                                      | ✅ 271 após a Fase 5 (backend 106 unidade + 91 integração; frontend 74), na CI |
 | `npm audit` backend           | npm                                                              | ✅ 0                                                                           |
 | `npm audit` raiz              | npm                                                              | ⚠️ 7 (dev)                                                                     |
 | Análise estática de segurança | CodeQL                                                           | Configurada (resultado não acessível nesta análise)                            |

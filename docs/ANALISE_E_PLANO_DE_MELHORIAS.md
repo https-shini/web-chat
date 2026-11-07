@@ -20,6 +20,11 @@
 
 ---
 
+> **Atualização 2026-11-07 — Fase 5 (redesign de UI/UX).** Interface refeita em
+> painéis, novo design system com contraste medido, toasts anunciados (M07/P18),
+> auditoria automática de acessibilidade sem violações. Ver §18 e
+> [`FASE_5_RELATORIO_DE_IMPLEMENTACAO.md`](./FASE_5_RELATORIO_DE_IMPLEMENTACAO.md).
+>
 > **Atualização 2026-11-07 — Fase 4 concluída.** Confirmação de entrega (P22),
 > fila offline (P21), reconexão sem avisos (P08), sistema de comandos, administração
 > por chave e moderação (M08, M20; ver §18).
@@ -208,19 +213,19 @@ identidade **forjável** (P01).
 
 ## 4. Stack tecnológica
 
-| Camada       | Tecnologia                                 | Versão instalada | Última disponível | Observação                                              |
-| ------------ | ------------------------------------------ | ---------------- | ----------------- | ------------------------------------------------------- |
-| Runtime      | Node.js                                    | 22.x (CI)        | —                 | README diz "20 ou superior"; sem `engines`/`.nvmrc`.    |
-| Backend      | `ws`                                       | 8.21.3           | 8.22.1            | `npm audit` backend: 0 vulnerabilidades [TESTADO].      |
-| Backend      | `dotenv`                                   | 16.4.5           | 18.0.9            | Carrega `.env` do diretório `backend/` (P03).           |
-| Frontend     | JavaScript ES2022 nativo + JSDoc           | —                | —                 | Checado por `tsc` (`jsconfig.json`, `strict`).          |
-| Build        | `vite`                                     | 5.4.21           | 8.3.6             | 7 vulnerabilidades transitivas/diretas (dev) [TESTADO]. |
-| Lint         | `eslint` / `@eslint/js`                    | 9.39.5           | 10.x              | Flat config.                                            |
-| Lint CSS     | `stylelint` + `config-standard`            | 16.26.1 / 36.0.1 | 18.0.0 / 41.0.0   | Regras customizadas de tokens/BEM.                      |
-| Tipos        | `typescript` (só checagem)                 | 5.9.3            | 7.0.2             |                                                         |
-| Formatação   | `prettier`                                 | 3.9.6            | 3.9.10            |                                                         |
-| Fontes       | Google Fonts (Atkinson Hyperlegible, Syne) | CDN              | —                 | Requisição externa a cada visita (P17).                 |
-| CI/Segurança | GitHub Actions, CodeQL                     | v4               | —                 |                                                         |
+| Camada       | Tecnologia                                                 | Versão instalada | Última disponível | Observação                                              |
+| ------------ | ---------------------------------------------------------- | ---------------- | ----------------- | ------------------------------------------------------- |
+| Runtime      | Node.js                                                    | 22.x (CI)        | —                 | README diz "20 ou superior"; sem `engines`/`.nvmrc`.    |
+| Backend      | `ws`                                                       | 8.21.3           | 8.22.1            | `npm audit` backend: 0 vulnerabilidades [TESTADO].      |
+| Backend      | `dotenv`                                                   | 16.4.5           | 18.0.9            | Carrega `.env` do diretório `backend/` (P03).           |
+| Frontend     | JavaScript ES2022 nativo + JSDoc                           | —                | —                 | Checado por `tsc` (`jsconfig.json`, `strict`).          |
+| Build        | `vite`                                                     | 5.4.21           | 8.3.6             | 7 vulnerabilidades transitivas/diretas (dev) [TESTADO]. |
+| Lint         | `eslint` / `@eslint/js`                                    | 9.39.5           | 10.x              | Flat config.                                            |
+| Lint CSS     | `stylelint` + `config-standard`                            | 16.26.1 / 36.0.1 | 18.0.0 / 41.0.0   | Regras customizadas de tokens/BEM.                      |
+| Tipos        | `typescript` (só checagem)                                 | 5.9.3            | 7.0.2             |                                                         |
+| Formatação   | `prettier`                                                 | 3.9.6            | 3.9.10            |                                                         |
+| Fontes       | Google Fonts (Inter desde a Fase 5; antes Atkinson e Syne) | CDN              | —                 | Requisição externa a cada visita (P17).                 |
+| CI/Segurança | GitHub Actions, CodeQL                                     | v4               | —                 |                                                         |
 
 Inventário completo em [`INVENTARIO_TECNICO.md`](./INVENTARIO_TECNICO.md).
 
@@ -259,23 +264,23 @@ Inventário completo em [`INVENTARIO_TECNICO.md`](./INVENTARIO_TECNICO.md).
 Todas confirmadas no código **[CÓDIGO]**; as marcadas com † também foram exercitadas
 contra o servidor real **[TESTADO]**.
 
-| #   | Funcionalidade                                                    | Implementação                                   |
-| --- | ----------------------------------------------------------------- | ----------------------------------------------- |
-| F1  | Entrada com nome (1–30 caracteres) †                              | `ui/entry.js`, `server.js:155`                  |
-| F2  | Mensagens em tempo real para todos †                              | `server.js:196`, `state/events.js:711`          |
-| F3  | Histórico das últimas 50 mensagens ao entrar †                    | `server.js:170`                                 |
-| F4  | Lista de pessoas online com monograma e cor estável por id        | `ui/people.js`, `ui/identity.js`                |
-| F5  | Indicador "está digitando" com expiração de 6 s                   | `state/typing.js`, `ui/typing.js`               |
-| F6  | Avisos de entrada/saída na conversa †                             | `server.js:180,307`                             |
-| F7  | Reconexão exponencial com jitter, 6 tentativas, retry manual      | `transport/socket.js`, `ui/failure.js`          |
-| F8  | Fila de envio offline (máx. 50)                                   | `transport/socket.js:607`                       |
-| F9  | Quatro estados de conexão visíveis + "fio" visual                 | `ui/connection.js`, `css/components/thread.css` |
-| F10 | Tema claro/escuro sem flash, persistido                           | `index.html:37`, `ui/themeToggle.js`            |
-| F11 | Notificação do navegador com aba oculta, permissão sob gesto      | `ui/notify.js`                                  |
-| F12 | Acessibilidade: skip link, `role="log"`, região live, foco gerido | `index.html`, `a11y/announce.js`, `main.js:372` |
-| F13 | Endurecimento: payload 16 KiB, rate limit, 500 conexões, Origin   | `server.js:22,41,106,42`                        |
-| F14 | CSP por `<meta>` com hash do script inline                        | `index.html:20`                                 |
-| F15 | Endpoint HTTP 200 para checagem de saúde †                        | `server.js:31`                                  |
+| #   | Funcionalidade                                                        | Implementação                                       |
+| --- | --------------------------------------------------------------------- | --------------------------------------------------- |
+| F1  | Entrada com nome (1–30 caracteres) †                                  | `ui/entry.js`, `server.js:155`                      |
+| F2  | Mensagens em tempo real para todos †                                  | `server.js:196`, `state/events.js:711`              |
+| F3  | Histórico das últimas 50 mensagens ao entrar †                        | `server.js:170`                                     |
+| F4  | Lista de pessoas online com monograma e cor estável por id            | `ui/people.js`, `ui/identity.js`                    |
+| F5  | Indicador "está digitando" com expiração de 6 s                       | `state/typing.js`, `ui/typing.js`                   |
+| F6  | Avisos de entrada/saída na conversa †                                 | `server.js:180,307`                                 |
+| F7  | Reconexão exponencial com jitter, 6 tentativas, retry manual          | `transport/socket.js`, `ui/failure.js`              |
+| F8  | Fila de envio offline (máx. 50)                                       | `transport/socket.js:607`                           |
+| F9  | Quatro estados de conexão visíveis (barra lateral + pílula na Fase 5) | `ui/connection.js`, `css/components/connection.css` |
+| F10 | Tema claro/escuro sem flash, persistido                               | `index.html:37`, `ui/themeToggle.js`                |
+| F11 | Notificação do navegador com aba oculta, permissão sob gesto          | `ui/notify.js`                                      |
+| F12 | Acessibilidade: skip link, `role="log"`, região live, foco gerido     | `index.html`, `a11y/announce.js`, `main.js:372`     |
+| F13 | Endurecimento: payload 16 KiB, rate limit, 500 conexões, Origin       | `server.js:22,41,106,42`                            |
+| F14 | CSP por `<meta>` com hash do script inline                            | `index.html:20`                                     |
+| F15 | Endpoint HTTP 200 para checagem de saúde †                            | `server.js:31`                                      |
 
 **Regras de negócio implícitas:** nome obrigatório (só no cliente — P06); mensagem
 de uma linha, sem caracteres de controle, ≤ 1000 caracteres; cor do remetente
@@ -635,7 +640,7 @@ os dois números (configuráveis) — ou documentar o motivo.
 | P15 | Vulnerabilidades dev                   | Média      | Média        | TESTADO           | Pendente                        |
 | P16 | Imagens órfãs no build                 | Média      | Baixa        | TESTADO           | Pendente                        |
 | P17 | Google Fonts / privacidade             | Média      | Baixa        | CÓDIGO            | Pendente                        |
-| P18 | Toasts sem anúncio                     | Média      | Baixa        | CÓDIGO            | Pendente                        |
+| P18 | Toasts sem anúncio                     | Média      | Baixa        | CÓDIGO            | Corrigido (Fase 5)              |
 | P22 | Sem confirmação de entrega             | Média      | Média        | CÓDIGO            | Corrigido (Fase 4)              |
 | P30 | Allowlist desligada por padrão         | Média      | Baixa        | CÓDIGO            | Mitigado (Fase 1)               |
 | P11 | Sem shutdown gracioso                  | Baixa      | Baixa        | CÓDIGO            | Corrigido (Fase 1)              |
@@ -1102,3 +1107,17 @@ ser rodado antes de mudanças que afetem o broadcast ou o ciclo de conexão.
 moderação" como fora do escopo (sala anônima). A Fase 4 mostrou um modelo coerente
 com o anonimato — chave do operador, sem contas — e o implementou. Banimento continua
 fora (exige identificação persistente).
+
+### Fase 5 — redesign de UI/UX (em andamento)
+
+| Melhoria                    | Situação  | Observação                                                            |
+| --------------------------- | --------- | --------------------------------------------------------------------- |
+| M07 Toasts anunciados (P18) | Concluída | `role="status"`; sem anúncio duplo com a falha de entrega             |
+| M23 Tempo/data              | Parcial   | `<time datetime>`; separador de data pendente                         |
+| M21 Contador/multilinha     | Pendente  | F5-04, F5-05                                                          |
+| Novo: redesign completo     | Concluído | Layout em painéis, gavetas, cartão de pessoa, modal, dicas, esqueleto |
+| Novo: semântica da conversa | Corrigida | `role="log"` saiu do `<ol>` (violação encontrada pelo axe)            |
+
+**Mudanças nas recomendações:** a identidade visual "fio da sessão" (v1) deu lugar a
+um layout em painéis, mais adequado às funções da Fase 4 (administração, presença,
+moderação). A v1 está em `docs/historico/design-system-v1.md`.

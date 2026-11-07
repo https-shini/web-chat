@@ -499,6 +499,24 @@ Objetivo: estrutura, padronização e automação que tornam as fases seguintes 
 
 ## Fase 5 — UX/UI e acessibilidade
 
+> **Status: em andamento — redesign completo de UI/UX entregue em 2026-11-07.**
+> Detalhes em [`FASE_5_RELATORIO_DE_IMPLEMENTACAO.md`](./FASE_5_RELATORIO_DE_IMPLEMENTACAO.md)
+> e no [`design-system.md`](./design-system.md) (v2).
+>
+> | Tarefa                      | Situação                                                                                |
+> | --------------------------- | --------------------------------------------------------------------------------------- |
+> | F5-01 Toasts anunciados     | Concluída — `role="status"`, toast só visual quando repete falha já anunciada           |
+> | F5-02 Mensagens novas       | Pendente                                                                                |
+> | F5-03 Tempo e data          | Parcial — `<time datetime>` em todas as horas; separador de data pendente               |
+> | F5-04 Contador no composer  | Pendente                                                                                |
+> | F5-05 Multilinha            | Pendente (V06)                                                                          |
+> | F5-06 Auditoria a11y manual | Pendente — auditoria automática feita (axe-core: 0 violações em 16 estados, dois temas) |
+>
+> Acrescentado fora das tarefas originais: layout em painéis (barra lateral,
+> conversa, pessoas) com gavetas em telas estreitas, cartão de pessoa com ações
+> de moderação, modal de confirmação, dicas, esqueleto, agrupamento de mensagens,
+> novo design system com contraste medido em 142 pares.
+
 ### F5-01 — Toasts anunciados (M07, P18)
 
 | Campo                     | Conteúdo                                                                                                                            |
@@ -800,9 +818,9 @@ em cada PR.
 | F4-03 | Fila offline com aviso                | 4    | Baixa      | Baixa        | F2-01        | concluída                          |
 | F4-04 | Limpeza de código morto               | 4    | Baixa      | Baixa        | F2-05        | parcial                            |
 | F4-05 | Nomes distinguíveis                   | 4    | Baixa      | Baixa        | F1-05, V07   | pendente (aguarda V07)             |
-| F5-01 | Toasts anunciados                     | 5    | Alta       | Baixa        | —            | pendente                           |
+| F5-01 | Toasts anunciados                     | 5    | Alta       | Baixa        | —            | concluída                          |
 | F5-02 | Indicador de mensagens novas          | 5    | Média      | Baixa        | F3-03        | pendente                           |
-| F5-03 | `<time datetime>` + separador de data | 5    | Baixa      | Baixa        | —            | pendente                           |
+| F5-03 | `<time datetime>` + separador de data | 5    | Baixa      | Baixa        | —            | parcial (falta separador)          |
 | F5-04 | Contador no composer                  | 5    | Baixa      | Baixa        | F2-05        | pendente                           |
 | F5-05 | Multilinha                            | 5    | Baixa      | Média        | V06, F2-07   | pendente                           |
 | F5-06 | Auditoria a11y manual                 | 5    | Média      | Média        | F5-01..04    | pendente                           |

@@ -58,7 +58,7 @@ Cada item corresponde a código neste repositório.
 | Entrada com um nome (até 30 caracteres), sem senha                                                                                                                                                                                   | `frontend/src/ui/entry.js`                                                        |
 | Mensagens em tempo real para todos os conectados (até 1000 caracteres)                                                                                                                                                               | `backend/src/server.js`, `frontend/src/state/events.js`                           |
 | Últimas 50 mensagens enviadas a quem entra                                                                                                                                                                                           | `backend/src/server.js`                                                           |
-| Lista de pessoas online com monograma e cor estável por pessoa                                                                                                                                                                       | `frontend/src/ui/people.js`, `frontend/src/ui/identity.js`                        |
+| Interface em painéis: barra lateral (sala, atalhos, conexão, você), conversa com mensagens agrupadas e painel de pessoas; gavetas em tablet e celular                                                                                | `frontend/index.html`, `frontend/src/ui/layout.js`                                |
 | Indicador "está digitando" com expiração automática                                                                                                                                                                                  | `frontend/src/state/typing.js`, `frontend/src/ui/typing.js`                       |
 | Avisos de entrada e saída na conversa                                                                                                                                                                                                | `backend/src/server.js`                                                           |
 | Horário em cada mensagem (pt-BR)                                                                                                                                                                                                     | `frontend/src/ui/message.js`                                                      |
@@ -71,7 +71,7 @@ Cada item corresponde a código neste repositório.
 | Confirmação de entrega: sua mensagem aparece como "enviando…" até o servidor confirmar; recusada ou sem confirmação, fica "não enviada" com o botão Tentar de novo (sem duplicar)                                                    | `frontend/src/main.js`, `frontend/src/state/store.js`, `backend/src/room/room.js` |
 | Proteções no servidor: payload máx. 16 KiB, limites de taxa separados para mensagens e digitação, teto de 500 conexões, allowlist de origem, validação de cada quadro recebido, heartbeat e desligamento gracioso                    | `backend/src/server.js`                                                           |
 | **Comandos no chat** (28): digite `/` para ver sugestões; `/help`, `/nick`, `/me`, `/roll`, `/flip`, `/afk`, `/users`, `/profile`, formatação (`/bold`, `/spoiler`…) e mais — ver [`docs/CHAT_COMMANDS.md`](./docs/CHAT_COMMANDS.md) | `backend/src/commands/`, `frontend/src/commands/`                                 |
-| Presença (ausente), papel (admin) e troca de nome visíveis na lista de pessoas                                                                                                                                                       | `frontend/src/ui/people.js`, `backend/src/room/room.js`                           |
+| Pessoas agrupadas (administradores, online, ausentes) com cartão de cada uma: ver perfil, copiar id e, para admins, silenciar, liberar e remover (com confirmação) — tudo por comandos verificados no servidor                       | `frontend/src/ui/people.js`, `frontend/src/ui/memberCard.js`                      |
 | Administração por chave do operador (`ADMIN_KEY`): `/clearall`, `/announce`, `/mute`, `/unmute`, `/kick`, com permissões verificadas no servidor                                                                                     | `backend/src/commands/handlers/admin.js`, `backend/src/room/policy.js`            |
 | Reconexão sem avisos repetidos: queda e volta em até 10 s não geram "saiu"/"entrou" para os outros                                                                                                                                   | `backend/src/room/room.js`                                                        |
 | Content-Security-Policy no HTML                                                                                                                                                                                                      | `frontend/index.html`                                                             |
@@ -106,7 +106,7 @@ Nenhum destes itens está implementado.
 | Backend        | Node.js, [`ws`](https://github.com/websockets/ws) 8, `dotenv`                                      |
 | Qualidade      | ESLint 9, Stylelint 16, TypeScript (só checagem de tipos), Prettier 3, script próprio de contraste |
 | CI / segurança | GitHub Actions, CodeQL                                                                             |
-| Fontes         | Atkinson Hyperlegible e Syne (Google Fonts)                                                        |
+| Fontes         | Inter (Google Fonts), com pilha de sistema de reserva                                              |
 
 Versões exatas e estado das dependências em
 [`docs/INVENTARIO_TECNICO.md`](./docs/INVENTARIO_TECNICO.md).
@@ -420,20 +420,26 @@ Não há banco de dados, APIs de terceiros ou serviços de autenticação.
 
 ## Acessibilidade
 
-Verificada por comando, não por afirmação: `npm run check:contrast` mede 42 pares
-de cor nos dois temas a partir de `frontend/src/css/tokens.css`.
+Verificada por comando, não por afirmação: `npm run check:contrast` mede 71 pares
+de cor nos dois temas (142 verificações) a partir de `frontend/src/css/tokens.css`.
+Na Fase 5, uma auditoria com axe-core (WCAG 2.0/2.1/2.2 A e AA) não encontrou
+violações em 16 telas e estados, nos dois temas.
 
-- **1.4.3** — todo texto ≥ 4.5:1 (menor par medido: 4.74:1).
+- **1.4.3** — todo texto ≥ 4.5:1 (menor par medido: 4.52:1).
 - **1.4.11** — contorno de controle, preenchimento e anel de foco ≥ 3:1.
-- **1.4.1** — a identidade de quem fala não depende só de cor: monograma preenchido
-  para você, vazado para os outros, mais o rótulo "Você".
+- **1.4.1** — cor nunca é o único sinal: selo "você", selo "admin", presença em
+  texto ("Ausente"), estado da conexão com rótulo.
+- **1.4.13** — dicas dos botões aparecem no foco e somem com Escape.
+- **2.4.3** — gavetas, cartão de pessoa e modal recebem e devolvem o foco; com
+  gaveta aberta o resto da tela fica inerte.
 - **2.4.7 / 2.4.11** — anel de foco visível em todo controle.
-- **2.5.8** — alvos de 44 px sob `pointer: coarse`.
-- **4.1.3** — a lista de mensagens é `role="log"` e anuncia mensagem nova uma vez.
+- **2.5.8** — alvos de 24 px no mínimo e 44 px sob `pointer: coarse`.
+- **4.1.3** — a conversa é `role="log"` e anuncia mensagem nova uma vez; avisos
+  temporários saem numa região `role="status"`, sem repetir o que já foi anunciado.
 - **2.3.3** — `prefers-reduced-motion` desliga animações decorativas.
 
-Lacunas conhecidas (avisos temporários não anunciados a leitores de tela, repintura
-da lista na reconexão) estão no plano de melhorias.
+Falta a verificação manual com leitores de tela (NVDA, VoiceOver, TalkBack),
+prevista no roadmap (F5-06).
 
 ## Documentação complementar
 
@@ -448,7 +454,8 @@ da lista na reconexão) estão no plano de melhorias.
 | [`docs/FASE_3_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_3_RELATORIO_DE_IMPLEMENTACAO.md) | Fase 3: heartbeat, conexões, métricas, carga e otimizações medidas |
 | [`docs/CHAT_COMMANDS.md`](./docs/CHAT_COMMANDS.md)                                         | Comandos do chat: lista, permissões, respostas, como criar         |
 | [`docs/FASE_4_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_4_RELATORIO_DE_IMPLEMENTACAO.md) | Fase 4: evolução funcional, comandos e administração               |
-| [`docs/design-system.md`](./docs/design-system.md)                                         | Tokens, paleta, contraste medido                                   |
+| [`docs/FASE_5_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_5_RELATORIO_DE_IMPLEMENTACAO.md) | Fase 5: redesign de UI/UX, componentes, testes e acessibilidade    |
+| [`docs/design-system.md`](./docs/design-system.md)                                         | Design system v2: tokens, componentes, layout, contraste medido    |
 | [`docs/refactor-report.md`](./docs/refactor-report.md)                                     | Antes → depois da refatoração do frontend                          |
 | [`docs/security-report.md`](./docs/security-report.md)                                     | Auditoria de segurança e riscos residuais                          |
 | [`CONTRIBUTING.md`](./CONTRIBUTING.md)                                                     | Como contribuir                                                    |
@@ -464,19 +471,22 @@ Resumo — detalhes, dependências e critérios de aceite em
 | 2    | Fundação técnica (concluída)   | Testes do frontend, CI completa, backend modular em ESM, contrato do protocolo verificado                            |
 | 3    | Performance (concluída)        | Heartbeat tolerante, conexões e memória sob controle, métricas, carga medida, renderização seletiva                  |
 | 4    | Funcionalidades (concluída)    | Comandos no chat, administração por chave, confirmação de entrega, presença, reconexão sem avisos repetidos          |
-| 5    | UX e acessibilidade            | Erros anunciados, indicador de mensagens novas, composer melhorado                                                   |
+| 5    | UX e acessibilidade (em curso) | Redesign em painéis entregue; avisos anunciados; faltam mensagens novas, contador e auditoria manual                 |
 | 6    | Atualizações                   | `npm audit` limpo, Vite atual, versão do Node fixada                                                                 |
 | 7    | Testes e validação             | E2E com Playwright, carga, acessibilidade automatizada                                                               |
 | 8    | Evolução                       | Deploy declarativo com cabeçalhos de segurança, anti-abuso, PWA                                                      |
 
 ## Status do projeto
 
-**Em desenvolvimento ativo.** As Fases 1 a 4 do roadmap estão concluídas: correções de
+**Em desenvolvimento ativo.** As Fases 1 a 4 do roadmap estão concluídas e a 5 está em curso: correções de
 segurança, fundação modular, performance e monitoramento, e a **Fase 4**, que trouxe
 28 comandos no chat com autocomplete, administração por chave do operador
 (`ADMIN_KEY`), confirmação de entrega com "tentar de novo", presença, troca de nome e
-reconexão sem avisos repetidos — com 265 testes automatizados. Próximo passo: Fase 5
-(UX/UI e acessibilidade). Antes de expor o chat publicamente, configure
+reconexão sem avisos repetidos. A **Fase 5** refez a interface inteira (layout em
+painéis, design system v2, gavetas em telas estreitas, cartão de pessoa, auditoria
+de acessibilidade automática sem violações); o projeto tem 271 testes automatizados.
+Próximo passo: concluir a Fase 5 (indicador de mensagens novas, contador no composer,
+auditoria manual com leitores de tela). Antes de expor o chat publicamente, configure
 `ALLOWED_ORIGINS` e, se quiser moderação, `ADMIN_KEY`.
 
 ## Contribuindo
