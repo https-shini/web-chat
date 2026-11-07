@@ -516,8 +516,8 @@
         "min": 4.5
     },
     {
-        "label": "marcador do toast / flutuante",
-        "fg": "--color-brand-on-floating",
+        "label": "marcador informativo do toast / flutuante",
+        "fg": "--color-accent-2-on-floating",
         "bg": "--color-bg-floating",
         "min": 3
     },
@@ -525,6 +525,42 @@
         "label": "marcador de erro do toast / flutuante",
         "fg": "--color-danger-on-floating",
         "bg": "--color-bg-floating",
+        "min": 3
+    },
+    {
+        "label": "texto de sucesso / linha em hover",
+        "fg": "--color-ok-text",
+        "bg": "--color-bg-hover",
+        "min": 4.5
+    },
+    {
+        "label": "texto de sucesso / item ativo",
+        "fg": "--color-ok-text",
+        "bg": "--color-bg-selected",
+        "min": 4.5
+    },
+    {
+        "label": "metadados / item ativo",
+        "fg": "--color-text-3",
+        "bg": "--color-bg-selected",
+        "min": 4.5
+    },
+    {
+        "label": "índigo / item ativo",
+        "fg": "--color-accent-2",
+        "bg": "--color-bg-selected",
+        "min": 4.5
+    },
+    {
+        "label": "ponto de presença / item ativo",
+        "fg": "--color-ok",
+        "bg": "--color-bg-selected",
+        "min": 3
+    },
+    {
+        "label": "anel de ausência / item ativo",
+        "fg": "--color-warn",
+        "bg": "--color-bg-selected",
         "min": 3
     }
 ]

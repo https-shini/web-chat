@@ -171,7 +171,7 @@
 }
 
 /* O tom não escurece no hover: a hora (text-3) precisa de 4.5:1 sobre o
-   fundo tingido. Com 8 %, medido: 5.43:1 (escuro) e 5.06:1 (claro). */
+   fundo tingido. Com 8 %, medido: 6.19:1 (escuro) e 6.79:1 (claro). */
 .c-message--announcement:hover {
     background-color: color-mix(in srgb, var(--color-warn) 8%, transparent);
 }

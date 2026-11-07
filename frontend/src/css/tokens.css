@@ -1,82 +1,71 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   web-chat · tokens (design system v3 — identidade "Maré")
+   web-chat · tokens (design system v4 — identidade do portfólio gcruz.dev.br)
    Camada 1 primitivos (--_*)  →  Camada 2 semânticos  →  Camada 3 tema.
    Regra: nenhum componente consome primitivo. Nenhuma cor fora deste arquivo.
    Toda combinação texto/fundo usada pelos componentes está declarada em
    scripts/contrast.pairs.json e é medida na CI (WCAG 2.2 AA).
 
-   Conceito: conversa à beira-mar, à noite. Superfícies azul-petróleo em
-   degraus suaves, acento verde-água de vidro marinho (sóbrio, sem neon),
-   lavanda discreta como segunda voz, texto branco levemente aquecido.
-   O acento é usado com parcimônia: item atual, ação principal, foco.
-   Assinaturas: botão principal com texto escuro sobre o verde-água,
-   presença "ausente" como anel vazado (forma, não só cor), cantos macios.
+   Paleta: a mesma do portfólio (https://gcruz.dev.br). Carmim é a
+   assinatura — ação principal, item atual, foco. Índigo é a segunda voz,
+   pontual (papel de administrador, avisos informativos). Slate (azul-
+   marinho quase preto no escuro, cinza-azulado frio no claro) é a base.
+   Ajustes só onde o valor do portfólio reprovaria em contraste; cada um
+   está comentado no ponto em que acontece.
    ═══════════════════════════════════════════════════════════════════════ */
 
 /* ─── Camada 1 · primitivos ──────────────────────────────────────────── */
 :root {
-    /* Maré — azul-petróleo, do fundo mais escuro ao texto (tema escuro). */
-    --_tide-950: #0a1215;
-    --_tide-900: #0d171b;
-    --_tide-850: #111e23;
-    --_tide-800: #16242a;
-    --_tide-750: #1b2b32;
-    --_tide-700: #1d2e35;
-    --_tide-650: #243840;
-    --_tide-600: #2b424b;
-    --_tide-500: #3a535d;
-    --_tide-400: #5f7a84;
-    --_tide-300: #93a6ad;
-    --_tide-200: #b3c1c6;
-    --_tide-50: #f3efe7; /* branco aquecido */
+    /* Carmim — a cor da marca (valores do portfólio). */
+    --_crimson-100: #ffe4e6;
+    --_crimson-400: #fb7185;
+    --_crimson-600: #e11d48;
+    --_crimson-700: #be123c;
+    --_crimson-wash-dark: #31182f; /* carmim 16 % sobre slate-900 */
 
-    /* Areia — superfícies e texto do tema claro (frios, com o papel quente). */
-    --_shore-0: #fff;
-    --_shore-25: #fbfaf6; /* papel */
-    --_shore-50: #edf2f3;
-    --_shore-75: #eef2f2;
-    --_shore-100: #e9efef;
-    --_shore-150: #e3eaec;
-    --_shore-200: #dce7e8;
-    --_shore-300: #c9d6d9;
-    --_shore-500: #738890;
-    --_shore-600: #55676e;
-    --_shore-700: #41545c;
-    --_shore-950: #13222a;
+    /* Índigo — a segunda voz (valores do portfólio). */
+    --_indigo-100: #e0e7ff;
+    --_indigo-300: #a5b4fc;
+    --_indigo-400: #818cf8;
+    --_indigo-600: #4f46e5;
+    --_indigo-wash-dark: #1e254e; /* índigo-500 18 % sobre slate-900 */
 
-    /* Vidro marinho — o acento. */
-    --_seaglass-300: #6fd6c6;
-    --_seaglass-400: #4cc2b0;
-    --_seaglass-450: #3aa999;
-    --_seaglass-700: #0f6e65;
-    --_seaglass-750: #0d6158;
-    --_seaglass-800: #0a5049;
-    --_seaglass-ink: #08201d; /* texto sobre o acento claro */
-    --_seaglass-wash-dark: #173a3a; /* fundo tingido (item atual) */
-    --_seaglass-wash-light: #d3ece7;
+    /* Slate — fundos, superfícies, texto e linhas (valores do portfólio). */
+    --_slate-0: #fff;
+    --_slate-50: #f8fafc;
+    --_slate-100: #f1f5f9;
+    --_slate-150: #eaeff5;
+    --_slate-200: #e2e8f0;
+    --_slate-300: #cbd5e1;
+    --_slate-400: #94a3b8;
+    --_slate-450: #8593a9;
+    --_slate-500: #64748b;
+    --_slate-600: #475569;
+    --_slate-700: #334155;
+    --_slate-750: #243044;
+    --_slate-800: #1e293b;
+    --_slate-850: #151f2e;
+    --_slate-900: #0f172a;
+    --_slate-920: #0b1120;
+    --_slate-950: #070d19;
+    --_slate-canvas-light: #f2f4f8; /* fundo do portfólio no tema claro */
+    --_slate-line-dark: #1a1f2d; /* branco 6 % sobre slate-920 */
+    --_slate-line-subtle-dark: #272e3f; /* branco 10 % sobre slate-900 */
 
-    /* Lavanda — segunda voz (papel de administrador, destaques secundários). */
-    --_lavender-300: #b9b6e8;
-    --_lavender-700: #4f4c8f;
-    --_lavender-wash-dark: #2a2c45;
-    --_lavender-wash-light: #e6e5f5;
-
-    /* Estados: musgo (sucesso), âmbar suave (aviso), coral (erro). */
-    --_moss-300: #78d39f;
-    --_moss-500: #4fb07a;
-    --_moss-700: #2e8150;
-    --_moss-800: #1f6a3f;
-    --_amber-300: #ecc274;
-    --_amber-400: #e3b155;
-    --_amber-750: #8a5a00;
-    --_amber-800: #7a5000;
-    --_coral-300: #f59a8f;
-    --_coral-400: #ec7063;
-    --_coral-450: #e35d50;
-    --_coral-600: #c4453c;
-    --_coral-700: #a83229;
-    --_coral-750: #93271f;
-    --_coral-ink: #1c0a08;
+    /* Estados. Verde e âmbar do portfólio; os tons 700/800 entram no tema
+       claro porque os do portfólio (500) não chegam a 3:1 sobre branco. */
+    --_green-400: #4ade80;
+    --_green-500: #22c55e;
+    --_green-700: #15803d;
+    --_green-800: #166534;
+    --_amber-400: #fbbf24;
+    --_amber-500: #f59e0b;
+    --_amber-700: #b45309;
+    --_amber-800: #92400e;
+    /* Vermelho de erro: separado do carmim por tom e por tratamento. */
+    --_red-300: #fca5a5;
+    --_red-400: #f87171;
+    --_red-700: #b91c1c;
+    --_red-800: #991b1b;
 
     /* Remetentes — seis matizes (escuro: claros; claro: profundos). */
     --_s-azure-300: #7cc4f8;
@@ -95,56 +84,59 @@
 
 /* ─── Camada 2 · semânticos · tema escuro (padrão) ───────────────────── */
 :root {
-    /* Superfícies, da mais funda à mais alta. Barra lateral e pessoas são
-       mais fundas que a conversa: a conversa é o "palco". */
-    --color-bg-app: var(--_tide-900); /* moldura, entrada, painel "você" */
-    --color-bg-sidebar: var(--_tide-850); /* barra lateral e pessoas */
-    --color-bg-main: var(--_tide-800); /* área da conversa */
-    --color-bg-elevated: var(--_tide-700); /* campos, cartões, popovers */
-    --color-bg-hover: var(--_tide-750); /* linha ou item sob o ponteiro */
-    --color-bg-selected: var(--_tide-650); /* item ativo, selo */
-    --color-bg-floating: var(--_tide-950); /* dica, toast */
-    --color-scrim: var(--_tide-950); /* fundo de modal/gaveta (com opacidade) */
+    /* Superfícies — a escala de superfícies do portfólio, em degraus. */
+    --color-bg-app: var(--_slate-950); /* moldura, entrada, painel "você" */
+    --color-bg-sidebar: var(--_slate-920); /* barra lateral e pessoas */
+    --color-bg-main: var(--_slate-900); /* área da conversa */
+    --color-bg-elevated: var(--_slate-800); /* campos, cartões, popovers */
+    --color-bg-hover: var(--_slate-850); /* linha ou item sob o ponteiro */
+    --color-bg-selected: var(--_slate-750); /* item ativo, selo */
+    --color-bg-floating: var(--_slate-950); /* dica, toast */
+    --color-scrim: var(--_slate-950); /* fundo de modal/gaveta (com opacidade) */
 
     /* Texto */
-    --color-text-1: var(--_tide-50); /* principal, branco aquecido */
-    --color-text-2: var(--_tide-200); /* secundário, cinza-azulado */
-    --color-text-3: var(--_tide-300); /* metadados */
-    --color-text-disabled: var(--_tide-400); /* controle desabilitado — isento */
-    --color-text-on-floating: var(--_tide-50);
-    /* Sobre a superfície flutuante (escura nos dois temas): marcador do toast. */
-    --color-brand-on-floating: var(--_seaglass-300);
-    --color-danger-on-floating: var(--_coral-400);
+    --color-text-1: var(--_slate-50); /* principal */
+    --color-text-2: var(--_slate-300); /* secundário */
+    --color-text-3: var(--_slate-400); /* metadados */
+    --color-text-disabled: var(--_slate-500); /* controle desabilitado — isento */
+    --color-text-on-floating: var(--_slate-50);
+    /* Marcadores de tom do toast (a superfície flutuante é escura nos dois temas). */
+    --color-accent-2-on-floating: var(--_indigo-400);
+    --color-danger-on-floating: var(--_red-400);
 
-    /* Marca (acento) */
-    --color-brand: var(--_seaglass-400); /* preenchimento — texto escuro sobre ele */
-    --color-brand-hover: var(--_seaglass-300);
-    --color-on-brand: var(--_seaglass-ink);
-    --color-brand-text: var(--_seaglass-300); /* acento como texto */
-    --color-brand-soft: var(--_seaglass-wash-dark); /* fundo tingido: item atual */
+    /* Marca (carmim) */
+    --color-brand: var(--_crimson-600); /* preenchimento — texto branco sobre ele */
+    --color-brand-hover: var(--_crimson-700);
+    --color-on-brand: var(--_slate-0);
+    /* O portfólio usa crimson-500 como texto no escuro; ele reprova sobre os
+       cartões (slate-800), então o texto de marca é o crimson-400. */
+    --color-brand-text: var(--_crimson-400);
+    --color-brand-soft: var(--_crimson-wash-dark); /* fundo tingido: item atual */
 
-    /* Segunda voz */
-    --color-accent-2: var(--_lavender-300); /* texto/ícone */
-    --color-accent-2-soft: var(--_lavender-wash-dark); /* fundo do selo */
+    /* Segunda voz (índigo) */
+    --color-accent-2: var(--_indigo-300); /* texto/ícone */
+    --color-accent-2-soft: var(--_indigo-wash-dark); /* fundo do selo */
 
-    /* Linhas */
-    --color-border: var(--_tide-950); /* separador entre painéis */
-    --color-border-subtle: var(--_tide-650); /* divisória dentro de painel */
-    --color-outline-control: var(--_tide-400); /* borda de controle (1.4.11) */
-    --color-focus-ring: var(--_seaglass-300);
+    /* Linhas — o portfólio usa branco translúcido; aqui, o resultado opaco. */
+    --color-border: var(--_slate-line-dark); /* separador entre painéis */
+    --color-border-subtle: var(--_slate-line-subtle-dark); /* divisória dentro de painel */
+    --color-outline-control: var(--_slate-450); /* borda de controle (1.4.11) */
+    --color-focus-ring: var(--_crimson-400); /* foco em carmim, como no portfólio */
 
     /* Estados */
-    --color-ok: var(--_moss-500); /* ponto de presença, preenchimento */
-    --color-ok-text: var(--_moss-300);
-    --color-warn: var(--_amber-400); /* anel de ausência */
-    --color-warn-text: var(--_amber-300);
-    --color-danger: var(--_coral-400); /* preenchimento destrutivo — texto escuro */
-    --color-danger-hover: var(--_coral-300);
-    --color-on-danger: var(--_coral-ink);
-    --color-danger-text: var(--_coral-300);
+    --color-ok: var(--_green-500); /* ponto de presença */
+    --color-ok-text: var(--_green-400);
+    --color-warn: var(--_amber-500); /* anel de ausência */
+    --color-warn-text: var(--_amber-400);
+    /* Destrutivo: salmão com texto escuro — fundo e texto diferentes do botão
+       principal (carmim com texto branco). */
+    --color-danger: var(--_red-400);
+    --color-danger-hover: var(--_red-300);
+    --color-on-danger: var(--_slate-950);
+    --color-danger-text: var(--_red-400);
 
     /* Remetentes (nome colorido e avatar) */
-    --color-on-sender: var(--_tide-950);
+    --color-on-sender: var(--_slate-950);
     --color-sender-1: var(--_s-azure-300);
     --color-sender-2: var(--_s-violet-300);
     --color-sender-3: var(--_s-rose-300);
@@ -152,7 +144,7 @@
     --color-sender-5: var(--_s-cyan-300);
     --color-sender-6: var(--_s-gold-300);
 
-    /* Sombras tingidas de petróleo (não preto puro). */
+    /* Sombras: inalteradas nesta troca de paleta. */
     --shadow-1: 0 1px 0 rgb(3 10 12 / 0.35);
     --shadow-2: 0 6px 16px rgb(3 10 12 / 0.35), 0 1px 3px rgb(3 10 12 / 0.3);
     --shadow-3: 0 16px 40px rgb(3 10 12 / 0.5), 0 2px 6px rgb(3 10 12 / 0.3);
@@ -162,41 +154,42 @@
 
 /* ─── Camada 3 · tema claro ──────────────────────────────────────────── */
 [data-theme="light"] {
-    --color-bg-app: var(--_shore-150);
-    --color-bg-sidebar: var(--_shore-50);
-    --color-bg-main: var(--_shore-25);
-    --color-bg-elevated: var(--_shore-75);
-    --color-bg-hover: var(--_shore-100);
-    --color-bg-selected: var(--_shore-200);
-    --color-bg-floating: var(--_shore-950);
-    --color-scrim: var(--_tide-950);
-    --color-text-1: var(--_shore-950);
-    --color-text-2: var(--_shore-700);
-    --color-text-3: var(--_shore-600);
-    --color-text-disabled: var(--_shore-500);
-    --color-text-on-floating: var(--_tide-50);
-    --color-brand-on-floating: var(--_seaglass-300);
-    --color-danger-on-floating: var(--_coral-400);
-    --color-brand: var(--_seaglass-700);
-    --color-brand-hover: var(--_seaglass-800);
-    --color-on-brand: var(--_shore-0);
-    --color-brand-text: var(--_seaglass-750);
-    --color-brand-soft: var(--_seaglass-wash-light);
-    --color-accent-2: var(--_lavender-700);
-    --color-accent-2-soft: var(--_lavender-wash-light);
-    --color-border: var(--_shore-300);
-    --color-border-subtle: var(--_shore-200);
-    --color-outline-control: var(--_shore-500);
-    --color-focus-ring: var(--_seaglass-750);
-    --color-ok: var(--_moss-700);
-    --color-ok-text: var(--_moss-800);
-    --color-warn: var(--_amber-750);
+    --color-bg-app: var(--_slate-canvas-light);
+    --color-bg-sidebar: var(--_slate-50);
+    --color-bg-main: var(--_slate-0);
+    --color-bg-elevated: var(--_slate-100);
+    --color-bg-hover: var(--_slate-150);
+    --color-bg-selected: var(--_slate-200);
+    --color-bg-floating: var(--_slate-900);
+    --color-scrim: var(--_slate-950);
+    --color-text-1: var(--_slate-900);
+    --color-text-2: var(--_slate-700);
+    --color-text-3: var(--_slate-600);
+    --color-text-disabled: var(--_slate-400);
+    --color-text-on-floating: var(--_slate-50);
+    --color-accent-2-on-floating: var(--_indigo-400);
+    --color-danger-on-floating: var(--_red-400);
+    --color-brand: var(--_crimson-600);
+    --color-brand-hover: var(--_crimson-700);
+    --color-on-brand: var(--_slate-0);
+    --color-brand-text: var(--_crimson-700);
+    --color-brand-soft: var(--_crimson-100);
+    --color-accent-2: var(--_indigo-600);
+    --color-accent-2-soft: var(--_indigo-100);
+    --color-border: var(--_slate-200);
+    --color-border-subtle: var(--_slate-200);
+    --color-outline-control: var(--_slate-500);
+    --color-focus-ring: var(--_crimson-600);
+    --color-ok: var(--_green-700);
+    --color-ok-text: var(--_green-800);
+    --color-warn: var(--_amber-700);
     --color-warn-text: var(--_amber-800);
-    --color-danger: var(--_coral-600);
-    --color-danger-hover: var(--_coral-750);
-    --color-on-danger: var(--_shore-0);
-    --color-danger-text: var(--_coral-700);
-    --color-on-sender: var(--_shore-0);
+    /* Destrutivo: tijolo escuro, distante do carmim em tom e luminância. */
+    --color-danger: var(--_red-700);
+    --color-danger-hover: var(--_red-800);
+    --color-on-danger: var(--_slate-0);
+    --color-danger-text: var(--_red-700);
+    --color-on-sender: var(--_slate-0);
     --color-sender-1: var(--_s-azure-700);
     --color-sender-2: var(--_s-violet-700);
     --color-sender-3: var(--_s-rose-700);

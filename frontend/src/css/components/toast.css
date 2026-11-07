@@ -27,7 +27,7 @@
     font-weight: var(--weight-medium);
     box-shadow: var(--shadow-3);
     animation: rise-in var(--duration-slow) var(--ease-out);
-    --toast-tone: var(--color-brand-on-floating);
+    --toast-tone: var(--color-accent-2-on-floating);
 }
 
 .c-toast::before {
