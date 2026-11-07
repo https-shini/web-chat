@@ -24,6 +24,7 @@ import {
     serverMessage,
 } from "../protocol.js";
 import { createRateLimiter } from "../rateLimiter.js";
+import { readClientId } from "../validation.js";
 
 /** No máximo um aviso de "rápido demais" por segundo (anti-amplificação). */
 export const RATE_LIMIT_NOTICE_INTERVAL_MS = 1000;
@@ -31,12 +32,16 @@ export const RATE_LIMIT_NOTICE_INTERVAL_MS = 1000;
 /** Código de fechamento para conexão que não entrou na sala a tempo. */
 export const LOGIN_TIMEOUT_CLOSE_CODE = 4001;
 
+/** Eventos cujo excesso recebe aviso de limite (os demais são descartados). */
+const NOTIFY_WHEN_LIMITED = new Set([CLIENT_EVENTS.CHAT_MESSAGE, CLIENT_EVENTS.COMMAND]);
+
 /** Métricas no-op: o handler funciona sem instrumentação (testes de unidade). */
 const NO_METRICS = { count() {}, observeProcessing() {} };
 
 /**
  * @param {{
  *   room: ReturnType<typeof import("../room/room.js").createRoom>,
+ *   commands?: {execute: (ws: unknown, payload: Record<string, unknown>) => void, sendCatalog: (ws: unknown) => void},
  *   log: (level: "info" | "warn" | "error", event: string, fields?: Record<string, unknown>) => void,
  *   messageRate: {capacity: number, refillPerSecond: number},
  *   signalRate: {capacity: number, refillPerSecond: number},
@@ -50,6 +55,7 @@ const NO_METRICS = { count() {}, observeProcessing() {} };
  */
 export const createConnectionHandler = ({
     room,
+    commands = null,
     log,
     messageRate,
     signalRate,
@@ -93,8 +99,12 @@ export const createConnectionHandler = ({
             if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(message));
         };
 
-        /** Recusa uma operação: registra com contexto e responde com o código. */
-        const reject = (operation, code) => {
+        /**
+         * Recusa uma operação: registra com contexto e responde com o código.
+         * `ref` devolve o id de correlação do cliente (`clientMsgId` ou
+         * `requestId`) para que ele saiba QUAL envio falhou.
+         */
+        const reject = (operation, code, ref = null) => {
             const { category } = describeError(code);
             metrics.count("requestsRejected", code);
             metrics.count("errorsByCategory", category);
@@ -105,7 +115,7 @@ export const createConnectionHandler = ({
                 category,
                 ...(room.isMember(ws) ? { user: room.userIdOf(ws) } : {}),
             });
-            send(serverMessage.error(code));
+            send(serverMessage.error(code, ref));
         };
 
         const handlers = {
@@ -113,6 +123,8 @@ export const createConnectionHandler = ({
                 const result = room.join(ws, payload, label);
                 if (!result.ok) return reject(CLIENT_EVENTS.LOGIN, result.code);
                 clearLoginTimer();
+                // O catálogo de comandos é a fonte do autocomplete e do /help.
+                commands?.sendCatalog(ws);
                 // Retomada que substituiu uma conexão antiga ainda aberta.
                 if (result.replaced) {
                     /** @type {import("ws").WebSocket} */ (result.replaced).terminate();
@@ -120,8 +132,18 @@ export const createConnectionHandler = ({
             },
             [CLIENT_EVENTS.CHAT_MESSAGE]: (payload) => {
                 const result = room.post(ws, payload);
-                if (!result.ok) return reject(CLIENT_EVENTS.CHAT_MESSAGE, result.code);
-                metrics.count("messagesAccepted");
+                if (!result.ok) {
+                    return reject(
+                        CLIENT_EVENTS.CHAT_MESSAGE,
+                        result.code,
+                        readClientId(payload.clientMsgId),
+                    );
+                }
+                if (!result.duplicate) metrics.count("messagesAccepted");
+            },
+            [CLIENT_EVENTS.COMMAND]: (payload) => {
+                if (!commands) return reject(CLIENT_EVENTS.COMMAND, ERROR_CODES.UNKNOWN_TYPE);
+                commands.execute(ws, payload);
             },
             [CLIENT_EVENTS.TYPING_START]: () => room.typing(ws, true),
             [CLIENT_EVENTS.TYPING_STOP]: () => room.typing(ws, false),
@@ -143,11 +165,16 @@ export const createConnectionHandler = ({
                 const time = now();
                 if (
                     envelope.ok &&
-                    envelope.type === CLIENT_EVENTS.CHAT_MESSAGE &&
+                    NOTIFY_WHEN_LIMITED.has(envelope.type) &&
                     time - lastRateLimitNotice >= RATE_LIMIT_NOTICE_INTERVAL_MS
                 ) {
                     lastRateLimitNotice = time;
-                    reject(envelope.type, ERROR_CODES.RATE_LIMITED);
+                    const payload = envelope.payload;
+                    reject(
+                        envelope.type,
+                        ERROR_CODES.RATE_LIMITED,
+                        readClientId(payload.clientMsgId ?? payload.requestId),
+                    );
                 } else {
                     metrics.count("requestsRejected", "rate_limited_silent");
                 }

@@ -31,6 +31,14 @@ test("códigos de erro tratados pelo cliente existem no servidor com o mesmo val
     }
 });
 
+test("variedades, formatos, tons e códigos de fechamento coincidem", () => {
+    assert.deepEqual(client.MESSAGE_KINDS, server.MESSAGE_KINDS);
+    assert.deepEqual(client.MESSAGE_FORMATS, server.MESSAGE_FORMATS);
+    assert.deepEqual(client.TONES, server.TONES);
+    assert.deepEqual(client.CLOSE_CODES, server.CLOSE_CODES);
+    assert.equal(client.LIMITS.commandMaxLength, server.LIMITS.commandMaxLength);
+});
+
 test("limites de nome e mensagem são os mesmos nos dois lados e no HTML", () => {
     assert.equal(client.LIMITS.nameMaxLength, server.LIMITS.nameMaxLength);
     assert.equal(client.LIMITS.messageMaxLength, server.LIMITS.messageMaxLength);

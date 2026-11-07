@@ -20,6 +20,9 @@ test("sem variáveis, os padrões reproduzem o comportamento anterior", () => {
         loginTimeoutMs: 30000,
         metricsEnabled: false,
         metricsLogIntervalMs: 60000,
+        // Fase 4: janela de retomada e administração (desligada sem chave).
+        leaveGraceMs: 10000,
+        adminKey: null,
         production: false,
     });
     assert.equal(DEFAULTS.port, 8080);
@@ -53,6 +56,9 @@ for (const [variable, value] of [
     ["LOGIN_TIMEOUT_MS", "10"],
     ["METRICS_ENABLED", "sim"],
     ["METRICS_LOG_INTERVAL_MS", "500"],
+    ["LEAVE_GRACE_MS", "999999"],
+    ["ADMIN_KEY", "curta"],
+    ["ADMIN_KEY", "chave com espacos no meio!!"],
 ]) {
     test(`${variable}=${value} é recusada com a variável identificada`, () => {
         assert.throws(
@@ -73,4 +79,15 @@ test("METRICS_LOG_INTERVAL_MS=0 desliga o log periódico; METRICS_ENABLED=true l
     const config = loadConfig({ METRICS_LOG_INTERVAL_MS: "0", METRICS_ENABLED: "true" });
     assert.equal(config.metricsLogIntervalMs, 0);
     assert.equal(config.metricsEnabled, true);
+});
+
+test("ADMIN_KEY válida é aceita e nunca aparece na mensagem de erro de outra variável", () => {
+    const key = "k".repeat(24);
+    assert.equal(loadConfig({ ADMIN_KEY: key }).adminKey, key);
+    try {
+        loadConfig({ ADMIN_KEY: "segredo-curto" });
+        assert.fail("deveria recusar");
+    } catch (error) {
+        assert.ok(!error.message.includes("segredo-curto"));
+    }
 });

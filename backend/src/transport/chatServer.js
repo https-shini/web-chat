@@ -10,6 +10,9 @@
 
 import http from "node:http";
 import { WebSocketServer } from "ws";
+import { createDefaultRegistry } from "../commands/index.js";
+import { createAdminAuth } from "../commands/adminAuth.js";
+import { createCommandExecutor } from "../commands/executor.js";
 import { createMetrics } from "../metrics.js";
 import { createIdentityStore } from "../room/sessions.js";
 import { createRoom } from "../room/room.js";
@@ -31,9 +34,10 @@ export const USER_LIST_COALESCE_MS = 50;
  * @param {{
  *   config: import("../config.js").Config,
  *   log: (level: "info" | "warn" | "error", event: string, fields?: Record<string, unknown>) => void,
+ *   version?: string,
  * }} options
  */
-export const createChatServer = ({ config, log }) => {
+export const createChatServer = ({ config, log, version = "desconhecida" }) => {
     const metrics = createMetrics();
     const identities = createIdentityStore();
 
@@ -47,24 +51,51 @@ export const createChatServer = ({ config, log }) => {
             cancel: (handle) => clearTimeout(/** @type {NodeJS.Timeout} */ (handle)),
         },
         onUserList: () => metrics.count("userListBroadcasts"),
-        deliver: (member, data) => {
-            const ws = /** @type {import("ws").WebSocket} */ (member);
-            if (ws.readyState !== ws.OPEN) return;
-            // Cliente que parou de ler o socket: a fila de envio cresce sem
-            // limite na memória do servidor (medido: +56 MB com um único
-            // cliente parado). Acima do teto, a conexão é encerrada; o
-            // `close` desfaz a participação normalmente.
-            if (ws.bufferedAmount > config.maxBufferedBytes) {
-                metrics.count("slowConsumerDisconnects");
-                const user = room.userIdOf(ws);
-                log("warn", "slow_consumer", {
-                    bufferedBytes: ws.bufferedAmount,
-                    ...(user ? { user } : {}),
-                });
-                ws.terminate();
-                return;
-            }
-            ws.send(data);
+        leaveGraceMs: config.leaveGraceMs,
+        leaveScheduler: {
+            schedule: (callback, ms) => setTimeout(callback, ms),
+            cancel: (handle) => clearTimeout(/** @type {NodeJS.Timeout} */ (handle)),
+        },
+        deliver: (member, data) => deliver(member, data),
+    });
+
+    /**
+     * Entrega um quadro a uma conexão (usado pela sala e pelos comandos).
+     * @param {unknown} member
+     * @param {string} data
+     */
+    function deliver(member, data) {
+        const ws = /** @type {import("ws").WebSocket} */ (member);
+        if (ws.readyState !== ws.OPEN) return;
+        // Cliente que parou de ler o socket: a fila de envio cresce sem
+        // limite na memória do servidor (medido: +56 MB com um único
+        // cliente parado). Acima do teto, a conexão é encerrada; o
+        // `close` desfaz a participação normalmente.
+        if (ws.bufferedAmount > config.maxBufferedBytes) {
+            metrics.count("slowConsumerDisconnects");
+            const user = room.userIdOf(ws);
+            log("warn", "slow_consumer", {
+                bufferedBytes: ws.bufferedAmount,
+                ...(user ? { user } : {}),
+            });
+            ws.terminate();
+            return;
+        }
+        ws.send(data);
+    }
+
+    const commands = createCommandExecutor({
+        registry: createDefaultRegistry(),
+        room,
+        log,
+        metrics,
+        services: {
+            deliver,
+            adminAuth: createAdminAuth({ adminKey: config.adminKey }),
+            version,
+            startedAt: Date.now(),
+            disconnect: (member, code, reason) =>
+                /** @type {import("ws").WebSocket} */ (member).close(code, reason),
         },
     });
 
@@ -122,6 +153,7 @@ export const createChatServer = ({ config, log }) => {
 
     const handleConnection = createConnectionHandler({
         room,
+        commands,
         log,
         metrics,
         messageRate: config.messageRate,

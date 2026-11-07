@@ -36,6 +36,8 @@ export const createMetrics = ({ now = () => Date.now(), startedAt = Date.now() }
         requestsRejected: {},
         errorsByCategory: {},
         userListBroadcasts: 0,
+        commandsExecuted: {},
+        commandsRejected: {},
     };
 
     const buckets = new Array(PROCESSING_BUCKETS_MS.length + 1).fill(0);

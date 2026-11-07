@@ -18,6 +18,12 @@ export const LIMITS = Object.freeze({
     nameMaxLength: 30,
     messageMaxLength: 1000,
     resumeTokenMaxLength: 100,
+    /** Texto bruto de um comando (`/nome argumentos`). */
+    commandMaxLength: 1000,
+    /** Id de correlação gerado pelo cliente (`clientMsgId`, `requestId`). */
+    clientIdMaxLength: 64,
+    /** Texto de ausência (`/afk motivo`). */
+    awayTextMaxLength: 60,
 });
 
 /** Eventos que o cliente envia. */
@@ -26,6 +32,7 @@ export const CLIENT_EVENTS = Object.freeze({
     CHAT_MESSAGE: "chat_message",
     TYPING_START: "typing_start",
     TYPING_STOP: "typing_stop",
+    COMMAND: "command",
 });
 
 /** Eventos que o servidor envia. */
@@ -38,6 +45,52 @@ export const SERVER_EVENTS = Object.freeze({
     USER_LIST: "user_list",
     USER_TYPING: "user_typing",
     ERROR: "error",
+    COMMAND_CATALOG: "command_catalog",
+    COMMAND_RESULT: "command_result",
+    NOTICE: "notice",
+    CHAT_CLEARED: "chat_cleared",
+});
+
+/**
+ * Variedades de mensagem de chat (`payload.kind`). Só `text` pode vir de um
+ * `chat_message` do cliente; as demais são produzidas pelo servidor ao
+ * executar comandos — o cliente não consegue forjar um anúncio.
+ */
+export const MESSAGE_KINDS = Object.freeze({
+    TEXT: "text",
+    ACTION: "action",
+    ROLL: "roll",
+    ANNOUNCEMENT: "announcement",
+});
+
+/** Formatação de uma mensagem (`payload.format`), aplicada por comandos. */
+export const MESSAGE_FORMATS = Object.freeze({
+    BOLD: "bold",
+    ITALIC: "italic",
+    CODE: "code",
+    SPOILER: "spoiler",
+});
+
+/** Estados de presença em `user_list`. */
+export const PRESENCE = Object.freeze({ ONLINE: "online", AWAY: "away" });
+
+/** Papéis em `user_list` e `session`. */
+export const ROLES = Object.freeze({ MEMBER: "member", ADMIN: "admin" });
+
+/** Tons de `command_result` e `notice`. */
+export const TONES = Object.freeze({
+    INFO: "info",
+    SUCCESS: "success",
+    WARNING: "warning",
+    ERROR: "error",
+    RESULT: "result",
+    ADMIN: "admin",
+});
+
+/** Códigos de fechamento da conexão definidos pela aplicação. */
+export const CLOSE_CODES = Object.freeze({
+    LOGIN_TIMEOUT: 4001,
+    REMOVED: 4003,
 });
 
 const SIGNAL_EVENTS = new Set([CLIENT_EVENTS.TYPING_START, CLIENT_EVENTS.TYPING_STOP]);
@@ -90,22 +143,53 @@ export const errorCodeForEnvelope = (reason) =>
  * é o que garante que um mesmo evento nunca saia com campos diferentes.
  */
 export const serverMessage = Object.freeze({
-    /** @param {{id: string, name: string}} user @param {string} resumeToken */
-    session: (user, resumeToken) => ({
+    /**
+     * @param {{id: string, name: string, role?: string}} user
+     * @param {string} resumeToken
+     * @param {number} [historyVersion] muda quando a sala é limpa (`/clearall`)
+     */
+    session: (user, resumeToken, historyVersion = 0) => ({
         type: SERVER_EVENTS.SESSION,
-        payload: { id: user.id, name: user.name, resumeToken },
+        payload: {
+            id: user.id,
+            name: user.name,
+            resumeToken,
+            role: user.role ?? ROLES.MEMBER,
+            historyVersion,
+        },
     }),
 
     /** @param {unknown[]} entries mensagens de chat já no formato de envio */
     history: (entries) => ({ type: SERVER_EVENTS.MESSAGE_HISTORY, payload: entries }),
 
     /**
-     * @param {{id: string, user: {id: string, name: string}, content: string, timestamp: string}} message
+     * Mensagem de chat. `kind`, `format` e `clientMsgId` são aditivos: só
+     * entram no payload quando presentes, e clientes antigos os ignoram.
+     * @param {{
+     *   id: string, user: {id: string, name: string}, content: string, timestamp: string,
+     *   kind?: string, format?: string | null, clientMsgId?: string | null,
+     * }} message
      */
-    chat: ({ id, user, content, timestamp }) => ({
+    chat: ({
+        id,
+        user,
+        content,
+        timestamp,
+        kind = MESSAGE_KINDS.TEXT,
+        format = null,
+        clientMsgId = null,
+    }) => ({
         id,
         type: SERVER_EVENTS.CHAT_MESSAGE,
-        payload: { userId: user.id, userName: user.name, content, timestamp },
+        payload: {
+            userId: user.id,
+            userName: user.name,
+            content,
+            timestamp,
+            ...(kind !== MESSAGE_KINDS.TEXT ? { kind } : {}),
+            ...(format ? { format } : {}),
+            ...(clientMsgId ? { clientMsgId } : {}),
+        },
     }),
 
     /** @param {string} userName @param {string} timestamp */
@@ -114,16 +198,30 @@ export const serverMessage = Object.freeze({
         payload: { userName, timestamp },
     }),
 
-    /** @param {string} userName @param {string} timestamp */
-    left: (userName, timestamp) => ({
+    /**
+     * @param {{id: string, name: string}} user
+     * @param {string} timestamp
+     * @param {string} [reason] "left" (padrão) ou "removed"
+     */
+    left: (user, timestamp, reason = "left") => ({
         type: SERVER_EVENTS.USER_LEFT,
-        payload: { userName, timestamp },
+        payload: { userId: user.id, userName: user.name, timestamp, reason },
     }),
 
-    /** @param {{id: string, name: string}[]} users */
+    /**
+     * `status` já existia ("online"); agora também "away". `role` e
+     * `statusText` são aditivos.
+     * @param {{id: string, name: string, role?: string, away?: string | null}[]} users
+     */
     userList: (users) => ({
         type: SERVER_EVENTS.USER_LIST,
-        payload: users.map((user) => ({ id: user.id, name: user.name, status: "online" })),
+        payload: users.map((user) => ({
+            id: user.id,
+            name: user.name,
+            status: user.away === null || user.away === undefined ? PRESENCE.ONLINE : PRESENCE.AWAY,
+            role: user.role ?? ROLES.MEMBER,
+            ...(user.away ? { statusText: user.away } : {}),
+        })),
     }),
 
     /** @param {{id: string, name: string}} user @param {boolean} isTyping */
@@ -132,9 +230,51 @@ export const serverMessage = Object.freeze({
         payload: { userId: user.id, userName: user.name, isTyping },
     }),
 
-    /** @param {string} code um dos `ERROR_CODES` */
-    error: (code) => ({
+    /**
+     * @param {string} code um dos `ERROR_CODES`
+     * @param {string | null} [ref] `clientMsgId` da mensagem recusada, quando houver
+     */
+    error: (code, ref = null) => ({
         type: SERVER_EVENTS.ERROR,
-        payload: { code, message: describeError(code).message },
+        payload: { code, message: describeError(code).message, ...(ref ? { ref } : {}) },
+    }),
+
+    /** @param {unknown[]} commands metadados do registro (ver commands/registry.js) */
+    commandCatalog: (commands) => ({
+        type: SERVER_EVENTS.COMMAND_CATALOG,
+        payload: { commands },
+    }),
+
+    /**
+     * Resposta de um comando, só para quem o executou.
+     * @param {{requestId: string | null, tone: string, text: string, title?: string,
+     *   lines?: string[], code?: string, data?: Record<string, unknown>}} result
+     */
+    commandResult: ({ requestId, tone, text, title, lines, code, data }) => ({
+        type: SERVER_EVENTS.COMMAND_RESULT,
+        payload: {
+            requestId,
+            tone,
+            text,
+            ...(title ? { title } : {}),
+            ...(lines && lines.length ? { lines } : {}),
+            ...(code ? { code } : {}),
+            ...(data ? { data } : {}),
+        },
+    }),
+
+    /**
+     * Aviso de sistema gerado pelo servidor (renomeação, moderação, papéis).
+     * @param {{id: string, tone: string, text: string, timestamp: string}} notice
+     */
+    notice: ({ id, tone, text, timestamp }) => ({
+        type: SERVER_EVENTS.NOTICE,
+        payload: { id, tone, text, timestamp },
+    }),
+
+    /** @param {string} byName @param {string} timestamp @param {number} historyVersion */
+    chatCleared: (byName, timestamp, historyVersion) => ({
+        type: SERVER_EVENTS.CHAT_CLEARED,
+        payload: { byName, timestamp, historyVersion },
     }),
 });

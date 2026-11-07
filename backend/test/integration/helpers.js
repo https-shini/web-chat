@@ -90,6 +90,9 @@ const startServer = async (env = {}, options = {}) => {
         PORT: String(port),
         ALLOWED_ORIGINS: "",
         HEARTBEAT_MS: "30000",
+        // Testes anteriores à Fase 4 esperam o aviso de saída na hora; a
+        // janela de retomada (padrão 10 s) tem testes próprios.
+        LEAVE_GRACE_MS: "0",
         NODE_ENV: "test",
     };
     const child = spawn(process.execPath, [options.script ?? SERVER_SCRIPT], {

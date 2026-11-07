@@ -62,3 +62,17 @@ export const readResumeToken = (raw) =>
     typeof raw === "string" && raw.length > 0 && raw.length <= LIMITS.resumeTokenMaxLength
         ? raw
         : null;
+
+const CLIENT_ID = /^[A-Za-z0-9_-]+$/;
+
+/**
+ * Id de correlação gerado pelo cliente (`clientMsgId`, `requestId`): só
+ * letras, dígitos, `-` e `_`, até o limite. Inválido é tratado como ausente.
+ * Nunca é usado como chave de nada além de correlação de respostas.
+ * @param {unknown} raw
+ * @returns {string | null}
+ */
+export const readClientId = (raw) =>
+    typeof raw === "string" && raw.length <= LIMITS.clientIdMaxLength && CLIENT_ID.test(raw)
+        ? raw
+        : null;

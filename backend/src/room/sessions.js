@@ -32,6 +32,14 @@ export const MAX_RELEASED_IDENTITIES = 2000;
  * @property {unknown} holder        conexão que detém a identidade, ou null
  * @property {number | null} releasedAt
  * @property {string | null} [tokenHash]  hash do token válido (interno; nunca enviado)
+ * @property {"member" | "admin"} role   papel na sala (Fase 4)
+ * @property {string | null} away        texto de ausência, ou null se presente
+ * @property {number | null} mutedUntil  silenciada até (ms epoch; Infinity = sem prazo)
+ * @property {number} joinedAt
+ * @property {number} messageCount
+ * @property {number} lastRenameAt
+ * @property {Map<string, unknown>} recent  clientMsgId → mensagem (anti-duplicação)
+ * @property {unknown} pendingLeave       aviso de saída agendado (janela de retomada)
  */
 
 const hashToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
@@ -78,7 +86,30 @@ export const createIdentityStore = ({
          * @returns {Identity}
          */
         create(name) {
-            return { id: newId(), name, holder: null, releasedAt: null };
+            return {
+                id: newId(),
+                name,
+                holder: null,
+                releasedAt: null,
+                role: "member",
+                away: null,
+                mutedUntil: null,
+                joinedAt: now(),
+                messageCount: 0,
+                lastRenameAt: 0,
+                recent: new Map(),
+                pendingLeave: null,
+            };
+        },
+
+        /**
+         * Invalida o token da identidade: ela não pode mais ser retomada.
+         * Usado ao remover alguém da sala (a pessoa pode voltar, mas como
+         * identidade nova).
+         * @param {Identity} identity
+         */
+        revoke(identity) {
+            forget(identity);
         },
 
         /**

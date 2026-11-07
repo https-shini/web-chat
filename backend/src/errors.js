@@ -29,6 +29,7 @@ export const ERROR_CODES = Object.freeze({
     ALREADY_LOGGED_IN: "already_logged_in",
     NOT_LOGGED_IN: "not_logged_in",
     RATE_LIMITED: "rate_limited",
+    MUTED: "muted",
     INTERNAL_ERROR: "internal_error",
 });
 
@@ -54,6 +55,10 @@ const CATALOG = Object.freeze({
     [ERROR_CODES.RATE_LIMITED]: {
         category: RATE_LIMIT,
         message: "Você está enviando mensagens rápido demais. Aguarde um instante.",
+    },
+    [ERROR_CODES.MUTED]: {
+        category: AUTHORIZATION,
+        message: "Você foi silenciado por um administrador e não pode enviar mensagens agora.",
     },
     [ERROR_CODES.INTERNAL_ERROR]: { category: INTERNAL, message: "Erro interno do servidor" },
 });

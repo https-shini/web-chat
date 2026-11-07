@@ -46,6 +46,7 @@ export const DEFAULTS = Object.freeze({
     maxBufferedBytes: 1024 * 1024,
     loginTimeoutMs: 30000,
     metricsLogIntervalMs: 60000,
+    leaveGraceMs: 10000,
 });
 
 const isBlank = (raw) => raw === undefined || raw === "";
@@ -79,6 +80,23 @@ const readBoolean = (variable, raw) => {
     if (isBlank(raw) || raw === "false") return false;
     if (raw === "true") return true;
     throw new ConfigError(variable, `${variable} deve ser "true" ou "false" (recebido: "${raw}").`);
+};
+
+/**
+ * Chave de administrador: opcional. Se definida, precisa ser longa o
+ * bastante para resistir a tentativa (16+ caracteres, sem espaços). O valor
+ * nunca é incluído em mensagem de erro.
+ * @param {string | undefined} raw
+ */
+const readAdminKey = (raw) => {
+    if (isBlank(raw)) return null;
+    if (/\s/.test(raw) || raw.length < 16 || raw.length > 200) {
+        throw new ConfigError(
+            "ADMIN_KEY",
+            "ADMIN_KEY deve ter de 16 a 200 caracteres, sem espaços (ex.: gere com `openssl rand -base64 24`).",
+        );
+    }
+    return raw;
 };
 
 /** 0 desliga; senão, no mínimo 1000 ms (log mais frequente seria ruído). */
@@ -145,6 +163,8 @@ const readOrigins = (raw) =>
  * @property {number} loginTimeoutMs      prazo para a conexão entrar na sala
  * @property {boolean} metricsEnabled     expõe GET /metrics
  * @property {number} metricsLogIntervalMs  0 desliga o log periódico de métricas
+ * @property {number} leaveGraceMs   janela em que uma reconexão não gera avisos de saída/entrada
+ * @property {string | null} adminKey chave secreta de administrador (null = administração desativada)
  * @property {boolean} production
  */
 
@@ -235,6 +255,14 @@ export const loadConfig = (env) => {
         }),
         metricsEnabled: readBoolean("METRICS_ENABLED", env.METRICS_ENABLED),
         metricsLogIntervalMs: readMetricsInterval(env.METRICS_LOG_INTERVAL_MS),
+        // Reconexão dentro da janela não anuncia "saiu"/"entrou" (F4-01).
+        leaveGraceMs: readInteger("LEAVE_GRACE_MS", env.LEAVE_GRACE_MS, {
+            fallback: DEFAULTS.leaveGraceMs,
+            min: 0,
+            max: 60000,
+            unit: " ms",
+        }),
+        adminKey: readAdminKey(env.ADMIN_KEY),
         production: env.NODE_ENV === "production",
     };
 };

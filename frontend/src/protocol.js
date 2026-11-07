@@ -15,6 +15,7 @@
 export const LIMITS = Object.freeze({
     nameMaxLength: 30,
     messageMaxLength: 1000,
+    commandMaxLength: 1000,
 });
 
 /** Eventos que o cliente envia. */
@@ -23,6 +24,7 @@ export const CLIENT_EVENTS = Object.freeze({
     CHAT_MESSAGE: "chat_message",
     TYPING_START: "typing_start",
     TYPING_STOP: "typing_stop",
+    COMMAND: "command",
 });
 
 /** Eventos que o servidor envia. */
@@ -35,10 +37,47 @@ export const SERVER_EVENTS = Object.freeze({
     USER_LIST: "user_list",
     USER_TYPING: "user_typing",
     ERROR: "error",
+    COMMAND_CATALOG: "command_catalog",
+    COMMAND_RESULT: "command_result",
+    NOTICE: "notice",
+    CHAT_CLEARED: "chat_cleared",
+});
+
+/** Variedades de mensagem de chat (`payload.kind`; ausente = "text"). */
+export const MESSAGE_KINDS = Object.freeze({
+    TEXT: "text",
+    ACTION: "action",
+    ROLL: "roll",
+    ANNOUNCEMENT: "announcement",
+});
+
+/** Formatação de mensagem (`payload.format`). */
+export const MESSAGE_FORMATS = Object.freeze({
+    BOLD: "bold",
+    ITALIC: "italic",
+    CODE: "code",
+    SPOILER: "spoiler",
+});
+
+/** Tons de `command_result` e `notice`. */
+export const TONES = Object.freeze({
+    INFO: "info",
+    SUCCESS: "success",
+    WARNING: "warning",
+    ERROR: "error",
+    RESULT: "result",
+    ADMIN: "admin",
+});
+
+/** Códigos de fechamento definidos pela aplicação. */
+export const CLOSE_CODES = Object.freeze({
+    LOGIN_TIMEOUT: 4001,
+    REMOVED: 4003,
 });
 
 /** Códigos de erro que o cliente trata de forma específica. */
 export const ERROR_CODES = Object.freeze({
     INVALID_NAME: "invalid_name",
     RATE_LIMITED: "rate_limited",
+    MUTED: "muted",
 });

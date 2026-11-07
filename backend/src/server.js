@@ -17,6 +17,7 @@
  *   transport/           HTTP, WebSocket, conexão, heartbeat, desligamento
  */
 
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { ConfigError, loadConfig, loadEnvFiles } from "./config.js";
 import { createLogger } from "./logger.js";
@@ -44,7 +45,15 @@ if (config.allowedOrigins.length === 0) {
     });
 }
 
-const server = createChatServer({ config, log });
+// Versão exibida por /version, lida do package.json do backend.
+const { version } = JSON.parse(
+    readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"),
+);
+
+// A chave nunca vai para o log: só se a administração está ligada.
+log("info", "admin_status", { enabled: config.adminKey !== null });
+
+const server = createChatServer({ config, log, version });
 
 let shuttingDown = false;
 
