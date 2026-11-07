@@ -1,8 +1,9 @@
-# Design system · web-chat (v3 · "Maré")
+# Design system · web-chat (v4 · paleta do portfólio)
 
-> Versão 3: a estrutura da v2 (Fase 5) com identidade visual própria —
-> paleta, superfícies, presença, toasts e estados refeitos. A versão 1, com a
-> identidade "fio da sessão", está arquivada em
+> Versão 4: a estrutura e as formas da v3 ("Maré") com a **paleta do portfólio
+> pessoal [gcruz.dev.br](https://gcruz.dev.br)**, para os dois produtos terem
+> a mesma identidade cromática. Só as cores mudaram em relação à v3. A versão 1,
+> com a identidade "fio da sessão", está arquivada em
 > [`docs/historico/design-system-v1.md`](./historico/design-system-v1.md).
 >
 > Fonte da verdade: [`frontend/src/css/tokens.css`](../frontend/src/css/tokens.css).
@@ -10,21 +11,22 @@
 
 ## 1. Conceito
 
-**"Maré": uma conversa à beira-mar, à noite.** O layout é o de um chat
-comunitário (barra lateral, conversa, pessoas), mas a linguagem é própria:
+**Mesma identidade do portfólio.** As cores saem do design system publicado em
+gcruz.dev.br; o layout é o de um chat comunitário (barra lateral, conversa,
+pessoas):
 
-- superfícies **azul-petróleo** em degraus suaves, com a conversa mais clara
-  que os painéis laterais (ela é o palco);
-- acento **verde-água de vidro marinho**, sóbrio, usado só no item atual, na
-  ação principal e no foco; o botão principal leva **texto escuro** sobre o
-  acento;
-- **lavanda** discreta como segunda voz (papel de administrador);
-- texto principal **branco aquecido**, secundário cinza-azulado;
-- estados em tons naturais: musgo (sucesso), âmbar suave (aviso), coral (erro);
-- assinaturas de forma: item atual com fundo tingido e traço interno; presença
+- **carmim** (`#e11d48`) é a assinatura: ação principal, item atual, anel de
+  foco — usado pouco e sempre no ponto de ação, como no portfólio;
+- **índigo** é a segunda voz, pontual: selo "admin", avisos de administração,
+  marcador do toast informativo. Nunca é a cor dominante;
+- **slate** é a base: azul-marinho quase preto no escuro, cinza-azulado frio
+  no claro, com superfícies em degraus e divisórias finas;
+- estados: verde (sucesso e presença), âmbar (aviso e ausência), vermelho
+  (erro e ações destrutivas, com tom e tratamento distintos do carmim);
+- formas mantidas da v3: item atual com fundo tingido e traço interno; presença
   "ausente" como **anel vazado** (forma, não só cor); painel "você" como cartão
-  encaixado; toasts como cápsulas com marcador de tom; cantos macios (6/10/14px);
-  sombras tingidas de petróleo, não preto puro. Sem gradientes.
+  encaixado; toasts como cápsulas com marcador de tom; cantos de 6/10/14px.
+  Sem gradientes.
 
 E o produto em si:
 
@@ -40,8 +42,8 @@ Regras que valem para toda a interface:
    Permissão continua sendo verificada no servidor.
 2. **Cor nunca é o único sinal.** Presença tem texto ("Ausente"), posse tem o
    selo "você", papel tem o selo "admin", estado de conexão tem rótulo.
-3. **Contraste medido, não estimado.** `npm run check:contrast` mede 88 pares
-   em dois temas (176 verificações) e roda no `npm run lint`.
+3. **Contraste medido, não estimado.** `npm run check:contrast` mede 94 pares
+   em dois temas (188 verificações) e roda no `npm run lint`.
 4. **Movimento é decorativo.** Com `prefers-reduced-motion: reduce`, toda
    animação vira instantânea e nada se perde.
 
@@ -54,29 +56,41 @@ Componentes só leem semânticos. O Stylelint proíbe hex, `rgb()`/`hsl()`,
 
 ### 2.1 Cor: semânticos
 
-| Token                        | Escuro                            | Claro                             | Uso                                            |
-| ---------------------------- | --------------------------------- | --------------------------------- | ---------------------------------------------- |
-| `--color-bg-app`             | `#0d171b` tide-900                | `#e3eaec` shore-150               | moldura, entrada, painel "você"                |
-| `--color-bg-sidebar`         | `#111e23` tide-850                | `#edf2f3` shore-50                | barra lateral, pessoas, cartão de pessoa       |
-| `--color-bg-main`            | `#16242a` tide-800                | `#fbfaf6` shore-25                | conversa, modal                                |
-| `--color-bg-elevated`        | `#1d2e35` tide-700                | `#eef2f2` shore-75                | composer, cartões de resposta, sugestões       |
-| `--color-bg-hover`           | `#1b2b32` tide-750                | `#e9efef` shore-100               | linha/item sob o ponteiro                      |
-| `--color-bg-selected`        | `#243840` tide-650                | `#dce7e8` shore-200               | item ativo, selo                               |
-| `--color-bg-floating`        | `#0a1215` tide-950                | `#13222a` shore-950               | dica, toast (escuro nos dois temas)            |
-| `--color-text-1/2/3`         | `#f3efe7` / `#b3c1c6` / `#93a6ad` | `#13222a` / `#41545c` / `#55676e` | principal / secundário / metadados             |
-| `--color-brand`              | `#4cc2b0` (texto escuro)          | `#0f6e65` (texto branco)          | preenchimento da ação principal                |
-| `--color-brand-text`         | `#6fd6c6`                         | `#0d6158`                         | acento como texto e ícone                      |
-| `--color-brand-soft`         | `#173a3a`                         | `#d3ece7`                         | fundo tingido: item atual, botão ligado        |
-| `--color-accent-2` / `-soft` | `#b9b6e8` / `#2a2c45`             | `#4f4c8f` / `#e6e5f5`             | lavanda: selo "admin", avisos de administração |
-| `--color-ok` / `-text`       | `#4fb07a` / `#78d39f`             | `#2e8150` / `#1f6a3f`             | presença / texto de sucesso                    |
-| `--color-warn` / `-text`     | `#e3b155` / `#ecc274`             | `#8a5a00` / `#7a5000`             | anel de ausência, anúncio                      |
-| `--color-danger` / `-text`   | `#ec7063` / `#f59a8f`             | `#c4453c` / `#a83229`             | ação destrutiva / texto de erro                |
-| `--color-*-on-floating`      | `#6fd6c6`, `#ec7063`              | iguais                            | marcador de tom do toast                       |
-| `--color-sender-1..6`        | tons 300                          | tons 700                          | nome e avatar de cada pessoa                   |
+| Token                          | Escuro                                  | Claro                               | Uso                                           |
+| ------------------------------ | --------------------------------------- | ----------------------------------- | --------------------------------------------- |
+| `--color-bg-app`               | `#070d19` slate-950                     | `#f2f4f8` (fundo do portfólio)      | moldura, entrada, painel "você"               |
+| `--color-bg-sidebar`           | `#0b1120` slate-920                     | `#f8fafc` slate-50                  | barra lateral, pessoas, cartão de pessoa      |
+| `--color-bg-main`              | `#0f172a` slate-900                     | `#ffffff` slate-0                   | conversa, modal                               |
+| `--color-bg-hover`             | `#151f2e` slate-850                     | `#eaeff5` slate-150                 | linha/item sob o ponteiro                     |
+| `--color-bg-elevated`          | `#1e293b` slate-800                     | `#f1f5f9` slate-100                 | composer, cartões de resposta, sugestões      |
+| `--color-bg-selected`          | `#243044` slate-750                     | `#e2e8f0` slate-200                 | item ativo, selo                              |
+| `--color-bg-floating`          | `#070d19` slate-950                     | `#0f172a` slate-900                 | dica, toast (escuro nos dois temas)           |
+| `--color-text-1 / 2 / 3`       | `#f8fafc` / `#cbd5e1` / `#94a3b8`       | `#0f172a` / `#334155` / `#475569`   | principal / secundário / metadados            |
+| `--color-brand` (+ `-hover`)   | `#e11d48` (`#be123c`), texto branco     | `#e11d48` (`#be123c`), texto branco | botão principal                               |
+| `--color-brand-text`           | `#fb7185` crimson-400                   | `#be123c` crimson-700               | carmim como texto e ícone                     |
+| `--color-brand-soft`           | `#31182f` (carmim 16 %)                 | `#ffe4e6` crimson-100               | fundo tingido: item atual, botão ligado       |
+| `--color-focus-ring`           | `#fb7185`                               | `#e11d48`                           | anel de foco (carmim, como no portfólio)      |
+| `--color-accent-2` / `-soft`   | `#a5b4fc` / `#1e254e`                   | `#4f46e5` / `#e0e7ff`               | índigo: selo "admin", avisos de administração |
+| `--color-border` / `-subtle`   | `#1a1f2d` / `#272e3f` (branco 6/10 %)   | `#e2e8f0` / `#e2e8f0`               | separador entre painéis / dentro de painel    |
+| `--color-outline-control`      | `#8593a9` slate-450                     | `#64748b` slate-500                 | borda de controle                             |
+| `--color-ok` / `-text`         | `#22c55e` / `#4ade80`                   | `#15803d` / `#166534`               | presença / texto de sucesso                   |
+| `--color-warn` / `-text`       | `#f59e0b` / `#fbbf24`                   | `#b45309` / `#92400e`               | anel de ausência, anúncio                     |
+| `--color-danger` (+ `-hover`)  | `#f87171` (`#fca5a5`), **texto escuro** | `#b91c1c` (`#991b1b`), texto branco | ação destrutiva                               |
+| `--color-danger-text`          | `#f87171`                               | `#b91c1c`                           | texto de erro                                 |
+| `--color-accent-2-on-floating` | `#818cf8`                               | `#818cf8`                           | marcador do toast informativo                 |
+| `--color-danger-on-floating`   | `#f87171`                               | `#f87171`                           | marcador do toast de erro                     |
+| `--color-sender-1..6`          | tons 300                                | tons 700                            | nome e avatar de cada pessoa                  |
 
-No tema escuro o acento é claro, então **o texto sobre ele é escuro**
-(`--color-on-brand`) — o mesmo vale para o botão destrutivo coral. No claro,
-os dois levam texto branco.
+**Ação principal × ação destrutiva.** Nunca a mesma combinação de fundo e
+texto: no escuro, carmim com texto branco × salmão com texto escuro; no claro,
+carmim × tijolo (`#b91c1c`, bem mais escuro). Toda ação destrutiva mantém o
+rótulo explícito e a confirmação em modal.
+
+**Onde a paleta se afasta do portfólio (só por contraste):** no escuro, o texto
+de marca é crimson-400 (`#fb7185`), porque o crimson-500 do portfólio reprova
+sobre os cartões; no claro, sucesso e aviso usam tons 700/800, porque os do
+portfólio (`#22c55e`, `#f59e0b`) não chegam a 3:1 sobre branco; o vermelho
+destrutivo do claro é `#b91c1c` para se separar do carmim.
 
 ### 2.2 Tipografia
 
@@ -102,7 +116,7 @@ Pesos: `regular 400`, `medium 500`, `semibold 600`, `bold 700`, `display 800`.
 - **Raio:** `sm 6px` (selo, código, item de lista), `md 10px` (campo, botão),
   `lg 14px` (cartão, composer, popover, modal, toast), `full` (avatar, ponto,
   pílula).
-- **Sombra:** tingidas por tema (petróleo no escuro, tinta no claro):
+- **Sombra:** tingidas por tema (herdadas da v3, inalteradas na v4):
   `--shadow-2` (sugestões, hover do botão principal), `--shadow-3` (cartão,
   modal, gaveta, toast). Painéis se separam por fio de 1px, não por sombra.
 - **Foco:** anel `--focus-ring-width` + halo `--halo-width` tingido em campos e
@@ -188,7 +202,7 @@ Ações de moderação só aparecem para quem a lista do servidor marca como adm
 
 ## 5. Acessibilidade (WCAG 2.2 AA)
 
-- Contraste: 176/176 verificações (88 pares × 2 temas) (`npm run check:contrast`); casos fora do arquivo de
+- Contraste: 188/188 verificações (94 pares × 2 temas) (`npm run check:contrast`); casos fora do arquivo de
   pares (anúncio com fundo tingido) medidos à parte e documentados no CSS.
 - axe-core 4.10: 0 violações em 16 telas e estados (entrada, erro, sala vazia,
   sala com mensagens, sugestões, cartão, modal, gaveta no celular; dois temas).
