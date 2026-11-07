@@ -58,4 +58,17 @@ export default [
         files: ["backend/src/**/*.js"],
         languageOptions: { sourceType: "commonjs" },
     },
+
+    // Testes: node:test. Os do frontend são módulos ES (importam o código do
+    // navegador); os do backend seguem o CommonJS do servidor.
+    {
+        files: ["frontend/test/**/*.js"],
+        languageOptions: { ecmaVersion: 2022, sourceType: "module", globals: globals.node },
+        rules: { ...js.configs.recommended.rules },
+    },
+    {
+        files: ["backend/test/**/*.js"],
+        languageOptions: { ecmaVersion: 2022, sourceType: "commonjs", globals: globals.node },
+        rules: { ...js.configs.recommended.rules },
+    },
 ];
