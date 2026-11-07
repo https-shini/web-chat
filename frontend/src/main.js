@@ -8,6 +8,7 @@ import { createEventHandler } from "./state/events.js";
 import { createStore } from "./state/store.js";
 import { createTypingTracker } from "./state/typing.js";
 import { createTypingSignal } from "./state/typingSignal.js";
+import { changed, createRenderLoop } from "./state/renderLoop.js";
 import { createTransport } from "./transport/socket.js";
 import { must } from "./ui/dom.js";
 import { createComposer } from "./ui/composer.js";
@@ -140,6 +141,8 @@ handleEvent = createEventHandler({
         resumeToken = null;
         typingTracker.clear();
         store.actions.leaveRoom();
+        // A tela de entrada precisa estar visível antes de receber o foco.
+        renderLoop.flush();
         entry.reset(message);
     },
 });
@@ -170,24 +173,42 @@ const linkAnnouncement = (state) => {
     }
 };
 
-store.subscribe((state) => {
+/**
+ * Pinta a tela a partir do estado. Cada componente só é redesenhado quando a
+ * parte do estado de que ele depende mudou — antes, todo evento recebido
+ * (inclusive cada sinal de digitação de outra pessoa) reconstruía a lista de
+ * pessoas e forçava um layout completo da conversa.
+ * @param {import("./state/store.js").State} state
+ * @param {import("./state/store.js").State | null} previous
+ */
+const render = (state, previous) => {
     const inRoom = state.screen === "room";
-
-    shell.dataset.screen = state.screen;
-    entry.setVisible(!inRoom);
-    header.hidden = !inRoom;
-    room.hidden = !inRoom;
-    composer.setVisible(inRoom);
-
     const noMessages = state.messages.length === 0;
-    connection.render(state.link, state.attempt, noMessages);
-    empty.render(inRoom && state.link === "online" && noMessages);
-    failure.render(inRoom && state.link === "offline", state.maxAttempts);
+    const wasEmpty = previous ? previous.messages.length === 0 : null;
 
-    typing.render(state.typing);
-    messageList.render(state.messages);
-    people.render(state.people, state.me?.id ?? null, state.link === "online");
-    composer.render(state.link, state.queued);
+    if (changed(state, previous, ["screen"])) {
+        shell.dataset.screen = state.screen;
+        entry.setVisible(!inRoom);
+        header.hidden = !inRoom;
+        room.hidden = !inRoom;
+        composer.setVisible(inRoom);
+    }
+
+    if (changed(state, previous, ["link", "attempt"]) || noMessages !== wasEmpty) {
+        connection.render(state.link, state.attempt, noMessages);
+    }
+    if (changed(state, previous, ["screen", "link"]) || noMessages !== wasEmpty) {
+        empty.render(inRoom && state.link === "online" && noMessages);
+    }
+    if (changed(state, previous, ["screen", "link", "maxAttempts"])) {
+        failure.render(inRoom && state.link === "offline", state.maxAttempts);
+    }
+    if (changed(state, previous, ["typing"])) typing.render(state.typing);
+    if (changed(state, previous, ["messages"])) messageList.render(state.messages);
+    if (changed(state, previous, ["people", "me", "link"])) {
+        people.render(state.people, state.me?.id ?? null, state.link === "online");
+    }
+    if (changed(state, previous, ["link", "queued"])) composer.render(state.link, state.queued);
 
     // Trocar `display` sem mover o foco é bug de acessibilidade: na entrada
     // da sala o foco vai para o composer e a mudança de contexto é anunciada.
@@ -201,7 +222,10 @@ store.subscribe((state) => {
         announcer.say(linkAnnouncement(state));
         lastLink = state.link;
     }
-});
+};
+
+const renderLoop = createRenderLoop({ getState: () => store.getState(), render });
+store.subscribe(() => renderLoop.request());
 
 // Estado inicial: pinta a tela de entrada sem esperar por nenhum evento.
 //
