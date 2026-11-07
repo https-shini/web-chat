@@ -33,6 +33,8 @@ import { readContent, readName, readResumeToken } from "../validation.js";
  *   historyOnJoin: number,
  *   now?: () => Date,
  *   newMessageId?: () => string,
+ *   userListScheduler?: {schedule: (callback: () => void) => unknown, cancel: (handle: unknown) => void},
+ *   onUserList?: () => void,
  * }} options
  */
 export const createRoom = ({
@@ -43,6 +45,8 @@ export const createRoom = ({
     historyOnJoin,
     now = () => new Date(),
     newMessageId = () => crypto.randomUUID(),
+    userListScheduler = null,
+    onUserList = () => {},
 }) => {
     /** @type {Map<unknown, {identity: Identity, label: string}>} */
     const members = new Map();
@@ -62,8 +66,26 @@ export const createRoom = ({
         }
     };
 
-    const broadcastUserList = () =>
+    const sendUserList = () => {
+        onUserList();
         broadcast(serverMessage.userList([...members.values()].map((entry) => entry.identity)));
+    };
+
+    // Lista de pessoas agrupada. Cada entrada/saída envia a lista INTEIRA a
+    // todos: N entradas seguidas custam O(N²) por entrada — medido, 200
+    // entradas simultâneas geravam ~200 MB de listas (Fase 3). Com um
+    // agendador, várias mudanças próximas viram um envio só, com o estado
+    // final. Sem agendador (padrão, e nos testes de unidade), envio imediato.
+    /** @type {unknown} */
+    let pendingList = null;
+    const broadcastUserList = () => {
+        if (!userListScheduler) return sendUserList();
+        if (pendingList !== null) return;
+        pendingList = userListScheduler.schedule(() => {
+            pendingList = null;
+            if (!quiet) sendUserList();
+        });
+    };
 
     /**
      * Tira a conexão da sala. Devolve `false` se ela não estava.
@@ -179,9 +201,16 @@ export const createRoom = ({
             return members.size;
         },
 
-        /** Desligamento: daqui em diante, saídas não são anunciadas. */
+        /**
+         * Desligamento: daqui em diante, saídas não são anunciadas, e um
+         * envio de lista pendente é cancelado (nenhum timer sobra).
+         */
         silence() {
             quiet = true;
+            if (pendingList !== null && userListScheduler) {
+                userListScheduler.cancel(pendingList);
+                pendingList = null;
+            }
         },
     };
 };

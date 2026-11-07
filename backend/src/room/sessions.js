@@ -11,6 +11,10 @@
  *  - o token é de uso único: `claim` o consome, e `attach` emite outro;
  *  - identidade sem conexão expira após `ttlMs`, e no máximo `maxReleased`
  *    identidades liberadas ficam guardadas (as mais antigas saem primeiro).
+ *    O teto vale A TODO MOMENTO: é aplicado na própria liberação. Antes da
+ *    Fase 3 ele só era aplicado na varredura periódica, e com muitas
+ *    entradas e saídas o mapa chegava a 28.600 identidades entre duas
+ *    varreduras (medido).
  *
  * "Holder" é um valor opaco que representa a conexão; este módulo não sabe
  * o que é um WebSocket.
@@ -27,6 +31,7 @@ export const MAX_RELEASED_IDENTITIES = 2000;
  * @property {string} name
  * @property {unknown} holder        conexão que detém a identidade, ou null
  * @property {number | null} releasedAt
+ * @property {string | null} [tokenHash]  hash do token válido (interno; nunca enviado)
  */
 
 const hashToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
@@ -49,6 +54,19 @@ export const createIdentityStore = ({
 } = {}) => {
     /** @type {Map<string, Identity>} hash do token → identidade */
     const byTokenHash = new Map();
+    /**
+     * Identidades liberadas, na ordem em que foram liberadas (Map preserva a
+     * ordem de inserção): a primeira é sempre a mais antiga. Permite aplicar
+     * o teto e a expiração sem percorrer as identidades ativas.
+     * @type {Map<Identity, true>}
+     */
+    const released = new Map();
+
+    const forget = (identity) => {
+        released.delete(identity);
+        if (identity.tokenHash) byTokenHash.delete(identity.tokenHash);
+        identity.tokenHash = null;
+    };
 
     const expired = (identity, time) =>
         identity.holder === null && time - /** @type {number} */ (identity.releasedAt) > ttlMs;
@@ -71,12 +89,11 @@ export const createIdentityStore = ({
          */
         claim(token) {
             if (token === null) return null;
-            const hash = hashToken(token);
-            const identity = byTokenHash.get(hash);
+            const identity = byTokenHash.get(hashToken(token));
             if (!identity) return null;
-            byTokenHash.delete(hash);
-            if (expired(identity, now())) return null;
-            return identity;
+            const isExpired = expired(identity, now());
+            forget(identity); // uso único: o token deixa de valer de qualquer forma
+            return isExpired ? null : identity;
         },
 
         /**
@@ -86,10 +103,12 @@ export const createIdentityStore = ({
          * @returns {string} token em claro, para entregar só ao dono
          */
         attach(identity, holder) {
+            forget(identity);
             identity.holder = holder;
             identity.releasedAt = null;
             const token = newToken();
-            byTokenHash.set(hashToken(token), identity);
+            identity.tokenHash = hashToken(token);
+            byTokenHash.set(identity.tokenHash, identity);
             return token;
         },
 
@@ -103,30 +122,34 @@ export const createIdentityStore = ({
             if (identity.holder !== holder) return;
             identity.holder = null;
             identity.releasedAt = now();
+            released.set(identity, true);
+            // Teto aplicado na hora: a mais antiga sai primeiro.
+            while (released.size > maxReleased) {
+                const oldest = /** @type {Identity} */ (released.keys().next().value);
+                forget(oldest);
+            }
         },
 
-        /** Remove identidades expiradas e o excesso de liberadas. */
+        /**
+         * Remove identidades liberadas que já expiraram. Para na primeira
+         * ainda válida (a fila está em ordem de liberação).
+         */
         sweep() {
             const time = now();
-            let released = 0;
-            for (const [hash, identity] of byTokenHash) {
-                if (identity.holder !== null) continue;
-                if (expired(identity, time)) byTokenHash.delete(hash);
-                else released += 1;
-            }
-            // Map preserva ordem de inserção: os primeiros são os mais antigos.
-            for (const [hash, identity] of byTokenHash) {
-                if (released <= maxReleased) break;
-                if (identity.holder === null) {
-                    byTokenHash.delete(hash);
-                    released -= 1;
-                }
+            for (const identity of released.keys()) {
+                if (!expired(identity, time)) break;
+                forget(identity);
             }
         },
 
         /** Quantidade de tokens válidos guardados (para testes e métricas). */
         get size() {
             return byTokenHash.size;
+        },
+
+        /** Identidades liberadas ainda retomáveis. */
+        get releasedCount() {
+            return released.size;
         },
     };
 };

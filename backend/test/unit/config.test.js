@@ -14,6 +14,12 @@ test("sem variáveis, os padrões reproduzem o comportamento anterior", () => {
         signalRate: { capacity: 40, refillPerSecond: 8 },
         historySize: 1000,
         historyOnJoin: 50,
+        // Fase 3: novos parâmetros, com padrões explícitos.
+        heartbeatMaxMissed: 2,
+        maxBufferedBytes: 1048576,
+        loginTimeoutMs: 30000,
+        metricsEnabled: false,
+        metricsLogIntervalMs: 60000,
         production: false,
     });
     assert.equal(DEFAULTS.port, 8080);
@@ -42,6 +48,11 @@ for (const [variable, value] of [
     ["HISTORY_SIZE", "-5"],
     ["HEARTBEAT_MS", "10"],
     ["PORT", "99999"],
+    ["HEARTBEAT_MAX_MISSED", "0"],
+    ["MAX_BUFFERED_BYTES", "1000"],
+    ["LOGIN_TIMEOUT_MS", "10"],
+    ["METRICS_ENABLED", "sim"],
+    ["METRICS_LOG_INTERVAL_MS", "500"],
 ]) {
     test(`${variable}=${value} é recusada com a variável identificada`, () => {
         assert.throws(
@@ -56,4 +67,10 @@ test("HISTORY_ON_JOIN maior que HISTORY_SIZE é recusada", () => {
         () => loadConfig({ HISTORY_SIZE: "10", HISTORY_ON_JOIN: "20" }),
         (error) => error.variable === "HISTORY_ON_JOIN",
     );
+});
+
+test("METRICS_LOG_INTERVAL_MS=0 desliga o log periódico; METRICS_ENABLED=true liga /metrics", () => {
+    const config = loadConfig({ METRICS_LOG_INTERVAL_MS: "0", METRICS_ENABLED: "true" });
+    assert.equal(config.metricsLogIntervalMs, 0);
+    assert.equal(config.metricsEnabled, true);
 });

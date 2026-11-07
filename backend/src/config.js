@@ -42,6 +42,10 @@ export const DEFAULTS = Object.freeze({
     rateSignalsPerSec: 8,
     historySize: 1000,
     historyOnJoin: 50,
+    heartbeatMaxMissed: 2,
+    maxBufferedBytes: 1024 * 1024,
+    loginTimeoutMs: 30000,
+    metricsLogIntervalMs: 60000,
 });
 
 const isBlank = (raw) => raw === undefined || raw === "";
@@ -68,6 +72,23 @@ const readInteger = (
         );
     }
     return value;
+};
+
+/** `true`/`false` (ou ausente = false). Qualquer outro valor é erro. */
+const readBoolean = (variable, raw) => {
+    if (isBlank(raw) || raw === "false") return false;
+    if (raw === "true") return true;
+    throw new ConfigError(variable, `${variable} deve ser "true" ou "false" (recebido: "${raw}").`);
+};
+
+/** 0 desliga; senão, no mínimo 1000 ms (log mais frequente seria ruído). */
+const readMetricsInterval = (raw) => {
+    if (raw === "0") return 0;
+    return readInteger("METRICS_LOG_INTERVAL_MS", raw, {
+        fallback: DEFAULTS.metricsLogIntervalMs,
+        min: 1000,
+        unit: " ms (ou 0 para desligar)",
+    });
 };
 
 /**
@@ -119,6 +140,11 @@ const readOrigins = (raw) =>
  * @property {{capacity: number, refillPerSecond: number}} signalRate
  * @property {number} historySize
  * @property {number} historyOnJoin
+ * @property {number} heartbeatMaxMissed  pings seguidos sem resposta tolerados
+ * @property {number} maxBufferedBytes    fila de envio máxima por conexão
+ * @property {number} loginTimeoutMs      prazo para a conexão entrar na sala
+ * @property {boolean} metricsEnabled     expõe GET /metrics
+ * @property {number} metricsLogIntervalMs  0 desliga o log periódico de métricas
  * @property {boolean} production
  */
 
@@ -186,6 +212,29 @@ export const loadConfig = (env) => {
         },
         historySize,
         historyOnJoin,
+        // Heartbeat tolerante: uma conexão lenta que perde um ping não cai;
+        // só é encerrada após `heartbeatMaxMissed` pings seguidos sem
+        // resposta nem qualquer outro quadro recebido.
+        heartbeatMaxMissed: readInteger("HEARTBEAT_MAX_MISSED", env.HEARTBEAT_MAX_MISSED, {
+            fallback: DEFAULTS.heartbeatMaxMissed,
+            min: 1,
+            max: 10,
+        }),
+        // Cliente que para de ler o socket faz o servidor bufferizar sem
+        // limite; acima disto a conexão é encerrada.
+        maxBufferedBytes: readInteger("MAX_BUFFERED_BYTES", env.MAX_BUFFERED_BYTES, {
+            fallback: DEFAULTS.maxBufferedBytes,
+            min: 64 * 1024,
+            unit: " bytes",
+        }),
+        // Conexão que não entra na sala não pode ocupar vaga para sempre.
+        loginTimeoutMs: readInteger("LOGIN_TIMEOUT_MS", env.LOGIN_TIMEOUT_MS, {
+            fallback: DEFAULTS.loginTimeoutMs,
+            min: 100,
+            unit: " ms",
+        }),
+        metricsEnabled: readBoolean("METRICS_ENABLED", env.METRICS_ENABLED),
+        metricsLogIntervalMs: readMetricsInterval(env.METRICS_LOG_INTERVAL_MS),
         production: env.NODE_ENV === "production",
     };
 };

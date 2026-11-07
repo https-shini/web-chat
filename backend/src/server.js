@@ -11,6 +11,7 @@
  *   protocol.js          contrato do protocolo WebSocket
  *   validation.js        normalização de nome, mensagem e token
  *   rateLimiter.js       balde de fichas
+ *   metrics.js           métricas operacionais em memória
  *   room/sessions.js     identidades emitidas pelo servidor
  *   room/room.js         regras da sala (entrada, saída, mensagens, digitação)
  *   transport/           HTTP, WebSocket, conexão, heartbeat, desligamento
@@ -46,22 +47,51 @@ if (config.allowedOrigins.length === 0) {
 const server = createChatServer({ config, log });
 
 let shuttingDown = false;
-const shutdown = (signal) => {
+
+/**
+ * Encerramento controlado: para de aceitar conexões, avisa os clientes
+ * (1001), cancela timers e sai. Se algo travar, sai à força após
+ * SHUTDOWN_TIMEOUT_MS. Nunca reentra.
+ * @param {string} reason
+ * @param {number} exitCode
+ */
+const shutdown = (reason, exitCode = 0) => {
     if (shuttingDown) return;
     shuttingDown = true;
-    log("info", "shutdown_started", { signal, connections: server.connections });
+    log(exitCode === 0 ? "info" : "error", "shutdown_started", {
+        reason,
+        connections: server.connections,
+    });
     setTimeout(() => {
         log("warn", "shutdown_forced", { connections: server.connections });
         process.exit(1);
     }, SHUTDOWN_TIMEOUT_MS).unref();
+    // Métricas finais: o que aconteceu desde a última linha periódica.
+    log("info", "metrics", server.metricsSnapshot());
     server.close().then(() => {
         log("info", "shutdown_complete", {});
-        process.exit(0);
+        process.exit(exitCode);
     });
 };
 
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
+
+// Exceção ou promessa rejeitada sem tratamento: o estado do processo deixou
+// de ser confiável. Registra a origem (com stack) e encerra de forma
+// controlada com código 1 — a plataforma reinicia o processo. Nada de seguir
+// em frente como se nada tivesse acontecido.
+process.on("uncaughtException", (error) => {
+    log("error", "fatal_error", { kind: "uncaughtException", stack: error.stack ?? String(error) });
+    shutdown("uncaughtException", 1);
+});
+process.on("unhandledRejection", (reason) => {
+    log("error", "fatal_error", {
+        kind: "unhandledRejection",
+        stack: reason instanceof Error ? (reason.stack ?? reason.message) : String(reason),
+    });
+    shutdown("unhandledRejection", 1);
+});
 
 server.listen(config.port).then(
     (port) => {

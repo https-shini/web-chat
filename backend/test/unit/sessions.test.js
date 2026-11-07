@@ -61,3 +61,41 @@ test("nenhum token em claro fica guardado no armazenamento", () => {
     // O token só existe no retorno; o armazenamento é indexado por hash.
     assert.equal(JSON.stringify(identity).includes(tokens[0]), false);
 });
+
+test("o teto de liberadas vale a todo momento, não só na varredura", () => {
+    const { store } = setup({ maxReleased: 3 });
+    const identities = [];
+    for (let index = 0; index < 50; index += 1) {
+        const identity = store.create(`P${index}`);
+        identities.push({ identity, token: store.attach(identity, `c${index}`) });
+        store.release(identity, `c${index}`);
+        assert.ok(store.releasedCount <= 3);
+        assert.ok(store.size <= 3);
+    }
+    // As mais antigas saíram; as 3 últimas continuam retomáveis.
+    assert.equal(store.claim(identities[0].token), null);
+    assert.equal(store.claim(identities.at(-1).token), identities.at(-1).identity);
+});
+
+test("retomar tira a identidade da fila de liberadas", () => {
+    const { store } = setup({ maxReleased: 10 });
+    const identity = store.create("Ana");
+    const token = store.attach(identity, "c1");
+    store.release(identity, "c1");
+    assert.equal(store.releasedCount, 1);
+    const claimed = store.claim(token);
+    store.attach(claimed, "c2");
+    assert.equal(store.releasedCount, 0);
+    assert.equal(store.size, 1);
+});
+
+test("token expirado também é consumido (não fica guardado)", () => {
+    const { store, tick } = setup({ ttlMs: 100 });
+    const identity = store.create("Ana");
+    const token = store.attach(identity, "c1");
+    store.release(identity, "c1");
+    tick(101);
+    assert.equal(store.claim(token), null);
+    assert.equal(store.size, 0);
+    assert.equal(store.releasedCount, 0);
+});
