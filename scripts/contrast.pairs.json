@@ -424,5 +424,107 @@
         "fg": "--color-on-sender",
         "bg": "--color-sender-6",
         "min": 4.5
+    },
+    {
+        "label": "acento como texto / item atual (tingido)",
+        "fg": "--color-brand-text",
+        "bg": "--color-brand-soft",
+        "min": 4.5
+    },
+    {
+        "label": "texto principal / item atual (tingido)",
+        "fg": "--color-text-1",
+        "bg": "--color-brand-soft",
+        "min": 4.5
+    },
+    {
+        "label": "texto secundário / item atual (tingido)",
+        "fg": "--color-text-2",
+        "bg": "--color-brand-soft",
+        "min": 4.5
+    },
+    {
+        "label": "lavanda / selo de papel",
+        "fg": "--color-accent-2",
+        "bg": "--color-accent-2-soft",
+        "min": 4.5
+    },
+    {
+        "label": "lavanda / barra lateral",
+        "fg": "--color-accent-2",
+        "bg": "--color-bg-sidebar",
+        "min": 4.5
+    },
+    {
+        "label": "lavanda / área da conversa",
+        "fg": "--color-accent-2",
+        "bg": "--color-bg-main",
+        "min": 4.5
+    },
+    {
+        "label": "lavanda / linha em hover",
+        "fg": "--color-accent-2",
+        "bg": "--color-bg-hover",
+        "min": 4.5
+    },
+    {
+        "label": "acento como texto / linha em hover",
+        "fg": "--color-brand-text",
+        "bg": "--color-bg-hover",
+        "min": 4.5
+    },
+    {
+        "label": "acento como texto / item ativo",
+        "fg": "--color-brand-text",
+        "bg": "--color-bg-selected",
+        "min": 4.5
+    },
+    {
+        "label": "anel de foco / item atual (tingido)",
+        "fg": "--color-focus-ring",
+        "bg": "--color-brand-soft",
+        "min": 3
+    },
+    {
+        "label": "ponto de presença / moldura",
+        "fg": "--color-ok",
+        "bg": "--color-bg-app",
+        "min": 3
+    },
+    {
+        "label": "anel de ausência / moldura",
+        "fg": "--color-warn",
+        "bg": "--color-bg-app",
+        "min": 3
+    },
+    {
+        "label": "anel de ausência / campo/cartão",
+        "fg": "--color-warn",
+        "bg": "--color-bg-elevated",
+        "min": 3
+    },
+    {
+        "label": "ponto de presença / campo/cartão",
+        "fg": "--color-ok",
+        "bg": "--color-bg-elevated",
+        "min": 3
+    },
+    {
+        "label": "erro como texto / moldura",
+        "fg": "--color-danger-text",
+        "bg": "--color-bg-app",
+        "min": 4.5
+    },
+    {
+        "label": "marcador do toast / flutuante",
+        "fg": "--color-brand-on-floating",
+        "bg": "--color-bg-floating",
+        "min": 3
+    },
+    {
+        "label": "marcador de erro do toast / flutuante",
+        "fg": "--color-danger-on-floating",
+        "bg": "--color-bg-floating",
+        "min": 3
     }
 ]

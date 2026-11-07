@@ -214,7 +214,7 @@ export const createMemberCard = ({ getContext, runCommand, prefill, confirm, not
             );
             name.replaceChildren(document.createTextNode(person.name));
             if (own) name.appendChild(badge(strings.room.youBadge));
-            if (person.role === "admin") name.appendChild(badge(strings.people.admin, "brand"));
+            if (person.role === "admin") name.appendChild(badge(strings.people.admin, "role"));
 
             const presence = away
                 ? person.statusText

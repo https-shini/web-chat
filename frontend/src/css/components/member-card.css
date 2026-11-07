@@ -18,9 +18,14 @@
     --presence-ring: var(--color-bg-sidebar);
 }
 
+/* Faixa no tom da pessoa, suavizada contra a superfície (sem gradiente). */
 .c-member-card__banner {
     height: var(--space-12);
-    background-color: var(--card-color, var(--color-brand));
+    background-color: color-mix(
+        in srgb,
+        var(--card-color, var(--color-brand)) 45%,
+        var(--color-bg-sidebar)
+    );
 }
 
 .c-member-card__avatar {
@@ -65,8 +70,10 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-0-5);
-    padding: var(--space-2);
-    border-top: var(--rule-1) solid var(--color-border-subtle);
+    margin: var(--space-0) var(--space-2) var(--space-2);
+    padding: var(--space-1);
+    border-radius: var(--radius-md);
+    background-color: var(--color-bg-app);
 }
 
 .c-member-card__action {
@@ -85,6 +92,14 @@
 
 .c-member-card__action:hover {
     background-color: var(--color-bg-hover);
+}
+
+.c-member-card__action .c-icon {
+    color: var(--color-text-2);
+}
+
+.c-member-card__action--danger .c-icon {
+    color: currentcolor;
 }
 
 .c-member-card__action--danger {

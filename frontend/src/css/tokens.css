@@ -1,62 +1,82 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   web-chat · tokens (design system v2 — Fase 5)
+   web-chat · tokens (design system v3 — identidade "Maré")
    Camada 1 primitivos (--_*)  →  Camada 2 semânticos  →  Camada 3 tema.
    Regra: nenhum componente consome primitivo. Nenhuma cor fora deste arquivo.
    Toda combinação texto/fundo usada pelos componentes está declarada em
    scripts/contrast.pairs.json e é medida na CI (WCAG 2.2 AA).
 
-   Linguagem visual: interface em painéis, superfícies escuras em degraus,
-   um acento índigo usado com parcimônia. Referência de qualidade: Discord;
-   identidade própria: tipografia Inter, cantos médios, sem ornamento.
+   Conceito: conversa à beira-mar, à noite. Superfícies azul-petróleo em
+   degraus suaves, acento verde-água de vidro marinho (sóbrio, sem neon),
+   lavanda discreta como segunda voz, texto branco levemente aquecido.
+   O acento é usado com parcimônia: item atual, ação principal, foco.
+   Assinaturas: botão principal com texto escuro sobre o verde-água,
+   presença "ausente" como anel vazado (forma, não só cor), cantos macios.
    ═══════════════════════════════════════════════════════════════════════ */
 
 /* ─── Camada 1 · primitivos ──────────────────────────────────────────── */
 :root {
-    /* Grafite — superfícies e texto do tema escuro. */
-    --_graphite-50: #f2f3f5;
-    --_graphite-100: #dbdee1;
-    --_graphite-200: #b5bac1;
-    --_graphite-300: #a3a9b3;
-    --_graphite-400: #80848e;
-    --_graphite-500: #4e5058;
-    --_graphite-600: #404249;
-    --_graphite-650: #3b3d44;
-    --_graphite-700: #383a40;
-    --_graphite-750: #313338;
-    --_graphite-800: #2b2d31;
-    --_graphite-850: #232428;
-    --_graphite-900: #1e1f22;
-    --_graphite-950: #111214;
+    /* Maré — azul-petróleo, do fundo mais escuro ao texto (tema escuro). */
+    --_tide-950: #0a1215;
+    --_tide-900: #0d171b;
+    --_tide-850: #111e23;
+    --_tide-800: #16242a;
+    --_tide-750: #1b2b32;
+    --_tide-700: #1d2e35;
+    --_tide-650: #243840;
+    --_tide-600: #2b424b;
+    --_tide-500: #3a535d;
+    --_tide-400: #5f7a84;
+    --_tide-300: #93a6ad;
+    --_tide-200: #b3c1c6;
+    --_tide-50: #f3efe7; /* branco aquecido */
 
-    /* Névoa — superfícies e texto do tema claro. */
-    --_mist-0: #fff;
-    --_mist-50: #f2f3f5;
-    --_mist-100: #ebedef;
-    --_mist-150: #e3e5e8;
-    --_mist-200: #dde0e4;
-    --_mist-300: #c4c9ce;
-    --_mist-500: #6d6f78;
-    --_mist-600: #5c5e66;
-    --_mist-700: #4e5058;
-    --_mist-950: #060607;
+    /* Areia — superfícies e texto do tema claro (frios, com o papel quente). */
+    --_shore-0: #fff;
+    --_shore-25: #fbfaf6; /* papel */
+    --_shore-50: #edf2f3;
+    --_shore-75: #eef2f2;
+    --_shore-100: #e9efef;
+    --_shore-150: #e3eaec;
+    --_shore-200: #dce7e8;
+    --_shore-300: #c9d6d9;
+    --_shore-500: #738890;
+    --_shore-600: #55676e;
+    --_shore-700: #41545c;
+    --_shore-950: #13222a;
 
-    /* Índigo — o acento da marca. */
-    --_indigo-300: #a5abf8;
-    --_indigo-350: #949cf7;
-    --_indigo-500: #5865f2;
-    --_indigo-600: #4752c4;
-    --_indigo-700: #3c45a5;
+    /* Vidro marinho — o acento. */
+    --_seaglass-300: #6fd6c6;
+    --_seaglass-400: #4cc2b0;
+    --_seaglass-450: #3aa999;
+    --_seaglass-700: #0f6e65;
+    --_seaglass-750: #0d6158;
+    --_seaglass-800: #0a5049;
+    --_seaglass-ink: #08201d; /* texto sobre o acento claro */
+    --_seaglass-wash-dark: #173a3a; /* fundo tingido (item atual) */
+    --_seaglass-wash-light: #d3ece7;
 
-    /* Estados. Cada um tem tom de preenchimento e tom de texto. */
-    --_green-400: #3bcb78;
-    --_green-500: #23a559;
-    --_green-600: #1f8b4c;
-    --_green-800: #136b38;
-    --_amber-400: #f0b232;
-    --_amber-800: #7c5300;
-    --_red-300: #fb9a9d;
-    --_red-500: #da373c;
-    --_red-700: #a8262b;
+    /* Lavanda — segunda voz (papel de administrador, destaques secundários). */
+    --_lavender-300: #b9b6e8;
+    --_lavender-700: #4f4c8f;
+    --_lavender-wash-dark: #2a2c45;
+    --_lavender-wash-light: #e6e5f5;
+
+    /* Estados: musgo (sucesso), âmbar suave (aviso), coral (erro). */
+    --_moss-300: #78d39f;
+    --_moss-500: #4fb07a;
+    --_moss-700: #2e8150;
+    --_moss-800: #1f6a3f;
+    --_amber-300: #ecc274;
+    --_amber-400: #e3b155;
+    --_amber-750: #8a5a00;
+    --_amber-800: #7a5000;
+    --_coral-300: #f59a8f;
+    --_coral-400: #ec7063;
+    --_coral-450: #e35d50;
+    --_coral-600: #c4453c;
+    --_coral-700: #a83229;
+    --_coral-750: #93271f;
+    --_coral-ink: #1c0a08;
 
     /* Remetentes — seis matizes (escuro: claros; claro: profundos). */
     --_s-azure-300: #7cc4f8;
@@ -65,7 +85,7 @@
     --_s-violet-700: #6a3fc0;
     --_s-rose-300: #f4a2c4;
     --_s-rose-700: #a52e63;
-    --_s-leaf-300: #8fd98a;
+    --_s-leaf-300: #9fdb8f;
     --_s-leaf-700: #2f6f2a;
     --_s-cyan-300: #6fd3dc;
     --_s-cyan-700: #0f6670;
@@ -75,47 +95,56 @@
 
 /* ─── Camada 2 · semânticos · tema escuro (padrão) ───────────────────── */
 :root {
-    /* Superfícies, da mais funda à mais alta. */
-    --color-bg-app: var(--_graphite-900); /* moldura, entrada, barra de status */
-    --color-bg-sidebar: var(--_graphite-800); /* barra lateral e painel de pessoas */
-    --color-bg-main: var(--_graphite-750); /* área da conversa */
-    --color-bg-elevated: var(--_graphite-700); /* campos, cartões, popovers */
-    --color-bg-hover: var(--_graphite-650); /* linha ou item sob o ponteiro */
-    --color-bg-selected: var(--_graphite-600); /* item ativo */
-    --color-bg-floating: var(--_graphite-950); /* tooltip, menu */
-    --color-scrim: var(--_graphite-950); /* fundo de modal/gaveta (com opacidade) */
+    /* Superfícies, da mais funda à mais alta. Barra lateral e pessoas são
+       mais fundas que a conversa: a conversa é o "palco". */
+    --color-bg-app: var(--_tide-900); /* moldura, entrada, painel "você" */
+    --color-bg-sidebar: var(--_tide-850); /* barra lateral e pessoas */
+    --color-bg-main: var(--_tide-800); /* área da conversa */
+    --color-bg-elevated: var(--_tide-700); /* campos, cartões, popovers */
+    --color-bg-hover: var(--_tide-750); /* linha ou item sob o ponteiro */
+    --color-bg-selected: var(--_tide-650); /* item ativo, selo */
+    --color-bg-floating: var(--_tide-950); /* dica, toast */
+    --color-scrim: var(--_tide-950); /* fundo de modal/gaveta (com opacidade) */
 
     /* Texto */
-    --color-text-1: var(--_graphite-50); /* principal */
-    --color-text-2: var(--_graphite-200); /* secundário */
-    --color-text-3: var(--_graphite-300); /* metadados */
-    --color-text-disabled: var(--_graphite-400); /* controle desabilitado — isento */
-    --color-text-on-floating: var(--_graphite-100);
+    --color-text-1: var(--_tide-50); /* principal, branco aquecido */
+    --color-text-2: var(--_tide-200); /* secundário, cinza-azulado */
+    --color-text-3: var(--_tide-300); /* metadados */
+    --color-text-disabled: var(--_tide-400); /* controle desabilitado — isento */
+    --color-text-on-floating: var(--_tide-50);
+    /* Sobre a superfície flutuante (escura nos dois temas): marcador do toast. */
+    --color-brand-on-floating: var(--_seaglass-300);
+    --color-danger-on-floating: var(--_coral-400);
 
-    /* Marca */
-    --color-brand: var(--_indigo-500); /* preenchimento — texto branco sobre ele */
-    --color-brand-hover: var(--_indigo-600);
-    --color-on-brand: var(--_mist-0);
-    --color-brand-text: var(--_indigo-350); /* acento como texto */
+    /* Marca (acento) */
+    --color-brand: var(--_seaglass-400); /* preenchimento — texto escuro sobre ele */
+    --color-brand-hover: var(--_seaglass-300);
+    --color-on-brand: var(--_seaglass-ink);
+    --color-brand-text: var(--_seaglass-300); /* acento como texto */
+    --color-brand-soft: var(--_seaglass-wash-dark); /* fundo tingido: item atual */
+
+    /* Segunda voz */
+    --color-accent-2: var(--_lavender-300); /* texto/ícone */
+    --color-accent-2-soft: var(--_lavender-wash-dark); /* fundo do selo */
 
     /* Linhas */
-    --color-border: var(--_graphite-850); /* separador entre painéis */
-    --color-border-subtle: var(--_graphite-600); /* divisória dentro de painel */
-    --color-outline-control: var(--_graphite-400); /* borda de controle (1.4.11) */
-    --color-focus-ring: var(--_indigo-300);
+    --color-border: var(--_tide-950); /* separador entre painéis */
+    --color-border-subtle: var(--_tide-650); /* divisória dentro de painel */
+    --color-outline-control: var(--_tide-400); /* borda de controle (1.4.11) */
+    --color-focus-ring: var(--_seaglass-300);
 
     /* Estados */
-    --color-ok: var(--_green-500); /* ponto de presença, preenchimento */
-    --color-ok-text: var(--_green-400);
-    --color-warn: var(--_amber-400); /* ponto de ausência; também texto */
-    --color-warn-text: var(--_amber-400);
-    --color-danger: var(--_red-500); /* preenchimento destrutivo — texto branco */
-    --color-danger-hover: var(--_red-700);
-    --color-on-danger: var(--_mist-0);
-    --color-danger-text: var(--_red-300);
+    --color-ok: var(--_moss-500); /* ponto de presença, preenchimento */
+    --color-ok-text: var(--_moss-300);
+    --color-warn: var(--_amber-400); /* anel de ausência */
+    --color-warn-text: var(--_amber-300);
+    --color-danger: var(--_coral-400); /* preenchimento destrutivo — texto escuro */
+    --color-danger-hover: var(--_coral-300);
+    --color-on-danger: var(--_coral-ink);
+    --color-danger-text: var(--_coral-300);
 
     /* Remetentes (nome colorido e avatar) */
-    --color-on-sender: var(--_graphite-950);
+    --color-on-sender: var(--_tide-950);
     --color-sender-1: var(--_s-azure-300);
     --color-sender-2: var(--_s-violet-300);
     --color-sender-3: var(--_s-rose-300);
@@ -123,47 +152,60 @@
     --color-sender-5: var(--_s-cyan-300);
     --color-sender-6: var(--_s-gold-300);
 
+    /* Sombras tingidas de petróleo (não preto puro). */
+    --shadow-1: 0 1px 0 rgb(3 10 12 / 0.35);
+    --shadow-2: 0 6px 16px rgb(3 10 12 / 0.35), 0 1px 3px rgb(3 10 12 / 0.3);
+    --shadow-3: 0 16px 40px rgb(3 10 12 / 0.5), 0 2px 6px rgb(3 10 12 / 0.3);
+
     color-scheme: dark;
 }
 
 /* ─── Camada 3 · tema claro ──────────────────────────────────────────── */
 [data-theme="light"] {
-    --color-bg-app: var(--_mist-150);
-    --color-bg-sidebar: var(--_mist-50);
-    --color-bg-main: var(--_mist-0);
-    --color-bg-elevated: var(--_mist-100);
-    --color-bg-hover: var(--_mist-100);
-    --color-bg-selected: var(--_mist-200);
-    --color-bg-floating: var(--_graphite-850);
-    --color-scrim: var(--_graphite-950);
-    --color-text-1: var(--_mist-950);
-    --color-text-2: var(--_mist-700);
-    --color-text-3: var(--_mist-600);
-    --color-text-disabled: var(--_mist-500);
-    --color-text-on-floating: var(--_graphite-100);
-    --color-brand: var(--_indigo-500);
-    --color-brand-hover: var(--_indigo-600);
-    --color-on-brand: var(--_mist-0);
-    --color-brand-text: var(--_indigo-600);
-    --color-border: var(--_mist-200);
-    --color-border-subtle: var(--_mist-200);
-    --color-outline-control: var(--_mist-500);
-    --color-focus-ring: var(--_indigo-600);
-    --color-ok: var(--_green-600);
-    --color-ok-text: var(--_green-800);
-    --color-warn: var(--_amber-800);
+    --color-bg-app: var(--_shore-150);
+    --color-bg-sidebar: var(--_shore-50);
+    --color-bg-main: var(--_shore-25);
+    --color-bg-elevated: var(--_shore-75);
+    --color-bg-hover: var(--_shore-100);
+    --color-bg-selected: var(--_shore-200);
+    --color-bg-floating: var(--_shore-950);
+    --color-scrim: var(--_tide-950);
+    --color-text-1: var(--_shore-950);
+    --color-text-2: var(--_shore-700);
+    --color-text-3: var(--_shore-600);
+    --color-text-disabled: var(--_shore-500);
+    --color-text-on-floating: var(--_tide-50);
+    --color-brand-on-floating: var(--_seaglass-300);
+    --color-danger-on-floating: var(--_coral-400);
+    --color-brand: var(--_seaglass-700);
+    --color-brand-hover: var(--_seaglass-800);
+    --color-on-brand: var(--_shore-0);
+    --color-brand-text: var(--_seaglass-750);
+    --color-brand-soft: var(--_seaglass-wash-light);
+    --color-accent-2: var(--_lavender-700);
+    --color-accent-2-soft: var(--_lavender-wash-light);
+    --color-border: var(--_shore-300);
+    --color-border-subtle: var(--_shore-200);
+    --color-outline-control: var(--_shore-500);
+    --color-focus-ring: var(--_seaglass-750);
+    --color-ok: var(--_moss-700);
+    --color-ok-text: var(--_moss-800);
+    --color-warn: var(--_amber-750);
     --color-warn-text: var(--_amber-800);
-    --color-danger: var(--_red-500);
-    --color-danger-hover: var(--_red-700);
-    --color-on-danger: var(--_mist-0);
-    --color-danger-text: var(--_red-700);
-    --color-on-sender: var(--_mist-0);
+    --color-danger: var(--_coral-600);
+    --color-danger-hover: var(--_coral-750);
+    --color-on-danger: var(--_shore-0);
+    --color-danger-text: var(--_coral-700);
+    --color-on-sender: var(--_shore-0);
     --color-sender-1: var(--_s-azure-700);
     --color-sender-2: var(--_s-violet-700);
     --color-sender-3: var(--_s-rose-700);
     --color-sender-4: var(--_s-leaf-700);
     --color-sender-5: var(--_s-cyan-700);
     --color-sender-6: var(--_s-gold-700);
+    --shadow-1: 0 1px 0 rgb(19 34 42 / 0.06);
+    --shadow-2: 0 6px 16px rgb(19 34 42 / 0.1), 0 1px 3px rgb(19 34 42 / 0.08);
+    --shadow-3: 0 16px 40px rgb(19 34 42 / 0.16), 0 2px 6px rgb(19 34 42 / 0.08);
 
     color-scheme: light;
 }
@@ -187,9 +229,9 @@
 
     /* Raios */
     --radius-0: 0;
-    --radius-sm: 0.25rem; /*  4px — badge, código */
-    --radius-md: 0.5rem; /*  8px — campo, botão, item de lista */
-    --radius-lg: 0.75rem; /* 12px — cartão, popover, modal */
+    --radius-sm: 0.375rem; /*  6px — selo, código, item de lista */
+    --radius-md: 0.625rem; /* 10px — campo, botão */
+    --radius-lg: 0.875rem; /* 14px — cartão, popover, modal, toast */
     --radius-full: 9999px; /* avatar, ponto de presença, pílula */
 
     /* Linhas */
@@ -198,12 +240,12 @@
     --rule-3: 3px;
     --focus-ring-width: 2px;
     --focus-ring-offset: 2px;
+    --indicator-width: 3px; /* barra do item atual na barra lateral */
 
-    /* Elevação */
+    /* Elevação: --shadow-1..3 são tingidas por tema (camadas 2 e 3). */
     --shadow-0: none;
-    --shadow-1: 0 1px 0 rgb(0 0 0 / 0.2), 0 1px 2px rgb(0 0 0 / 0.15);
-    --shadow-2: 0 4px 12px rgb(0 0 0 / 0.24);
-    --shadow-3: 0 8px 32px rgb(0 0 0 / 0.4);
+    /* Halo do foco em campos: soma ao anel, não o substitui. */
+    --halo-width: 3px;
 
     /* Movimento */
     --duration-0: 0ms;

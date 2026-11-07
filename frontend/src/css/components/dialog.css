@@ -17,7 +17,12 @@
 }
 
 .c-dialog::backdrop {
-    background-color: var(--color-scrim);
+    /* --opacity-scrim (0.7) sobre a cor do fundo escurecido. */
+    background-color: color-mix(
+        in srgb,
+        var(--color-scrim) calc(var(--opacity-scrim) * 100%),
+        transparent
+    );
 }
 
 .c-dialog__panel {

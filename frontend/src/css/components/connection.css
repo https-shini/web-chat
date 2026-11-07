@@ -28,6 +28,7 @@
 [data-state="online"] > .c-connection__dot,
 [data-state="online"] > .c-status-pill__dot {
     background-color: var(--color-ok);
+    box-shadow: 0 0 0 var(--space-0-5) color-mix(in srgb, var(--color-ok) 30%, transparent);
     animation: none;
 }
 
@@ -39,7 +40,8 @@
 
 .c-status-pill {
     flex: none;
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    border: var(--rule-1) solid var(--color-border-subtle);
     border-radius: var(--radius-full);
     background-color: var(--color-bg-elevated);
     font-size: var(--text-xs);

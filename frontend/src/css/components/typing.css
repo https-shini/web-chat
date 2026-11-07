@@ -30,7 +30,7 @@
     width: var(--space-1-5);
     height: var(--space-1-5);
     border-radius: var(--radius-full);
-    background-color: var(--color-text-2);
+    background-color: var(--color-brand-text);
     animation: typing-dot 1.2s var(--ease-standard) infinite;
 }
 

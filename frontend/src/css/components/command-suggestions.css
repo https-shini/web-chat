@@ -12,7 +12,7 @@
     overflow: hidden;
     border: var(--rule-1) solid var(--color-border-subtle);
     border-radius: var(--radius-lg);
-    background-color: var(--color-bg-sidebar);
+    background-color: var(--color-bg-elevated);
     box-shadow: var(--shadow-2);
     animation: rise-in var(--duration-base) var(--ease-out);
 }
@@ -50,7 +50,11 @@
 }
 
 .c-command-suggestions__option[aria-selected="true"] {
-    background-color: var(--color-bg-selected);
+    background-color: var(--color-brand-soft);
+}
+
+.c-command-suggestions__option[aria-selected="true"] .c-command-suggestions__name {
+    color: var(--color-brand-text);
 }
 
 .c-command-suggestions__name {

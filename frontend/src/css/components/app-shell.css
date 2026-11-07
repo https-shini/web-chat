@@ -43,7 +43,12 @@
     position: fixed;
     inset: 0;
     z-index: var(--z-drawer);
-    background-color: var(--color-scrim);
+    /* --opacity-scrim (0.7) sobre a cor do fundo escurecido. */
+    background-color: color-mix(
+        in srgb,
+        var(--color-scrim) calc(var(--opacity-scrim) * 100%),
+        transparent
+    );
     animation: fade-in var(--duration-base) var(--ease-out);
 }
 

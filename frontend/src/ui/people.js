@@ -65,7 +65,7 @@ export const createPeople = ({ onSelect }) => {
         const line = el("span", { class: "c-member__line" });
         line.appendChild(el("span", { class: "c-member__name", text: person.name }));
         if (own) line.appendChild(badge(strings.room.youBadge));
-        if (person.role === "admin") line.appendChild(badge(strings.people.admin, "brand"));
+        if (person.role === "admin") line.appendChild(badge(strings.people.admin, "role"));
         info.appendChild(line);
         // Presença em texto (não só a cor do ponto).
         if (away) {

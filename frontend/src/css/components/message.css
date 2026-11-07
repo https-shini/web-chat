@@ -82,7 +82,8 @@
 }
 
 .c-message__code {
-    padding: var(--space-0-5) var(--space-1);
+    padding: var(--space-0-5) var(--space-1-5);
+    border: var(--rule-1) solid var(--color-border-subtle);
     border-radius: var(--radius-sm);
     background-color: var(--color-bg-app);
 }
@@ -137,7 +138,7 @@
 }
 
 .c-message--system[data-tone="admin"] .c-message__aside {
-    color: var(--color-brand-text);
+    color: var(--color-accent-2);
 }
 
 .c-message--system .c-message__text {
@@ -169,8 +170,8 @@
     background-color: color-mix(in srgb, var(--color-warn) 8%, transparent);
 }
 
-/* O tom não escurece no hover: com 12 % a hora (text-3) cairia a 4.21:1
-   no tema escuro. Com 8 % fica em 4.57:1 (medido). */
+/* O tom não escurece no hover: a hora (text-3) precisa de 4.5:1 sobre o
+   fundo tingido. Com 8 %, medido: 5.43:1 (escuro) e 5.06:1 (claro). */
 .c-message--announcement:hover {
     background-color: color-mix(in srgb, var(--color-warn) 8%, transparent);
 }
@@ -205,6 +206,7 @@
     flex-direction: column;
     gap: var(--space-1);
     padding: var(--space-3) var(--space-4);
+    border: var(--rule-1) solid var(--color-border-subtle);
     border-left: var(--rule-3) solid var(--tone-color, var(--color-brand));
     border-radius: var(--radius-sm) var(--radius-md) var(--radius-md) var(--radius-sm);
     background-color: var(--color-bg-elevated);
@@ -223,7 +225,7 @@
 }
 
 .c-message--notice[data-tone="admin"] {
-    --tone-color: var(--color-brand-text);
+    --tone-color: var(--color-accent-2);
 }
 
 .c-message__private {

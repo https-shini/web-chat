@@ -6,6 +6,7 @@
     flex-direction: column;
     width: var(--sidebar-width);
     min-height: 0;
+    border-right: var(--rule-1) solid var(--color-border);
     background-color: var(--color-bg-sidebar);
 }
 
@@ -16,8 +17,6 @@
     justify-content: space-between;
     height: var(--header-height);
     padding: var(--space-0) var(--space-2) var(--space-0) var(--space-4);
-    border-bottom: var(--rule-1) solid var(--color-border-subtle);
-    box-shadow: var(--shadow-1);
 }
 
 .c-sidebar__close {
@@ -40,8 +39,8 @@
 }
 
 .c-nav-section__title {
-    padding: var(--space-0) var(--space-2) var(--space-1);
-    font-size: var(--text-xs);
+    padding: var(--space-0) var(--space-3) var(--space-1);
+    font-size: var(--text-2xs);
     font-weight: var(--weight-semibold);
     letter-spacing: var(--tracking-caps);
     text-transform: uppercase;
@@ -49,12 +48,13 @@
 }
 
 .c-nav-item {
+    position: relative;
     display: flex;
     gap: var(--space-2);
     align-items: center;
     width: 100%;
     min-height: var(--space-8);
-    padding: var(--space-1-5) var(--space-2);
+    padding: var(--space-1-5) var(--space-3);
     border-radius: var(--radius-sm);
     color: var(--color-text-2);
     font-size: var(--text-md);
@@ -71,9 +71,23 @@
     color: var(--color-text-1);
 }
 
+/* Item atual: fundo tingido do acento e um traço vertical por dentro do
+   item — o realce não depende só do tom (forma + cor + aria-current). */
 .c-nav-item[aria-current="page"] {
-    background-color: var(--color-bg-selected);
+    background-color: var(--color-brand-soft);
     color: var(--color-text-1);
+    font-weight: var(--weight-semibold);
+}
+
+.c-nav-item[aria-current="page"]::before {
+    position: absolute;
+    top: var(--space-2);
+    bottom: var(--space-2);
+    left: var(--space-1);
+    width: var(--indicator-width);
+    border-radius: var(--radius-full);
+    background-color: var(--color-brand-text);
+    content: "";
 }
 
 .c-nav-item__icon {
@@ -81,7 +95,7 @@
 }
 
 .c-nav-item[aria-current="page"] .c-nav-item__icon {
-    color: var(--color-text-2);
+    color: var(--color-brand-text);
 }
 
 .c-nav-item--danger,
@@ -93,15 +107,19 @@
     color: var(--color-danger-text);
 }
 
-/* Painel "você", preso ao pé da barra. */
+/* Painel "você": cartão encaixado no pé da barra, não uma faixa. */
 .c-user-panel {
     display: flex;
     flex: none;
     gap: var(--space-2);
     align-items: center;
-    min-height: var(--space-16);
-    padding: var(--space-2);
+    min-height: var(--space-12);
+    margin: var(--space-2);
+    padding: var(--space-1-5) var(--space-1-5) var(--space-1-5) var(--space-2);
+    border: var(--rule-1) solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
     background-color: var(--color-bg-app);
+    --presence-ring: var(--color-bg-app);
 }
 
 .c-user-panel__avatar {

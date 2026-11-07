@@ -17,6 +17,7 @@
     width: 100%;
     max-width: 30rem;
     padding: var(--space-8);
+    border: var(--rule-1) solid var(--color-border-subtle);
     border-radius: var(--radius-lg);
     background-color: var(--color-bg-main);
     box-shadow: var(--shadow-3);

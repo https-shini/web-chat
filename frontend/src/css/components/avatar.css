@@ -84,8 +84,10 @@
     background-color: var(--color-ok);
 }
 
+/* Ausente é um anel vazado: a diferença é de forma, não só de cor. */
 .c-identity__presence[data-status="away"] {
-    background-color: var(--color-warn);
+    background-color: var(--presence-ring, var(--color-bg-sidebar));
+    box-shadow: inset 0 0 0 var(--rule-2) var(--color-warn);
 }
 
 /* "você": selo em texto, não só cor. */
@@ -94,9 +96,10 @@
     flex: none;
     align-items: center;
     padding: var(--space-0) var(--space-1-5);
-    border-radius: var(--radius-sm);
+    border: var(--rule-1) solid var(--color-border-subtle);
+    border-radius: var(--radius-full);
     background-color: var(--color-bg-selected);
-    color: var(--color-text-1);
+    color: var(--color-text-2);
     font-size: var(--text-2xs);
     font-weight: var(--weight-semibold);
     letter-spacing: var(--tracking-wide);
@@ -104,7 +107,9 @@
     text-transform: uppercase;
 }
 
-.c-badge--brand {
-    background-color: var(--color-brand);
-    color: var(--color-on-brand);
+/* Papel (admin): a segunda voz da paleta, lavanda, em tom suave. */
+.c-badge--role {
+    border-color: transparent;
+    background-color: var(--color-accent-2-soft);
+    color: var(--color-accent-2);
 }

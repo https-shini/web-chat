@@ -13,12 +13,18 @@
     align-items: center;
     min-height: var(--space-12);
     padding: var(--space-1) var(--space-1) var(--space-1) var(--space-4);
-    border-radius: var(--radius-md);
+    border: var(--rule-1) solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
     background-color: var(--color-bg-elevated);
+    transition:
+        border-color var(--duration-fast) var(--ease-standard),
+        box-shadow var(--duration-fast) var(--ease-standard);
 }
 
+/* O campo em si não desenha anel: o composer inteiro mostra o foco. */
 .c-composer:focus-within {
-    box-shadow: 0 0 0 var(--rule-1) var(--color-outline-control);
+    border-color: var(--color-focus-ring);
+    box-shadow: 0 0 0 var(--halo-width) var(--color-brand-soft);
 }
 
 .c-composer__input {
@@ -45,6 +51,11 @@
 }
 
 .c-composer__send {
+    color: var(--color-brand-text);
+}
+
+.c-composer__send:hover:not(:disabled) {
+    background-color: var(--color-brand-soft);
     color: var(--color-brand-text);
 }
 

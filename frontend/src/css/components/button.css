@@ -18,13 +18,14 @@
     border: var(--rule-1) solid transparent;
     border-radius: var(--radius-md);
     font-size: var(--text-sm);
-    font-weight: var(--weight-medium);
+    font-weight: var(--weight-semibold);
     line-height: var(--leading-tight);
     text-decoration: none;
     white-space: nowrap;
     transition:
         background-color var(--duration-fast) var(--ease-standard),
         color var(--duration-fast) var(--ease-standard),
+        box-shadow var(--duration-fast) var(--ease-standard),
         transform var(--duration-fast) var(--ease-standard);
 }
 
@@ -43,9 +44,11 @@
 
 .c-button--primary:hover:not(:disabled) {
     background-color: var(--color-brand-hover);
+    box-shadow: var(--shadow-2);
 }
 
 .c-button--secondary {
+    border-color: var(--color-border-subtle);
     background-color: var(--color-bg-elevated);
     color: var(--color-text-1);
 }
@@ -73,6 +76,7 @@
 .c-button--ghost:hover:not(:disabled) {
     background-color: var(--color-bg-hover);
     text-decoration: underline;
+    text-underline-offset: 0.2em;
 }
 
 .c-button--sm {
@@ -112,9 +116,17 @@
     color: var(--color-text-1);
 }
 
+/* Ligado/aberto: ladrilho tingido do acento — estado visível sem hover. */
 .c-icon-button[aria-pressed="true"],
 .c-icon-button[aria-expanded="true"] {
-    color: var(--color-text-1);
+    background-color: var(--color-brand-soft);
+    color: var(--color-brand-text);
+}
+
+/* O alternador de tema usa aria-pressed para "claro"; não é um "ligado". */
+.c-theme-toggle[aria-pressed="true"] {
+    background-color: transparent;
+    color: var(--color-text-2);
 }
 
 .c-icon-button:disabled {

@@ -23,16 +23,20 @@
     background-color: var(--color-bg-app);
     color: var(--color-text-1);
     font-size: var(--text-md);
-    transition: border-color var(--duration-fast) var(--ease-standard);
+    transition:
+        border-color var(--duration-fast) var(--ease-standard),
+        box-shadow var(--duration-fast) var(--ease-standard);
 }
 
 .c-field__input:hover {
     border-color: var(--color-text-3);
 }
 
+/* Foco: borda no acento + halo tingido em volta do anel. */
 .c-field__input:focus-visible {
     border-color: var(--color-focus-ring);
     outline-offset: 0;
+    box-shadow: 0 0 0 calc(var(--focus-ring-width) + var(--halo-width)) var(--color-brand-soft);
 }
 
 .c-field__input[aria-invalid="true"] {
