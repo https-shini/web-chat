@@ -1,26 +1,21 @@
-/* Lista de mensagens. Único container rolável do produto; a altura vem do
-   grid da casca, e min-height: 0 é o que permite rolar em vez de empurrar
-   o rodapé para fora da tela. */
-
-.c-room {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 auto;
-    min-height: 0;
-}
-
-.c-room[hidden] {
-    display: none;
-}
+/* Lista de mensagens: rola por conta própria e cola no fim. */
 
 .c-message-list {
     display: flex;
-    flex-direction: column;
-    gap: var(--space-5);
     flex: 1 1 auto;
+    flex-direction: column;
     min-height: 0;
+    padding: var(--space-4) var(--space-0) var(--space-6);
     overflow-y: auto;
-    padding-block: var(--space-6);
-    padding-inline: 0;
+    overscroll-behavior: contain;
+}
+
+/* Empurra as mensagens para baixo quando há poucas. */
+.c-message-list::before {
+    flex: 1 1 auto;
+    content: "";
+}
+
+.c-message-list:has(> .c-message-list__items:empty) {
+    display: none;
 }

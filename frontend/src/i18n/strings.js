@@ -18,6 +18,7 @@ export const strings = {
         composerLabel: "Mensagem",
         send: "Enviar",
         you: "Você",
+        youBadge: "você",
     },
     empty: {
         title: "Silêncio por enquanto.",
@@ -38,7 +39,6 @@ export const strings = {
     peopleCount: {
         one: "1 pessoa",
         many: "{n} pessoas",
-        unknown: "— pessoas",
     },
     system: {
         joined: "{name} entrou na sala",
@@ -57,6 +57,7 @@ export const strings = {
         announcement: "Aviso",
         spoilerShow: "Mostrar spoiler",
         spoilerHide: "Esconder spoiler",
+        private: "Só você vê isto",
     },
     commands: {
         helpTitle: "Comandos",
@@ -76,6 +77,51 @@ export const strings = {
     people: {
         admin: "admin",
         away: "ausente",
+        groupAdmins: "Administradores — {n}",
+        groupOnline: "Online — {n}",
+        groupAway: "Ausentes — {n}",
+        unknown: "A lista volta junto com a conexão.",
+        openCard: "{name}: abrir cartão",
+    },
+    memberCard: {
+        roleAdmin: "Administrador da sala",
+        roleMember: "Participante",
+        online: "Online",
+        away: "Ausente",
+        awayWith: "Ausente: {reason}",
+        id: "id {id}",
+        profile: "Ver perfil completo",
+        copyId: "Copiar id",
+        copied: "Id copiado para a área de transferência.",
+        copyFailed: "Não foi possível copiar o id.",
+        nick: "Trocar meu nome",
+        goAway: "Ficar ausente",
+        comeBack: "Voltar a ficar presente",
+        mute: "Silenciar por 10 minutos",
+        unmute: "Liberar mensagens",
+        kick: "Remover da sala",
+    },
+    dialogs: {
+        clearAllTitle: "Apagar a conversa para todos?",
+        clearAllBody:
+            "Todas as mensagens da sala somem da tela de todas as pessoas conectadas. Não dá para desfazer.",
+        clearAllConfirm: "Apagar para todos",
+        kickTitle: "Remover {name} da sala?",
+        kickBody:
+            "A pessoa é desconectada agora. Se quiser voltar, entra de novo como uma pessoa nova.",
+        kickConfirm: "Remover",
+    },
+    layout: {
+        openSidebar: "Abrir barra lateral",
+        closeSidebar: "Fechar barra lateral",
+        members: "Pessoas",
+    },
+    userPanel: {
+        online: "Online",
+        away: "Ausente",
+        admin: "Admin",
+        goAway: "Ficar ausente",
+        comeBack: "Voltar a ficar presente",
     },
     typing: {
         one: "{name} está digitando…",

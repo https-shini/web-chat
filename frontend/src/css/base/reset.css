@@ -1,6 +1,5 @@
 /* Reset — só o que é necessário. A família tipográfica cai em body, nunca
-   no seletor universal: `* { font-family }` impede que qualquer elemento
-   use a fonte de display sem lutar contra a especificidade. */
+   no seletor universal. */
 
 *,
 *::before,
@@ -17,11 +16,13 @@ html {
     /* Percentual, não px: respeita o tamanho de fonte escolhido no navegador. */
     font-size: 100%;
     -webkit-text-size-adjust: 100%;
+    color-scheme: inherit;
 }
 
 body {
     min-height: 100dvh;
-    background-color: var(--color-surface-1);
+    overflow: hidden;
+    background-color: var(--color-bg-app);
     color: var(--color-text-1);
     -webkit-font-smoothing: antialiased;
 }
@@ -33,41 +34,36 @@ svg {
 }
 
 input,
-button {
+button,
+select,
+textarea {
     font: inherit;
     color: inherit;
 }
 
 button {
-    background: none;
-    border: none;
     cursor: pointer;
+    background: none;
+    border: 0;
 }
 
-ol,
-ul {
+button:disabled {
+    cursor: not-allowed;
+}
+
+ul,
+ol {
     list-style: none;
 }
 
-/* Rolagem — a lista de mensagens é o único container rolável do produto. */
+/* `hidden` vence qualquer `display` de componente. O `:not(#…)` dá ao
+   seletor especificidade de id sem recorrer a !important (proibido aqui). */
+[hidden]:not(#hidden-guard) {
+    display: none;
+}
+
+/* Barras de rolagem discretas, no tom da superfície. */
 .js-scroll {
     scrollbar-width: thin;
-    scrollbar-color: var(--color-outline-control) transparent;
-}
-
-.js-scroll::-webkit-scrollbar {
-    width: var(--space-1-5);
-}
-
-.js-scroll::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.js-scroll::-webkit-scrollbar-thumb {
-    background: var(--color-outline-control);
-    border-radius: var(--radius-full);
-}
-
-.js-scroll::-webkit-scrollbar-thumb:hover {
-    background: var(--color-brand);
+    scrollbar-color: var(--color-bg-app) transparent;
 }

@@ -25,6 +25,12 @@ import { createThemeToggle } from "./ui/themeToggle.js";
 import { createToasts } from "./ui/toast.js";
 import { createTyping } from "./ui/typing.js";
 import { createNotifier } from "./ui/notify.js";
+import { createDialog } from "./ui/dialog.js";
+import { hydrateIcons } from "./ui/icons.js";
+import { createLayout } from "./ui/layout.js";
+import { createMemberCard } from "./ui/memberCard.js";
+import { createTooltips } from "./ui/tooltip.js";
+import { createUserPanel } from "./ui/userPanel.js";
 
 /**
  * Raiz de composição. É o único lugar em que transporte, estado e interface
@@ -34,9 +40,16 @@ import { createNotifier } from "./ui/notify.js";
 
 const store = createStore();
 
-const header = /** @type {HTMLElement} */ (must(".c-app__header"));
+// Ícones primeiro: os módulos abaixo podem trocar um ícone já desenhado.
+hydrateIcons();
+
 const room = /** @type {HTMLElement} */ (must(".c-room"));
 const shell = /** @type {HTMLElement} */ (must(".c-app"));
+const skeleton = /** @type {HTMLElement} */ (must(".c-skeleton"));
+
+const layout = createLayout();
+const dialog = createDialog();
+createTooltips();
 
 const announcer = createAnnouncer();
 const connection = createConnection();
@@ -53,7 +66,6 @@ const messageList = createMessageList({
 });
 const typing = createTyping();
 const notifier = createNotifier();
-const people = createPeople();
 const toasts = createToasts();
 
 const typingTracker = createTypingTracker((people) => store.actions.setTyping(people));
@@ -190,25 +202,34 @@ const runLocalCommand = (command, args) => {
     }
 };
 
+/**
+ * Caminho único de envio: o campo de mensagem e os atalhos da interface
+ * (barra lateral, cartão de pessoa) passam por aqui. Um botão nunca fala
+ * com o servidor por fora do sistema de comandos — validação e permissão
+ * continuam todas no servidor.
+ * @param {string} content
+ */
+const submit = (content) => {
+    // Gesto do usuário: é aqui, e só aqui, que a permissão de
+    // notificação pode ser pedida.
+    notifier.requestOnGesture();
+    typingSignal.stop();
+    const route = routeInput(content, store.getState().catalog);
+    if (route.type === "message") {
+        sendChat(route.content);
+    } else if (route.type === "client") {
+        runLocalCommand(route.command, route.args);
+    } else {
+        // Comando do servidor: vai como texto bruto; quem interpreta,
+        // valida e autoriza é o servidor.
+        const requestId = crypto.randomUUID();
+        pendingRequests.set(requestId, { name: route.name, sentAt: Date.now() });
+        transport.send(CLIENT_EVENTS.COMMAND, { requestId, text: route.text });
+    }
+};
+
 const composer = createComposer({
-    onSend: (content) => {
-        // Gesto do usuário: é aqui, e só aqui, que a permissão de
-        // notificação pode ser pedida.
-        notifier.requestOnGesture();
-        typingSignal.stop();
-        const route = routeInput(content, store.getState().catalog);
-        if (route.type === "message") {
-            sendChat(route.content);
-        } else if (route.type === "client") {
-            runLocalCommand(route.command, route.args);
-        } else {
-            // Comando do servidor: vai como texto bruto; quem interpreta,
-            // valida e autoriza é o servidor.
-            const requestId = crypto.randomUUID();
-            pendingRequests.set(requestId, { name: route.name, sentAt: Date.now() });
-            transport.send(CLIENT_EVENTS.COMMAND, { requestId, text: route.text });
-        }
-    },
+    onSend: submit,
     onTyping: () => typingSignal.input(),
     onInput: (text, cursor) => suggestions.update(text, cursor),
     onKeyDown: (event) => suggestions.handleKey(event),
@@ -219,6 +240,69 @@ const suggestions = createCommandSuggestions({
     getCatalog: () => store.getState().catalog,
     onChoose: (text) => composer.setValue(text),
 });
+
+/**
+ * Papel efetivo para a INTERFACE (mostrar ou não atalhos de moderação).
+ * O `session` só traz o papel da entrada; depois de um /admin, o valor
+ * atual chega na lista de pessoas do servidor. Permissão de verdade é
+ * sempre conferida no servidor, a cada comando.
+ * @param {import("./state/store.js").State} state
+ * @returns {"member" | "admin"}
+ */
+const effectiveRole = (state) => {
+    const listed = state.people.find((person) => person.id === state.me?.id);
+    return listed?.role ?? state.role;
+};
+
+const memberCard = createMemberCard({
+    getContext: () => {
+        const state = store.getState();
+        return { meId: state.me?.id ?? null, role: effectiveRole(state) };
+    },
+    runCommand: (text) => {
+        layout.closeDrawer();
+        submit(text);
+        composer.focus();
+    },
+    prefill: (text) => {
+        layout.closeDrawer();
+        composer.setValue(text);
+    },
+    confirm: (options) => dialog.confirm(options),
+    notify: (text, kind) => toasts.show(text, kind),
+});
+
+const people = createPeople({ onSelect: (person, button) => memberCard.open(person, button) });
+
+const userPanel = createUserPanel({ onToggleAway: () => submit("/afk") });
+
+/**
+ * Atalhos da barra lateral e do cabeçalho. Cada um é um comando que já
+ * existe — nada de botão decorativo.
+ * @type {Record<string, () => void | Promise<void>>}
+ */
+const shortcuts = {
+    help: () => submit("/help"),
+    "clear-local": () => submit("/clear"),
+    "clear-room": async () => {
+        const ok = await dialog.confirm({
+            title: strings.dialogs.clearAllTitle,
+            body: strings.dialogs.clearAllBody,
+            confirmLabel: strings.dialogs.clearAllConfirm,
+        });
+        if (ok) submit("/clearall confirmar");
+    },
+};
+
+for (const button of document.querySelectorAll("[data-action]")) {
+    const action = button.getAttribute("data-action") ?? "";
+    const run = shortcuts[action];
+    if (!run) continue;
+    button.addEventListener("click", () => {
+        layout.closeDrawer();
+        void Promise.resolve(run()).then(() => composer.focus());
+    });
+}
 
 const failure = createFailure({
     onRetry: () => transport.retryNow(),
@@ -310,16 +394,23 @@ const render = (state, previous) => {
     if (changed(state, previous, ["screen"])) {
         shell.dataset.screen = state.screen;
         entry.setVisible(!inRoom);
-        header.hidden = !inRoom;
         room.hidden = !inRoom;
         composer.setVisible(inRoom);
+        layout.setInRoom(inRoom);
+        if (!inRoom) memberCard.close({ restoreFocus: false });
     }
 
-    if (changed(state, previous, ["link", "attempt"]) || noMessages !== wasEmpty) {
-        connection.render(state.link, state.attempt, noMessages);
+    if (changed(state, previous, ["link", "attempt"])) {
+        connection.render(state.link, state.attempt);
     }
     if (changed(state, previous, ["screen", "link"]) || noMessages !== wasEmpty) {
         empty.render(inRoom && state.link === "online" && noMessages);
+        // Primeira conexão ainda a caminho e nada para mostrar: esqueleto.
+        skeleton.hidden = !(
+            inRoom &&
+            noMessages &&
+            (state.link === "idle" || state.link === "connecting" || state.link === "retrying")
+        );
     }
     if (changed(state, previous, ["screen", "link", "maxAttempts", "closeCode"])) {
         failure.render(
@@ -332,6 +423,15 @@ const render = (state, previous) => {
     if (changed(state, previous, ["messages"])) messageList.render(state.messages);
     if (changed(state, previous, ["people", "me", "link"])) {
         people.render(state.people, state.me?.id ?? null, state.link === "online");
+    }
+    if (changed(state, previous, ["people", "me", "role", "link"])) {
+        const meId = state.me?.id;
+        userPanel.render(
+            state.me,
+            state.people.find((person) => person.id === meId),
+            effectiveRole(state),
+            state.link === "online",
+        );
     }
     if (changed(state, previous, ["link", "queued"])) composer.render(state.link, state.queued);
 

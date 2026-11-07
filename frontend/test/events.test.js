@@ -13,7 +13,10 @@ const setup = () => {
     const calls = { sessions: [], rateLimited: 0, rejected: [] };
     const handle = createEventHandler({
         store,
-        toasts: { show: (text, kind) => toasts.push({ text, kind }) },
+        toasts: {
+            show: (text, kind, options) =>
+                toasts.push(options ? { text, kind, ...options } : { text, kind }),
+        },
         notifier: { show: () => {} },
         typingTracker: { set: () => {} },
         onSession: (token) => calls.sessions.push(token),
@@ -134,7 +137,10 @@ describe("erros com código", () => {
         handle({ type: "error", payload: { code: "rate_limited", message: "texto", ref: "c1" } });
         const [message] = store.getState().messages;
         assert.equal(message?.delivery, "failed");
-        assert.deepEqual(toasts, [{ text: strings.errors.rateLimited, kind: "error" }]);
+        // A falha já é anunciada pela lista de mensagens: o toast é só visual.
+        assert.deepEqual(toasts, [
+            { text: strings.errors.rateLimited, kind: "error", announce: false },
+        ]);
     });
 
     test("invalid_name devolve a pessoa à tela de entrada", () => {

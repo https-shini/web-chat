@@ -1,6 +1,5 @@
 // @ts-check
 
-import { strings } from "../i18n/strings.js";
 import { el } from "./dom.js";
 
 /** Quantidade de matizes de remetente disponíveis em tokens.css. */
@@ -35,36 +34,62 @@ export const initialsFor = (name) => {
 };
 
 /**
- * Bloco de identidade: monograma + nome.
+ * Bloco de identidade: avatar (iniciais sobre a cor da pessoa) + nome.
  *
- * A cor sozinha reprova 1.4.1, então a posse tem reforço não cromático —
- * o monograma é preenchido para você e vazado para as outras pessoas, e o
- * nome vira o rótulo "Você".
- * @param {{id: string, name: string, own: boolean, withName?: boolean, withMonogram?: boolean}} person
+ * A cor sai do id e é a mesma em toda tela. Ela nunca é o único sinal: o
+ * nome está sempre escrito, e quem é você recebe o selo "você" em texto
+ * (ver message.js e people.js), não uma cor diferente.
+ *
+ * @param {{
+ *   id: string,
+ *   name: string,
+ *   own: boolean,
+ *   withName?: boolean,
+ *   withMonogram?: boolean,
+ *   size?: "md" | "lg" | "xl",
+ *   presence?: "online" | "away" | null,
+ * }} person
  * @returns {HTMLElement}
  */
-export const renderIdentity = ({ id, name, own, withName = true, withMonogram = true }) => {
-    const modifier = own ? "c-identity--self" : `c-identity--sender-${hueFor(id)}`;
-    const root = el("span", { class: `c-identity ${modifier}` });
+export const renderIdentity = ({
+    id,
+    name,
+    own,
+    withName = true,
+    withMonogram = true,
+    size = "md",
+    presence = null,
+}) => {
+    const classes = ["c-identity", `c-identity--sender-${hueFor(id)}`];
+    if (own) classes.push("c-identity--self");
+    if (size !== "md") classes.push(`c-identity--${size}`);
+    const root = el("span", { class: classes.join(" ") });
 
     if (withMonogram) {
-        root.appendChild(
-            el("span", {
-                class: "c-identity__monogram",
-                text: initialsFor(name),
-                attrs: { "aria-hidden": "true" },
-            }),
-        );
+        const monogram = el("span", {
+            class: "c-identity__monogram",
+            attrs: { "aria-hidden": "true" },
+        });
+        monogram.appendChild(document.createTextNode(initialsFor(name)));
+        if (presence) {
+            monogram.appendChild(
+                el("span", { class: "c-identity__presence", attrs: { "data-status": presence } }),
+            );
+        }
+        root.appendChild(monogram);
     }
 
     if (withName) {
-        root.appendChild(
-            el("span", {
-                class: "c-identity__name",
-                text: own ? strings.room.you : name,
-            }),
-        );
+        root.appendChild(el("span", { class: "c-identity__name", text: name }));
     }
 
     return root;
 };
+
+/**
+ * Selo em texto ("você", "admin").
+ * @param {string} text
+ * @param {string} [modifier]
+ */
+export const badge = (text, modifier = "") =>
+    el("span", { class: modifier ? `c-badge c-badge--${modifier}` : "c-badge", text });

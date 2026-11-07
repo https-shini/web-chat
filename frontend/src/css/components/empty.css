@@ -1,19 +1,33 @@
-/* Estado vazio. Tela própria, não uma caixa tracejada improvisada.
-   A copy convida à ação e não pede desculpa. */
+/* Começo da conversa: sala conectada e sem nenhuma mensagem. */
 
-.c-empty:not([hidden]) {
+.c-empty {
     display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
     gap: var(--space-2);
-    max-width: 40ch;
-    margin-block: auto;
-    padding-left: var(--rail-width);
+    justify-content: flex-end;
+    padding: var(--space-4) var(--space-4) var(--space-6);
+    animation: fade-in var(--duration-slow) var(--ease-out);
+}
+
+.c-empty__icon {
+    width: var(--space-16);
+    height: var(--space-16);
+    margin-bottom: var(--space-2);
+    border-radius: var(--radius-full);
+    background-color: var(--color-bg-elevated);
+    color: var(--color-text-1);
+    font-size: var(--text-3xl);
 }
 
 .c-empty__title {
-    color: var(--color-text-1);
+    font-size: var(--text-3xl);
+    font-weight: var(--weight-display);
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-tight);
 }
 
 .c-empty__body {
+    max-width: 40rem;
     color: var(--color-text-2);
 }

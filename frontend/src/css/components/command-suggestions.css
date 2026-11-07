@@ -1,67 +1,100 @@
-/* Autocomplete de comandos. Fica no fluxo do rodapé, logo acima do campo:
-   nunca cobre a conversa nem o próprio campo, e funciona igual no toque. */
+/* Autocomplete de comandos: painel flutuante sobre o composer. */
 
-.c-command-suggestions:not([hidden]) {
+.c-command-suggestions {
+    position: absolute;
+    right: var(--space-4);
+    bottom: calc(100% - var(--space-1));
+    left: var(--space-4);
+    z-index: var(--z-popover);
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
+    max-height: min(22rem, 50dvh);
+    overflow: hidden;
+    border: var(--rule-1) solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-bg-sidebar);
+    box-shadow: var(--shadow-2);
+    animation: rise-in var(--duration-base) var(--ease-out);
 }
 
-.c-command-suggestions__list:not([hidden]) {
-    display: flex;
-    flex-direction: column;
-    max-height: calc(var(--space-16) * 4);
-    margin: 0;
-    padding: var(--space-1);
+.c-command-suggestions__heading {
+    padding: var(--space-3) var(--space-4) var(--space-1);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-caps);
+    text-transform: uppercase;
+    color: var(--color-text-3);
+}
+
+.c-command-suggestions:has(> .c-command-suggestions__list[hidden]) .c-command-suggestions__heading {
+    display: none;
+}
+
+.c-command-suggestions__list {
+    padding: var(--space-1) var(--space-2) var(--space-2);
     overflow-y: auto;
-    list-style: none;
-    border: var(--rule-1) solid var(--color-border-subtle);
-    border-radius: var(--radius-md);
-    background-color: var(--color-surface-2);
 }
 
 .c-command-suggestions__option {
     display: flex;
     flex-wrap: wrap;
+    gap: var(--space-0) var(--space-2);
     align-items: baseline;
-    gap: var(--space-1) var(--space-2);
-    min-height: var(--tap-min);
-    padding: var(--space-1-5) var(--space-2);
+    padding: var(--space-2) var(--space-2);
     border-radius: var(--radius-sm);
-    font-size: var(--text-sm);
-    color: var(--color-text-1);
     cursor: pointer;
 }
 
+.c-command-suggestions__option:hover {
+    background-color: var(--color-bg-hover);
+}
+
 .c-command-suggestions__option[aria-selected="true"] {
-    outline: var(--rule-2) solid var(--color-brand);
-    outline-offset: calc(var(--rule-2) * -1);
+    background-color: var(--color-bg-selected);
 }
 
 .c-command-suggestions__name {
-    font-weight: var(--weight-bold);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    color: var(--color-text-1);
 }
 
-.c-command-suggestions__alias,
-.c-command-suggestions__desc,
-.c-command-suggestions__tag {
-    color: var(--color-text-2);
+.c-command-suggestions__alias {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-3);
 }
 
 .c-command-suggestions__desc {
     flex: 1 1 12rem;
     min-width: 0;
+    font-size: var(--text-sm);
+    color: var(--color-text-2);
 }
 
 .c-command-suggestions__tag {
-    font-size: var(--text-xs);
-    letter-spacing: var(--tracking-wide);
+    padding: var(--space-0) var(--space-1-5);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-bg-elevated);
+    font-size: var(--text-2xs);
+    font-weight: var(--weight-semibold);
+    color: var(--color-text-2);
 }
 
 .c-command-suggestions__option[data-locked="true"] .c-command-suggestions__name {
     color: var(--color-text-2);
 }
 
-.c-command-suggestions__hint:not([hidden]) {
-    margin: 0;
+.c-command-suggestions__hint {
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--text-sm);
+    color: var(--color-text-2);
+}
+
+@media (max-width: 30rem) {
+    .c-command-suggestions {
+        right: var(--space-2);
+        left: var(--space-2);
+    }
 }

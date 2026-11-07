@@ -1,19 +1,18 @@
-/* Primeiro alvo de tabulação da página. Fica fora da tela até receber
-   foco — nunca `display: none`, que o tiraria da ordem de tabulação. */
+/* Link de pular: invisível até receber foco por teclado. */
 
 .c-skip-link {
-    position: absolute;
-    left: var(--space-4);
-    top: var(--space-4);
-    z-index: var(--z-overlay);
-    padding: var(--space-2) var(--space-3);
+    position: fixed;
+    top: var(--space-2);
+    left: var(--space-2);
+    z-index: var(--z-toast);
+    padding: var(--space-2) var(--space-4);
     border-radius: var(--radius-md);
     background-color: var(--color-brand);
     color: var(--color-on-brand);
-    font-size: var(--text-sm);
-    font-weight: var(--weight-bold);
+    font-weight: var(--weight-semibold);
     text-decoration: none;
-    transform: translateY(-200%);
+    transform: translateY(calc(-100% - var(--space-4)));
+    transition: transform var(--duration-base) var(--ease-out);
 }
 
 .c-skip-link:focus-visible {

@@ -2,7 +2,8 @@
 
 import { strings } from "../i18n/strings.js";
 import { el } from "./dom.js";
-import { renderIdentity } from "./identity.js";
+import { icon } from "./icons.js";
+import { badge, renderIdentity } from "./identity.js";
 
 /**
  * Renderização de uma entrada da transcrição. Só `textContent` e
@@ -120,7 +121,7 @@ const fillStatus = (slot, message, handlers) => {
             }),
         );
         const retry = el("button", {
-            class: "c-button c-button--quiet c-message__retry",
+            class: "c-button c-button--ghost c-button--sm c-message__retry",
             text: strings.delivery.retry,
             attrs: { type: "button" },
         });
@@ -131,90 +132,133 @@ const fillStatus = (slot, message, handlers) => {
 };
 
 /**
- * Resposta de comando (visível só para você).
+ * Calha da esquerda com um ícone (sistema e respostas de comando).
+ * @param {string} name
+ */
+const iconAside = (name) => {
+    const aside = el("div", { class: "c-message__aside", attrs: { "aria-hidden": "true" } });
+    aside.appendChild(icon(name));
+    return aside;
+};
+
+/**
+ * Resposta de comando (visível só para você): cartão com o selo
+ * "Só você vê isto", em texto.
  * @param {HTMLLIElement} item
  * @param {Message} message
  */
 const renderNotice = (item, message) => {
     item.classList.add("c-message--notice");
     item.dataset.tone = message.tone ?? "info";
+    item.appendChild(iconAside(message.tone === "error" ? "alert" : "terminal"));
     const body = el("div", { class: "c-message__body" });
+    const card = el("div", { class: "c-message__card" });
+    card.appendChild(el("p", { class: "c-message__private", text: strings.message.private }));
     if (message.title)
-        body.appendChild(el("p", { class: "c-message__title", text: message.title }));
-    body.appendChild(el("p", { class: "c-message__text", text: message.content }));
+        card.appendChild(el("p", { class: "c-message__title", text: message.title }));
+    card.appendChild(el("p", { class: "c-message__text", text: message.content }));
     if (message.lines?.length) {
         const list = el("ul", { class: "c-message__lines" });
         for (const line of message.lines) list.appendChild(el("li", { text: line }));
-        body.appendChild(list);
+        card.appendChild(list);
     }
+    body.appendChild(card);
+    item.appendChild(body);
+    return item;
+};
+
+/**
+ * Entrada de sistema: entrou, saiu, conversa apagada, avisos da sala.
+ * @param {HTMLLIElement} item
+ * @param {Message} message
+ */
+const renderSystem = (item, message) => {
+    item.classList.add("c-message--system");
+    if (message.tone) item.dataset.tone = message.tone;
+    if (message.event) item.dataset.event = message.event;
+    const name =
+        message.event === "join"
+            ? "arrow-in"
+            : message.event === "leave"
+              ? "arrow-out"
+              : message.tone === "admin"
+                ? "shield"
+                : "info";
+    item.appendChild(iconAside(name));
+    const body = el("div", { class: "c-message__body" });
+    const text = el("p", { class: "c-message__text", text: message.content });
+    const time = timeElement(message.timestamp);
+    if (time) text.appendChild(time);
+    body.appendChild(text);
     item.appendChild(body);
     return item;
 };
 
 /**
  * Renderiza uma entrada como item da transcrição.
+ *
+ * `compact`: continuação de quem acabou de falar (mesma pessoa, poucos
+ * minutos). Sem avatar nem cabeçalho na tela — mas o nome continua lá
+ * para leitor de tela, que lê cada item isoladamente.
+ *
  * @param {Message} message
  * @param {MessageHandlers} [handlers]
+ * @param {{compact?: boolean}} [options]
  * @returns {HTMLLIElement}
  */
-export const renderMessage = (message, handlers = {}) => {
+export const renderMessage = (message, handlers = {}, { compact = false } = {}) => {
     const item = el("li", { class: "c-message" });
     item.dataset.messageId = message.id;
 
     if (message.kind === "notice") return renderNotice(item, message);
-
-    if (message.kind === "system") {
-        item.classList.add("c-message--system");
-        if (message.tone) item.dataset.tone = message.tone;
-        const body = el("div", { class: "c-message__body" });
-        const time = formatTime(message.timestamp);
-        body.appendChild(
-            el("p", {
-                class: "c-message__text",
-                text: time ? `${message.content} · ${time}` : message.content,
-            }),
-        );
-        item.appendChild(body);
-        return item;
-    }
+    if (message.kind === "system") return renderSystem(item, message);
 
     if (message.own) item.classList.add("c-message--self");
     item.dataset.delivery = message.delivery;
     const variant = message.variant ?? "text";
+    const isAction = variant === "action" || variant === "roll";
+    const isCompact = compact && !isAction && variant !== "announcement";
+    if (isCompact) item.classList.add("c-message--compact");
 
     const aside = el("div", { class: "c-message__aside" });
-    aside.appendChild(
-        renderIdentity({
-            id: message.userId,
-            name: message.userName,
-            own: message.own,
-            withName: false,
-        }),
-    );
+    if (isCompact) {
+        const time = timeElement(message.timestamp);
+        if (time) aside.appendChild(time);
+    } else {
+        aside.appendChild(
+            renderIdentity({
+                id: message.userId,
+                name: message.userName,
+                own: message.own,
+                withName: false,
+            }),
+        );
+    }
     item.appendChild(aside);
     const body = el("div", { class: "c-message__body" });
 
-    if (variant === "action" || variant === "roll") {
+    if (isAction) {
         // Ação em terceira pessoa: "Ana está estudando" — o nome faz parte
         // da frase, sem cabeçalho separado.
         item.classList.add("c-message--action");
         const line = el("p", { class: "c-message__text" });
         line.appendChild(el("span", { class: "c-message__actor", text: message.userName }));
-        line.appendChild(document.createTextNode(` ${message.content}`));
-        const head = el("div", { class: "c-message__head" });
-        head.appendChild(line);
+        line.appendChild(document.createTextNode(` ${message.content} `));
         const time = timeElement(message.timestamp);
-        if (time) head.appendChild(time);
-        body.appendChild(head);
+        if (time) line.appendChild(time);
+        body.appendChild(line);
+    } else if (isCompact) {
+        body.appendChild(el("span", { class: "sr-only", text: `${message.userName}:` }));
+        body.appendChild(renderContent(message));
     } else {
-        if (variant === "announcement") item.classList.add("c-message--announcement");
-        const head = el("div", { class: "c-message__head" });
         if (variant === "announcement") {
-            head.appendChild(
-                el("span", { class: "c-message__label", text: strings.message.announcement }),
-            );
+            item.classList.add("c-message--announcement");
+            const label = el("p", { class: "c-message__label" });
+            label.appendChild(icon("megaphone"));
+            label.appendChild(document.createTextNode(strings.message.announcement));
+            body.appendChild(label);
         }
-        // Só o nome: o monograma já está no trilho.
+        const head = el("div", { class: "c-message__head" });
         head.appendChild(
             renderIdentity({
                 id: message.userId,
@@ -223,6 +267,7 @@ export const renderMessage = (message, handlers = {}) => {
                 withMonogram: false,
             }),
         );
+        if (message.own) head.appendChild(badge(strings.room.youBadge));
         const time = timeElement(message.timestamp);
         if (time) head.appendChild(time);
         body.appendChild(head);

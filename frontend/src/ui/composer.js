@@ -24,7 +24,7 @@ export const createComposer = ({
     onInput = () => {},
     onKeyDown = () => false,
 }) => {
-    const footer = /** @type {HTMLElement} */ (must(".c-app__footer"));
+    const footer = /** @type {HTMLElement} */ (must(".c-composer-area"));
     const form = /** @type {HTMLFormElement} */ (must(".c-composer"));
     const input = /** @type {HTMLInputElement} */ (must("#campo-mensagem"));
     const notice = /** @type {HTMLElement} */ (must(".c-composer__notice"));
@@ -99,7 +99,6 @@ export const createComposer = ({
 
             input.disabled = blocked;
             send.disabled = blocked;
-            send.textContent = strings.room.send;
 
             notice.textContent = queued > 0 && !blocked ? strings.conn.queued : "";
         },

@@ -1,0 +1,14 @@
+/* Ícone SVG (ui/icons.js). Herda cor; tamanho padrão 1.25em do contexto. */
+
+.c-icon {
+    width: 1.25em;
+    height: 1.25em;
+    flex: none;
+}
+
+[data-icon] {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+}

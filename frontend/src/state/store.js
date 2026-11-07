@@ -46,6 +46,7 @@
  * @property {string} [failReason]
  * @property {string} [tone]            notice/system: info, success, warning, error, result, admin
  * @property {string} [title]
+ * @property {"join" | "leave"} [event]  system: entrada ou saída (só muda o ícone)
  * @property {string[]} [lines]
  */
 

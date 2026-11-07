@@ -1,0 +1,17 @@
+/* Dica visual de botão de ícone. O nome acessível já está no aria-label;
+   a dica é só para quem vê. Some com Escape (1.4.13). */
+
+.c-tooltip {
+    position: fixed;
+    z-index: var(--z-toast);
+    max-width: 16rem;
+    padding: var(--space-1-5) var(--space-3);
+    border-radius: var(--radius-md);
+    background-color: var(--color-bg-floating);
+    color: var(--color-text-on-floating);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    box-shadow: var(--shadow-2);
+    pointer-events: none;
+    animation: fade-in var(--duration-fast) var(--ease-out);
+}

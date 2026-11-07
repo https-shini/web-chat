@@ -1,0 +1,39 @@
+/* Área da conversa: lista rolável + estados (vazio, carregando, falha). */
+
+.c-conversation {
+    position: relative;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* Esqueleto enquanto a primeira conexão não chega. */
+.c-skeleton {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: var(--space-6);
+    justify-content: flex-end;
+    padding: var(--space-4);
+}
+
+.c-skeleton__row {
+    display: block;
+    height: var(--space-10);
+    border-radius: var(--radius-md);
+    background-color: var(--color-bg-elevated);
+    animation: shimmer 0.9s var(--ease-standard) infinite alternate;
+}
+
+.c-skeleton__row:nth-child(1) {
+    width: 55%;
+}
+
+.c-skeleton__row:nth-child(2) {
+    width: 80%;
+}
+
+.c-skeleton__row:nth-child(3) {
+    width: 40%;
+}

@@ -54,7 +54,7 @@ const toMessage = (raw, meId) => {
  * Entrada de sistema (entrada/saída, avisos do servidor).
  * @param {string} content
  * @param {string} timestamp
- * @param {{id?: string, tone?: string}} [extra]
+ * @param {{id?: string, tone?: string, event?: "join" | "leave"}} [extra]
  * @returns {Message}
  */
 export const systemMessage = (content, timestamp, extra = {}) => {
@@ -70,6 +70,7 @@ export const systemMessage = (content, timestamp, extra = {}) => {
         own: false,
         delivery: "confirmed",
         tone: extra.tone,
+        ...(extra.event ? { event: extra.event } : {}),
     };
 };
 
@@ -99,7 +100,7 @@ export const noticeMessage = ({ tone, text: content, title, lines }) => {
 /**
  * @param {{
  *   store: Store,
- *   toasts: {show: (text: string, kind?: "info" | "error") => void},
+ *   toasts: {show: (text: string, kind?: "info" | "error", options?: {announce?: boolean}) => void},
  *   notifier: {show: (title: string, body: string) => void},
  *   typingTracker: {set: (id: string, name: string, isTyping: boolean) => void, remove?: (id: string) => void},
  *   onSession?: (resumeToken: string | null) => void,
@@ -205,6 +206,7 @@ export const createEventHandler =
                     systemMessage(
                         format(strings.system.joined, { name: String(payload?.userName ?? "") }),
                         String(payload?.timestamp ?? new Date().toISOString()),
+                        { event: "join" },
                     ),
                 );
                 break;
@@ -219,6 +221,7 @@ export const createEventHandler =
                     systemMessage(
                         format(strings.system.left, { name: String(payload?.userName ?? "") }),
                         String(payload?.timestamp ?? new Date().toISOString()),
+                        { event: "leave" },
                     ),
                 );
                 break;
@@ -305,12 +308,15 @@ export const createEventHandler =
                 // Recusa de uma mensagem específica: ela fica marcada como não
                 // enviada, com a opção de tentar de novo.
                 const failedOne = ref !== null && store.actions.failMessage(ref, message);
+                // Mensagem marcada como falha já é anunciada pela lista; o
+                // toast, nesse caso, é só reforço visual (sem anúncio duplo).
                 if (code === ERROR_CODES.RATE_LIMITED) {
-                    toasts.show(strings.errors.rateLimited, "error");
+                    toasts.show(strings.errors.rateLimited, "error", { announce: !failedOne });
                     break;
                 }
                 if (!failedOne) toasts.show(message, "error");
-                else if (code === ERROR_CODES.MUTED) toasts.show(message, "error");
+                else if (code === ERROR_CODES.MUTED)
+                    toasts.show(message, "error", { announce: false });
                 break;
             }
 

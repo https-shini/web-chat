@@ -55,7 +55,7 @@
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
             rel="stylesheet"
-            href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Syne:wght@700;800&display=swap"
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
         />
 
         <!--
@@ -70,157 +70,362 @@
     <body>
         <a class="c-skip-link" href="#conteudo">Ir para a conversa</a>
 
+        <!--
+            Layout em painéis (desktop): barra lateral | conversa | pessoas.
+            Abaixo de 1024px o painel de pessoas vira gaveta; abaixo de 768px a
+            barra lateral também. Ícones: elementos [data-icon], desenhados por
+            ui/icons.js (uma fonte só para HTML e JS).
+        -->
         <div class="c-app" data-screen="entry">
-            <!--
-                Dois <h1>, nunca os dois no mesmo momento: o oculto sai da
-                árvore de acessibilidade, então há exatamente um título de
-                nível 1 exposto em cada tela.
-            -->
-            <header class="c-app__header" hidden>
-                <div class="c-app__identity">
-                    <h1 class="c-wordmark u-display u-text-xl">web-chat</h1>
-                    <p class="c-connection" data-state="connecting">
-                        <span class="c-connection__dot" aria-hidden="true"></span>
-                        <span class="c-connection__label">conectando…</span>
-                    </p>
+            <!-- ─── Barra lateral: a sala, atalhos reais e você ─────────── -->
+            <nav class="c-sidebar" id="barra-lateral" aria-label="Sala e atalhos" hidden>
+                <div class="c-sidebar__top">
+                    <span class="c-brand">
+                        <span class="c-brand__logo" data-icon="logo"></span>
+                        <span class="c-brand__name">web-chat</span>
+                    </span>
+                    <button
+                        type="button"
+                        class="c-icon-button c-sidebar__close"
+                        data-drawer-close="sidebar"
+                        aria-label="Fechar barra lateral"
+                    >
+                        <span data-icon="close"></span>
+                    </button>
                 </div>
 
-                <div class="c-app__aside">
-                    <section class="c-people" aria-labelledby="pessoas-titulo">
-                        <h2 class="c-people__title u-meta" id="pessoas-titulo">
-                            <span class="c-people__count">1 pessoa</span>
-                        </h2>
-                        <ul class="c-people__list"></ul>
+                <div class="c-sidebar__scroll js-scroll">
+                    <section class="c-nav-section" aria-labelledby="secao-sala">
+                        <h2 class="c-nav-section__title" id="secao-sala">Sala</h2>
+                        <a class="c-nav-item" href="#conteudo" aria-current="page">
+                            <span class="c-nav-item__icon" data-icon="hash"></span>
+                            <span class="c-nav-item__label">sala-aberta</span>
+                        </a>
                     </section>
 
-                    <button
-                        type="button"
-                        class="c-button c-button--quiet c-theme-toggle"
-                        data-theme-toggle
-                        aria-pressed="false"
+                    <section class="c-nav-section" aria-labelledby="secao-atalhos">
+                        <h2 class="c-nav-section__title" id="secao-atalhos">Atalhos</h2>
+                        <button type="button" class="c-nav-item" data-action="help">
+                            <span class="c-nav-item__icon" data-icon="terminal"></span>
+                            <span class="c-nav-item__label">Comandos</span>
+                        </button>
+                        <button type="button" class="c-nav-item" data-action="clear-local">
+                            <span class="c-nav-item__icon" data-icon="eraser"></span>
+                            <span class="c-nav-item__label">Limpar minha tela</span>
+                        </button>
+                    </section>
+
+                    <section
+                        class="c-nav-section"
+                        aria-labelledby="secao-admin"
+                        data-admin-only
+                        hidden
                     >
-                        <span class="c-theme-toggle__glyph" aria-hidden="true"></span>
-                        <span class="c-theme-toggle__label">Mudar para tema claro</span>
-                    </button>
+                        <h2 class="c-nav-section__title" id="secao-admin">Administração</h2>
+                        <button
+                            type="button"
+                            class="c-nav-item c-nav-item--danger"
+                            data-action="clear-room"
+                        >
+                            <span class="c-nav-item__icon" data-icon="trash"></span>
+                            <span class="c-nav-item__label">Apagar para todos</span>
+                        </button>
+                    </section>
+
+                    <section class="c-nav-section" aria-labelledby="secao-conexao">
+                        <h2 class="c-nav-section__title" id="secao-conexao">Conexão</h2>
+                        <p class="c-connection" data-state="connecting" role="status">
+                            <span class="c-connection__dot" aria-hidden="true"></span>
+                            <span class="c-connection__label">conectando…</span>
+                        </p>
+                    </section>
                 </div>
-            </header>
 
-            <main class="c-app__main" id="conteudo" tabindex="-1">
-                <section class="c-entry" aria-labelledby="entrada-titulo">
-                    <h1 class="c-entry__title u-display u-text-3xl" id="entrada-titulo">
-                        Sala aberta.
-                    </h1>
-                    <p class="c-entry__subtitle">Ninguém sabe quem você é.</p>
-
-                    <form class="c-entry__form" novalidate>
-                        <div class="c-field">
-                            <label class="c-field__label u-label" for="campo-nome">
-                                Como quer ser chamado
-                            </label>
-                            <input
-                                class="c-field__input"
-                                id="campo-nome"
-                                name="nome"
-                                type="text"
-                                maxlength="30"
-                                autocomplete="nickname"
-                                enterkeyhint="go"
-                                aria-describedby="campo-nome-erro"
-                            />
-                            <p class="c-field__error" id="campo-nome-erro" role="alert"></p>
-                        </div>
-
-                        <button type="submit" class="c-button c-button--primary">Entrar</button>
-                    </form>
-
-                    <p class="c-entry__note u-meta">A conversa some quando você sai.</p>
-
+                <!-- Você: identidade, presença e preferências -->
+                <section class="c-user-panel" aria-label="Você">
+                    <span class="c-user-panel__avatar"></span>
+                    <span class="c-user-panel__info">
+                        <span class="c-user-panel__name"></span>
+                        <span class="c-user-panel__status">Online</span>
+                    </span>
                     <button
                         type="button"
-                        class="c-button c-button--quiet c-theme-toggle c-entry__theme"
+                        class="c-icon-button"
+                        data-action="toggle-away"
+                        aria-pressed="false"
+                        aria-label="Ficar ausente"
+                        data-tooltip="Ficar ausente"
+                    >
+                        <span data-icon="clock"></span>
+                    </button>
+                    <button
+                        type="button"
+                        class="c-icon-button c-theme-toggle"
                         data-theme-toggle
                         aria-pressed="false"
+                        aria-label="Mudar para tema claro"
+                        data-tooltip="Mudar para tema claro"
                     >
-                        <span class="c-theme-toggle__glyph" aria-hidden="true"></span>
-                        <span class="c-theme-toggle__label">Mudar para tema claro</span>
+                        <span class="c-theme-toggle__icon" data-icon="theme"></span>
                     </button>
                 </section>
+            </nav>
 
-                <div class="c-room" hidden>
-                    <div class="c-thread" data-state="connecting" aria-hidden="true"></div>
+            <main class="c-main" id="conteudo" tabindex="-1">
+                <!-- ─── Entrada ─────────────────────────────────────────── -->
+                <section class="c-entry" aria-labelledby="entrada-titulo">
+                    <div class="c-entry__card">
+                        <span class="c-brand c-brand--large">
+                            <span class="c-brand__logo" data-icon="logo"></span>
+                            <span class="c-brand__name">web-chat</span>
+                        </span>
+                        <h1 class="c-entry__title" id="entrada-titulo">
+                            Boas-vindas à sala aberta
+                        </h1>
+                        <p class="c-entry__subtitle">
+                            Ninguém sabe quem você é. Escolha um nome e entre na conversa.
+                        </p>
 
-                    <h2 class="sr-only" id="conversa-titulo">Conversa</h2>
-                    <ol
-                        class="c-message-list js-scroll"
-                        role="log"
-                        aria-live="polite"
-                        aria-relevant="additions"
-                        aria-labelledby="conversa-titulo"
-                    ></ol>
+                        <form class="c-entry__form" novalidate>
+                            <div class="c-field">
+                                <label class="c-field__label" for="campo-nome"
+                                    >Como quer ser chamado</label
+                                >
+                                <input
+                                    class="c-field__input"
+                                    id="campo-nome"
+                                    name="nome"
+                                    type="text"
+                                    maxlength="30"
+                                    autocomplete="nickname"
+                                    enterkeyhint="go"
+                                    aria-describedby="campo-nome-erro campo-nome-ajuda"
+                                />
+                                <p class="c-field__hint" id="campo-nome-ajuda">
+                                    De 1 a 30 caracteres. Dá para trocar depois com /nick.
+                                </p>
+                                <p class="c-field__error" id="campo-nome-erro" role="alert"></p>
+                            </div>
 
-                    <div class="c-empty" hidden>
-                        <p class="c-empty__title u-display u-text-2xl">Silêncio por enquanto.</p>
-                        <p class="c-empty__body">
-                            Você é a primeira pessoa aqui. Escreva a primeira linha.
+                            <button
+                                type="submit"
+                                class="c-button c-button--primary c-button--block"
+                            >
+                                Entrar
+                            </button>
+                        </form>
+
+                        <p class="c-entry__note">
+                            <span data-icon="info"></span>
+                            A conversa vive só na memória do servidor e some quando ele reinicia.
                         </p>
                     </div>
 
-                    <div class="c-failure" hidden>
-                        <p class="c-failure__title u-display u-text-2xl">A conexão caiu.</p>
-                        <p class="c-failure__body"></p>
-                        <button type="button" class="c-button c-button--primary c-failure__retry">
-                            Tentar de novo
+                    <button
+                        type="button"
+                        class="c-icon-button c-theme-toggle c-entry__theme"
+                        data-theme-toggle
+                        aria-pressed="false"
+                        aria-label="Mudar para tema claro"
+                        data-tooltip="Mudar para tema claro"
+                    >
+                        <span class="c-theme-toggle__icon" data-icon="theme"></span>
+                    </button>
+                </section>
+
+                <!-- ─── Sala ────────────────────────────────────────────── -->
+                <div class="c-room" hidden>
+                    <header class="c-header">
+                        <button
+                            type="button"
+                            class="c-icon-button c-header__menu"
+                            data-drawer-open="sidebar"
+                            aria-controls="barra-lateral"
+                            aria-expanded="false"
+                            aria-label="Abrir barra lateral"
+                        >
+                            <span data-icon="menu"></span>
                         </button>
+                        <span class="c-header__icon" data-icon="hash"></span>
+                        <h1 class="c-header__title">sala-aberta</h1>
+                        <p class="c-header__topic">Sala única, efêmera e anônima</p>
+                        <span class="c-header__spacer"></span>
+                        <p class="c-status-pill" data-state="connecting" aria-hidden="true">
+                            <span class="c-status-pill__dot"></span>
+                            <span class="c-status-pill__label">conectando…</span>
+                        </p>
+                        <button
+                            type="button"
+                            class="c-icon-button"
+                            data-action="help"
+                            aria-label="Comandos"
+                            data-tooltip="Comandos"
+                        >
+                            <span data-icon="help"></span>
+                        </button>
+                        <button
+                            type="button"
+                            class="c-icon-button c-header__members"
+                            data-drawer-open="members"
+                            aria-controls="painel-pessoas"
+                            aria-expanded="true"
+                            aria-label="Mostrar pessoas"
+                            data-tooltip="Pessoas"
+                        >
+                            <span data-icon="users"></span>
+                            <span class="c-header__count" aria-hidden="true"></span>
+                        </button>
+                    </header>
+
+                    <div class="c-conversation">
+                        <h2 class="sr-only" id="conversa-titulo">Conversa</h2>
+
+                        <div class="c-skeleton" aria-hidden="true" hidden>
+                            <span class="c-skeleton__row"></span>
+                            <span class="c-skeleton__row"></span>
+                            <span class="c-skeleton__row"></span>
+                        </div>
+
+                        <div class="c-empty" hidden>
+                            <span class="c-empty__icon" data-icon="hash"></span>
+                            <p class="c-empty__title">Boas-vindas à #sala-aberta!</p>
+                            <p class="c-empty__body">
+                                Este é o começo da conversa. Escreva a primeira mensagem — ou digite
+                                <kbd>/</kbd> para ver os comandos.
+                            </p>
+                        </div>
+
+                        <div
+                            class="c-message-list js-scroll"
+                            role="log"
+                            aria-live="polite"
+                            aria-relevant="additions"
+                            aria-labelledby="conversa-titulo"
+                        >
+                            <ol class="c-message-list__items"></ol>
+                        </div>
+
+                        <div class="c-failure" hidden>
+                            <span class="c-failure__icon" data-icon="alert"></span>
+                            <p class="c-failure__title">A conexão caiu.</p>
+                            <p class="c-failure__body"></p>
+                            <button
+                                type="button"
+                                class="c-button c-button--primary c-failure__retry"
+                            >
+                                Tentar de novo
+                            </button>
+                        </div>
                     </div>
 
-                    <p class="c-typing" hidden>
-                        <span class="c-typing__text"></span>
-                        <span class="c-typing__dots" aria-hidden="true">
-                            <span class="c-typing__dot"></span>
-                            <span class="c-typing__dot"></span>
-                            <span class="c-typing__dot"></span>
-                        </span>
-                    </p>
+                    <footer class="c-composer-area">
+                        <p class="c-composer__notice" role="status"></p>
+
+                        <!-- Autocomplete de comandos: listbox do campo de mensagem. -->
+                        <div class="c-command-suggestions" hidden>
+                            <p class="c-command-suggestions__heading" aria-hidden="true">
+                                Comandos
+                            </p>
+                            <ul
+                                class="c-command-suggestions__list js-scroll"
+                                id="sugestoes-comandos"
+                                role="listbox"
+                                aria-label="Comandos sugeridos"
+                                hidden
+                            ></ul>
+                            <p class="c-command-suggestions__hint" hidden></p>
+                        </div>
+
+                        <form class="c-composer" novalidate>
+                            <label class="sr-only" for="campo-mensagem">Mensagem</label>
+                            <input
+                                class="c-composer__input"
+                                id="campo-mensagem"
+                                name="mensagem"
+                                type="text"
+                                maxlength="1000"
+                                autocomplete="off"
+                                enterkeyhint="send"
+                                placeholder="Conversar em #sala-aberta — digite / para comandos"
+                            />
+                            <button
+                                type="submit"
+                                class="c-icon-button c-composer__send"
+                                aria-label="Enviar"
+                            >
+                                <span data-icon="send"></span>
+                            </button>
+                        </form>
+
+                        <p class="c-typing" hidden>
+                            <span class="c-typing__dots" aria-hidden="true">
+                                <span class="c-typing__dot"></span>
+                                <span class="c-typing__dot"></span>
+                                <span class="c-typing__dot"></span>
+                            </span>
+                            <span class="c-typing__text"></span>
+                        </p>
+                    </footer>
                 </div>
             </main>
 
-            <footer class="c-app__footer" hidden>
-                <p class="c-composer__notice u-meta" role="status"></p>
-
-                <!-- Autocomplete de comandos: listbox do campo de mensagem. -->
-                <div class="c-command-suggestions" hidden>
-                    <ul
-                        class="c-command-suggestions__list"
-                        id="sugestoes-comandos"
-                        role="listbox"
-                        aria-label="Comandos sugeridos"
-                        hidden
-                    ></ul>
-                    <p class="c-command-suggestions__hint u-meta" hidden></p>
-                </div>
-
-                <form class="c-composer" novalidate>
-                    <div class="c-field c-composer__field">
-                        <label class="c-field__label sr-only" for="campo-mensagem">Mensagem</label>
-                        <input
-                            class="c-field__input"
-                            id="campo-mensagem"
-                            name="mensagem"
-                            type="text"
-                            maxlength="1000"
-                            autocomplete="off"
-                            enterkeyhint="send"
-                            placeholder="Mensagem — digite / para comandos"
-                        />
-                    </div>
-                    <button type="submit" class="c-button c-button--primary c-composer__send">
-                        Enviar
+            <!-- ─── Painel de pessoas ───────────────────────────────────── -->
+            <aside class="c-members" id="painel-pessoas" aria-labelledby="pessoas-titulo" hidden>
+                <div class="c-members__top">
+                    <h2 class="c-members__heading" id="pessoas-titulo">
+                        Pessoas <span class="c-people__count"></span>
+                    </h2>
+                    <button
+                        type="button"
+                        class="c-icon-button c-members__close"
+                        data-drawer-close="members"
+                        aria-label="Fechar painel de pessoas"
+                    >
+                        <span data-icon="close"></span>
                     </button>
-                </form>
-            </footer>
+                </div>
+                <div class="c-members__scroll js-scroll c-people__list"></div>
+            </aside>
+
+            <div class="c-scrim" data-scrim hidden></div>
         </div>
 
-        <div class="c-toasts"></div>
+        <!-- Cartão de pessoa (popover) e confirmação (modal). -->
+        <div
+            class="c-member-card"
+            role="dialog"
+            aria-modal="false"
+            aria-labelledby="cartao-nome"
+            hidden
+        >
+            <div class="c-member-card__banner"></div>
+            <span class="c-member-card__avatar"></span>
+            <p class="c-member-card__name" id="cartao-nome"></p>
+            <p class="c-member-card__meta"></p>
+            <div class="c-member-card__actions"></div>
+        </div>
+
+        <dialog class="c-dialog" aria-labelledby="dialogo-titulo" aria-describedby="dialogo-texto">
+            <form method="dialog" class="c-dialog__panel">
+                <h2 class="c-dialog__title" id="dialogo-titulo"></h2>
+                <p class="c-dialog__body" id="dialogo-texto"></p>
+                <div class="c-dialog__actions">
+                    <button type="submit" value="cancel" class="c-button c-button--secondary">
+                        Cancelar
+                    </button>
+                    <button
+                        type="submit"
+                        value="confirm"
+                        class="c-button c-button--danger c-dialog__confirm"
+                    >
+                        Confirmar
+                    </button>
+                </div>
+            </form>
+        </dialog>
+
+        <div class="c-tooltip" role="tooltip" id="dica" hidden></div>
+        <div class="c-toasts" role="status" aria-live="polite"></div>
 
         <!-- Região de anúncio única: fila e deduplicação vivem no JS. -->
         <div class="sr-only" data-announcer role="status" aria-live="polite"></div>
