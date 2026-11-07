@@ -3,7 +3,7 @@
 <p align="center">
   <a href="#pt-br">Português</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
   <a href="#en-us-">English</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
-  <a href="https://github.com/https-shini/web-chat">Voltar</a>
+  <a href="./README.md">Voltar</a>
 </p>
 
 <br>
@@ -70,10 +70,33 @@ Ao seguir estas etapas, você estará contribuindo com o projeto e enviando suas
 
 <br>
 
-## Regras do código
+## Antes de abrir o Pull Request
 
-Antes de abrir o Pull Request, rode `npm run lint`. A CI roda o mesmo, e ela
-falha — não avisa.
+```bash
+npm install
+npm --prefix backend install
+npm test
+npm run lint
+npm run format:check
+npm run build
+```
+
+A CI roda os mesmos comandos, e ela falha — não avisa. Mudou o protocolo
+WebSocket? Atualize `backend/src/protocol.js` **e** `frontend/src/protocol.js`
+(o teste de contrato compara os dois) e o [`docs/PROTOCOLO.md`](./docs/PROTOCOLO.md).
+
+## Regras do backend
+
+- Regras da sala ficam em `backend/src/room/` e **não** importam `ws` nem `http`:
+  recebem a conexão como valor opaco e entregam quadros por `deliver`.
+- `backend/src/transport/` só recebe, valida, encaminha e responde.
+- Erro enviado ao cliente sai de `backend/src/errors.js` (código + mensagem);
+  nada de stack trace ou detalhe interno na resposta.
+- Log é `log(level, event, campos)`: nunca conteúdo de mensagem, nome ou token.
+- Teste novo de comportamento do protocolo vai em `backend/test/integration/`;
+  de regra isolada, em `backend/test/unit/`.
+
+## Regras do código (frontend)
 
 **A regra que governa o CSS:** nenhuma cor, espaço, raio ou duração fora de
 `frontend/src/css/tokens.css`. Se faltar um token, crie o token.

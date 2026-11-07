@@ -134,10 +134,10 @@ grep -rni 'websocket' frontend/src/ui frontend/src/state
 grep -rn 'document\.\|querySelector' frontend/src/transport
 ```
 
-O contrato de mensagens está descrito em
-[`docs/ANALISE_E_PLANO_DE_MELHORIAS.md` §3.3](./docs/ANALISE_E_PLANO_DE_MELHORIAS.md#33-protocolo-websocket-contrato-implícito),
-com as mudanças da Fase 1 (evento `session`, `resumeToken`, códigos de erro) em
-[`docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md).
+O contrato de mensagens está descrito
+de forma completa em [`docs/PROTOCOLO.md`](./docs/PROTOCOLO.md). As constantes do
+protocolo vivem em `backend/src/protocol.js` e `frontend/src/protocol.js`, e um
+teste de contrato falha se os dois lados divergirem.
 
 ## Estrutura de diretórios
 
@@ -154,15 +154,27 @@ web-chat/
 │       ├── ui/                 componentes de interface, DOM puro
 │       ├── a11y/announce.js    região live única, com fila e deduplicação
 │       ├── i18n/strings.js     textos de interface
+│       ├── protocol.js         espelho do contrato do protocolo (eventos, limites)
 │       └── css/                tokens.css → base/ → components/
 │   └── test/                   testes de unidade do cliente (node:test)
-├── backend/
+├── backend/                    ESM, Node.js
 │   ├── package.json            dependências e scripts do servidor
-│   ├── src/server.js           servidor HTTP + WebSocket
-│   └── test/                   testes de integração do protocolo (node:test)
+│   ├── src/
+│   │   ├── server.js           ponto de entrada: ambiente, configuração, sinais
+│   │   ├── config.js           .env e validação da configuração
+│   │   ├── logger.js           log estruturado (JSON por linha)
+│   │   ├── errors.js           catálogo de erros enviados ao cliente
+│   │   ├── protocol.js         contrato do protocolo (fonte no servidor)
+│   │   ├── validation.js       normalização de nome, mensagem e token
+│   │   ├── rateLimiter.js      balde de fichas
+│   │   ├── room/               regras da sala e identidades (sem rede)
+│   │   └── transport/          HTTP, WebSocket, ciclo da conexão, heartbeat
+│   └── test/
+│       ├── unit/               módulos isolados e contrato cliente ↔ servidor
+│       └── integration/        servidor real + clientes WebSocket
 ├── scripts/                    dev.mjs (sobe tudo) e checagem de contraste
 ├── docs/                       análise, roadmap, inventário, design system, relatórios
-├── read-model/                 documentação histórica (parcialmente desatualizada)
+├── docs/historico/             documentação anterior à refatoração (só registro)
 └── .github/workflows/          CI e CodeQL
 ```
 
@@ -212,6 +224,12 @@ cp .env.example .env
 | `ALLOWED_ORIGINS` | Backend                      | Origens autorizadas a conectar, separadas por vírgula. **Configure em produção.** | vazio = qualquer origem         |
 | `PORT`            | Backend                      | Porta HTTP/WebSocket                                                              | `8080`                          |
 | `HEARTBEAT_MS`    | Backend                      | Intervalo do ping que detecta conexões mortas (mínimo 50)                         | `30000`                         |
+
+Parâmetros operacionais opcionais do backend — limite de conexões, tamanho de quadro,
+limites de taxa e tamanho do histórico — estão documentados, com os valores padrão,
+no [`.env.example`](./.env.example): `MAX_CONNECTIONS`, `MAX_PAYLOAD_BYTES`,
+`RATE_MESSAGES_CAPACITY`, `RATE_MESSAGES_PER_SEC`, `RATE_SIGNALS_CAPACITY`,
+`RATE_SIGNALS_PER_SEC`, `HISTORY_SIZE` e `HISTORY_ON_JOIN`.
 
 Comportamento previsível quando algo está errado:
 
@@ -267,10 +285,10 @@ Roda as duas suítes, ambas com o executor de testes nativo do Node (`node:test`
 dependência extra). Pré-requisito: dependências do backend instaladas
 (`npm --prefix backend install`).
 
-| Comando              | O que cobre                                                                                                                                                                                          |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run test:back`  | Integração do protocolo: sobe o servidor real numa porta livre e conversa com clientes WebSocket — identidade, personificação, mensagens, limites, validação, logs, `.env`, heartbeat e desligamento |
-| `npm run test:front` | Unidade: tradutor de eventos, estado, transporte, sinal de digitação e validações do cliente                                                                                                         |
+| Comando              | O que cobre                                                                                                                                                                                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run test:back`  | Backend: unidade (sala, identidades, validação, limites, protocolo, configuração, HTTP, contrato com o cliente) e integração com o servidor real e clientes WebSocket (identidade, personificação, mensagens, limites, logs, `.env`, heartbeat, desligamento) |
+| `npm run test:front` | Unidade: tradutor de eventos, estado, transporte, sinal de digitação e validações do cliente                                                                                                                                                                  |
 
 Análise estática, executada também na CI:
 
@@ -284,7 +302,7 @@ Análise estática, executada também na CI:
 | `npm run format:check`   | Verifica formatação (Prettier)                                            |
 | `npm run format`         | Formata o projeto                                                         |
 
-A CI ainda não executa `npm test` — isso é a tarefa F2-02 do roadmap.
+A CI executa `npm test` e também a auditoria de dependências de produção (bloqueante).
 
 ## Build
 
@@ -329,14 +347,16 @@ npm --prefix backend start
 ```
 
 Defina `PORT` (normalmente fornecida pela plataforma) e `ALLOWED_ORIGINS` com o
-domínio do frontend. O servidor responde `200 ok` a requisições HTTP comuns, o que
-serve como checagem de saúde. Termine TLS na plataforma ou num proxy reverso para
+domínio do frontend. Para checagem de saúde, `GET /` responde `200 ok` e
+`GET /healthz` responde JSON com `status`, `uptimeSec`, `connections` e `users`;
+outros caminhos respondem 404. Termine TLS na plataforma ou num proxy reverso para
 servir `wss://`.
 
 O servidor escreve **uma linha JSON por evento** (`ts`, `level`, `event` e campos
 como `connection` e `user`), sem conteúdo de mensagem, nomes ou tokens. Ao receber
 `SIGTERM`, fecha as conexões com o código 1001 e encerra em até 5 s — os clientes
-reconectam sozinhos quando o novo processo sobe.
+reconectam sozinhos quando o novo processo sobe. O ponto de entrada continua sendo
+`backend/src/server.js` (`npm start`).
 
 Recomendações de produção (detalhes em [`docs/security-report.md`](./docs/security-report.md) §5):
 configure `frame-ancestors` e HSTS como cabeçalhos HTTP na hospedagem, e limite de
@@ -373,16 +393,18 @@ da lista na reconexão) estão no plano de melhorias.
 
 ## Documentação complementar
 
-| Documento                                                                                  | Conteúdo                                                |
-| ------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
-| [`docs/ANALISE_E_PLANO_DE_MELHORIAS.md`](./docs/ANALISE_E_PLANO_DE_MELHORIAS.md)           | Diagnóstico técnico, problemas, melhorias e riscos      |
-| [`docs/ROADMAP_DE_IMPLEMENTACAO.md`](./docs/ROADMAP_DE_IMPLEMENTACAO.md)                   | 49 tarefas em 8 fases, estratégia e plano de testes     |
-| [`docs/INVENTARIO_TECNICO.md`](./docs/INVENTARIO_TECNICO.md)                               | Tecnologias, dependências, módulos, variáveis e scripts |
-| [`docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md) | Correções da Fase 1: decisões, testes e compatibilidade |
-| [`docs/design-system.md`](./docs/design-system.md)                                         | Tokens, paleta, contraste medido                        |
-| [`docs/refactor-report.md`](./docs/refactor-report.md)                                     | Antes → depois da refatoração do frontend               |
-| [`docs/security-report.md`](./docs/security-report.md)                                     | Auditoria de segurança e riscos residuais               |
-| [`read-model/CONTRIBUTING.md`](./read-model/CONTRIBUTING.md)                               | Como contribuir                                         |
+| Documento                                                                                  | Conteúdo                                                   |
+| ------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| [`docs/ANALISE_E_PLANO_DE_MELHORIAS.md`](./docs/ANALISE_E_PLANO_DE_MELHORIAS.md)           | Diagnóstico técnico, problemas, melhorias e riscos         |
+| [`docs/ROADMAP_DE_IMPLEMENTACAO.md`](./docs/ROADMAP_DE_IMPLEMENTACAO.md)                   | 49 tarefas em 8 fases, estratégia e plano de testes        |
+| [`docs/INVENTARIO_TECNICO.md`](./docs/INVENTARIO_TECNICO.md)                               | Tecnologias, dependências, módulos, variáveis e scripts    |
+| [`docs/PROTOCOLO.md`](./docs/PROTOCOLO.md)                                                 | Contrato do WebSocket: eventos, erros, identidade, limites |
+| [`docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md) | Correções da Fase 1: decisões, testes e compatibilidade    |
+| [`docs/FASE_2_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_2_RELATORIO_DE_IMPLEMENTACAO.md) | Fase 2: arquitetura modular do backend, testes e CI        |
+| [`docs/design-system.md`](./docs/design-system.md)                                         | Tokens, paleta, contraste medido                           |
+| [`docs/refactor-report.md`](./docs/refactor-report.md)                                     | Antes → depois da refatoração do frontend                  |
+| [`docs/security-report.md`](./docs/security-report.md)                                     | Auditoria de segurança e riscos residuais                  |
+| [`CONTRIBUTING.md`](./CONTRIBUTING.md)                                                     | Como contribuir                                            |
 
 ## Roadmap
 
@@ -392,7 +414,7 @@ Resumo — detalhes, dependências e critérios de aceite em
 | Fase | Foco                           | Destaques                                                                                                            |
 | ---- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
 | 1    | Correções críticas (concluída) | Testes do protocolo, identidade emitida pelo servidor, rate limit sem perda de mensagem, `.env` funcional, heartbeat |
-| 2    | Fundação técnica               | Testes do frontend, CI completa, backend modular e tipado, protocolo compartilhado                                   |
+| 2    | Fundação técnica (concluída)   | Testes do frontend, CI completa, backend modular em ESM, contrato do protocolo verificado                            |
 | 3    | Performance                    | Build enxuto, fontes auto-hospedadas, renderização seletiva                                                          |
 | 4    | Funcionalidades                | Reconexão sem avisos repetidos, confirmação de entrega                                                               |
 | 5    | UX e acessibilidade            | Erros anunciados, indicador de mensagens novas, composer melhorado                                                   |
@@ -406,8 +428,10 @@ Resumo — detalhes, dependências e critérios de aceite em
 (correções críticas de segurança e estabilidade) está concluída: identidade
 atribuída pelo servidor, limites de taxa separados com aviso ao usuário,
 configuração de ambiente funcional e validada, logs estruturados, validação de
-cada quadro recebido, heartbeat e desligamento gracioso — cobertos por 78 testes
-automatizados. Próximo passo: Fase 2 (testes na CI, backend modular).
+cada quadro recebido, heartbeat e desligamento gracioso. A **Fase 2** (fundação
+técnica) também está concluída: backend modular em ESM, contrato do protocolo
+verificado por teste, parâmetros operacionais configuráveis, `/healthz` e 160 testes
+automatizados executados na CI. Próximo passo: Fase 3 (performance e otimização).
 Antes de expor o chat publicamente, configure `ALLOWED_ORIGINS`.
 
 ## Contribuindo
@@ -418,7 +442,7 @@ hex, `rgba()`, `!important` e `px` de densidade nos componentes. No JavaScript,
 nenhum HTML injetado: use `textContent` e `createElement`.
 
 Antes de abrir um PR, rode `npm test`, `npm run lint` e `npm run format:check`. Detalhes em
-[`read-model/CONTRIBUTING.md`](./read-model/CONTRIBUTING.md).
+[`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
 ## Licença
 

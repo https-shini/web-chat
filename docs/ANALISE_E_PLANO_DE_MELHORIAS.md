@@ -20,6 +20,11 @@
 
 ---
 
+> **Atualização 2026-11-07 — Fase 2 concluída.** Backend modularizado (P13), CI com
+> testes e auditoria (P14), parâmetros por ambiente (P28), `/healthz` e logs
+> estruturados (P26, P27), documentação consolidada (P24), backend em ESM (P36,
+> tipagem pendente). Ver §18.
+>
 > **Atualização 2026-11-07 — Fase 1 concluída.** P01, P02, P03, P04, P05, P06, P07,
 > P09, P10 e P11 foram corrigidos e P30 mitigado (melhorias M01–M06 implementadas),
 > com 78 testes automatizados. Um problema novo foi encontrado e corrigido (P37). A
@@ -610,14 +615,14 @@ os dois números (configuráveis) — ou documentar o motivo.
 | P03 | `.env` lido do diretório errado        | Alta       | Baixa        | TESTADO           | Corrigido (Fase 1) |
 | P09 | `id` de mensagem descartado no cliente | Alta       | Baixa        | CÓDIGO            | Corrigido (Fase 1) |
 | P10 | Sem heartbeat                          | Alta       | Baixa        | CÓDIGO/INFERIDO   | Corrigido (Fase 1) |
-| P12 | Sem testes                             | Alta       | Média        | CÓDIGO            | Parcial (Fase 1)   |
+| P12 | Sem testes                             | Alta       | Média        | CÓDIGO            | Corrigido (Fase 2) |
 | P04 | Log injection via `type`               | Média      | Baixa        | TESTADO           | Corrigido (Fase 1) |
 | P05 | Sem validação de envelope              | Média      | Baixa        | TESTADO           | Corrigido (Fase 1) |
 | P06 | Nome vazio aceito                      | Média      | Baixa        | TESTADO           | Corrigido (Fase 1) |
 | P07 | Login repetível                        | Média      | Baixa        | TESTADO           | Corrigido (Fase 1) |
 | P08 | "Entrou/saiu" em reconexão             | Média      | Média        | INFERIDO          | Pendente           |
-| P13 | Backend monolítico                     | Média      | Média        | CÓDIGO            | Pendente           |
-| P14 | CI incompleta                          | Média      | Baixa        | CÓDIGO            | Pendente           |
+| P13 | Backend monolítico                     | Média      | Média        | CÓDIGO            | Corrigido (Fase 2) |
+| P14 | CI incompleta                          | Média      | Baixa        | CÓDIGO            | Corrigido (Fase 2) |
 | P15 | Vulnerabilidades dev                   | Média      | Média        | TESTADO           | Pendente           |
 | P16 | Imagens órfãs no build                 | Média      | Baixa        | TESTADO           | Pendente           |
 | P17 | Google Fonts / privacidade             | Média      | Baixa        | CÓDIGO            | Pendente           |
@@ -629,18 +634,18 @@ os dois números (configuráveis) — ou documentar o motivo.
 | P20 | Lista ilimitada                        | Baixa      | Baixa        | CÓDIGO            | Pendente           |
 | P21 | Fila descarta sem aviso                | Baixa      | Baixa        | CÓDIGO            | Pendente           |
 | P23 | Código morto                           | Baixa      | Baixa        | CÓDIGO            | Pendente           |
-| P24 | Docs desatualizadas                    | Baixa      | Baixa        | CÓDIGO            | Pendente           |
+| P24 | Docs desatualizadas                    | Baixa      | Baixa        | CÓDIGO            | Corrigido (Fase 2) |
 | P25 | Node não fixado                        | Baixa      | Baixa        | CÓDIGO            | Pendente           |
-| P26 | Healthcheck indiscriminado             | Baixa      | Baixa        | CÓDIGO            | Pendente           |
-| P27 | Logs não estruturados                  | Baixa      | Baixa        | CÓDIGO            | Pendente           |
-| P28 | Parâmetros fixos                       | Baixa      | Baixa        | CÓDIGO            | Pendente           |
+| P26 | Healthcheck indiscriminado             | Baixa      | Baixa        | CÓDIGO            | Corrigido (Fase 2) |
+| P27 | Logs não estruturados                  | Baixa      | Baixa        | CÓDIGO            | Corrigido (Fase 2) |
+| P28 | Parâmetros fixos                       | Baixa      | Baixa        | CÓDIGO            | Parcial (Fase 2)   |
 | P29 | CSP só por meta                        | Baixa      | Média        | CÓDIGO            | Pendente           |
 | P31 | Composer limitado                      | Baixa      | Média        | CÓDIGO            | Pendente           |
 | P32 | `<time>` sem `datetime`                | Baixa      | Baixa        | CÓDIGO            | Pendente           |
 | P33 | Nomes duplicados                       | Baixa      | Baixa        | CÓDIGO            | Pendente           |
 | P34 | Sem escala horizontal                  | Baixa      | Alta         | INFERIDO          | Pendente           |
 | P35 | Histórico 1000 vs 50                   | Baixa      | Baixa        | CÓDIGO            | Pendente           |
-| P36 | Backend sem tipos / CJS                | Baixa      | Baixa        | CÓDIGO            | Pendente           |
+| P36 | Backend sem tipos / CJS                | Baixa      | Baixa        | CÓDIGO            | Parcial (Fase 2)   |
 
 ---
 
@@ -1022,3 +1027,24 @@ envio itera só `connectedUsers`. Prioridade: Alta. Teste:
 - **M10 (modularização)** é mais urgente: `server.js` cresceu para 603 linhas. A
   suíte de integração trata o servidor como caixa-preta e serve de rede de proteção.
 - **M12 (CI completa)** deve ser a primeira tarefa da Fase 2.
+
+### Fase 2 — concluída em 2026-11-07
+
+| Melhoria                    | Situação             | Observação                                                                                                                    |
+| --------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| M09 Harness de testes       | Concluída            | 160 testes (backend 58 unidade + 64 integração; frontend 38), executados na CI.                                               |
+| M10 Modularizar o backend   | Concluída            | 12 módulos; `room/` sem dependência de rede; 0 ciclos; 55 testes da Fase 1 passaram sem alteração.                            |
+| M11 Contrato de protocolo   | Concluída com desvio | Um módulo por lado + teste de contrato (em vez de import compartilhado, que quebraria o modo sem build); `docs/PROTOCOLO.md`. |
+| M12 CI completa             | Concluída            | Backend, `npm test`, auditoria de produção bloqueante, auditoria completa informativa.                                        |
+| M14 Consolidar documentação | Concluída            | `CONTRIBUTING.md` na raiz; `read-model/` → `docs/historico/`.                                                                 |
+| M15 Parâmetros por ambiente | Concluída            | 8 variáveis novas com padrões idênticos aos anteriores. P28 parcial: teto ainda verificado após o handshake.                  |
+| M16 Observabilidade mínima  | Concluída            | `/healthz`; categorias de erro no log; `listen_failed`; omissão de campos sensíveis no logger.                                |
+| M28 Backend em ESM          | Concluída            | Checagem de tipos do backend aguarda aprovação de `@types/node`.                                                              |
+
+**Mudanças nas recomendações após a Fase 2**
+
+- **M08 (sessão retomável)** e **M20 (confirmação de entrega)** ficam mais baratas:
+  são mudanças localizadas em `room/room.js`, testáveis por unidade.
+- **M29 (escala horizontal)**, se um dia necessária, tem um ponto de extensão claro:
+  `deliver` e o estado de `room.js`.
+- **M13 (código morto)**: `chat_cleared` já foi removido; o restante continua em F4-04.

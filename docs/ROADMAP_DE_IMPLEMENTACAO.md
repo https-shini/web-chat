@@ -241,6 +241,24 @@ funciona. Nenhuma tarefa desta fase muda a aparência do produto.
 
 ## Fase 2 — Fundação técnica
 
+> **Status: concluída em 2026-11-07** — 7 tarefas concluídas e F2-04 parcial.
+> Detalhes em [`FASE_2_RELATORIO_DE_IMPLEMENTACAO.md`](./FASE_2_RELATORIO_DE_IMPLEMENTACAO.md).
+>
+> Desvios em relação ao plano abaixo:
+>
+> - **F2-03:** estrutura mais rasa que a planejada (`config`, `logger`, `errors`,
+>   `protocol`, `validation`, `rateLimiter`, `room/`, `transport/`); o ponto de
+>   entrada continua `src/server.js` (compatível com o comando de start existente).
+> - **F2-04:** ESM concluído; checagem de tipos do backend depende de aprovação para
+>   adicionar `@types/node`.
+> - **F2-05:** em vez de `shared/protocol.js` importado pelos dois lados (quebraria o
+>   frontend servido sem build e o backend publicável sozinho), um módulo de contrato
+>   em cada lado e um teste de contrato que os compara (inclui os `maxlength` do HTML).
+>   O formato de erro `{ type: "error", payload: { code, message } }` foi mantido.
+> - **F2-07:** `GET /` mantém `200 ok` além do novo `/healthz`; outros caminhos 404.
+> - **Extra:** removido o tratamento de `chat_cleared` no cliente (o servidor nunca o
+>   emitiu); porta ocupada passou a gerar `listen_failed` em vez de derrubar o processo.
+
 Objetivo: estrutura, padronização e automação que tornam as fases seguintes baratas.
 
 ### F2-01 — Testes unitários do frontend (M09)
@@ -712,54 +730,54 @@ quando houver mudança de mensagem.
 Atualize a coluna **Status** (`pendente` · `em andamento` · `concluída` · `adiada`)
 em cada PR.
 
-| ID    | Tarefa                                | Fase | Prioridade | Complexidade | Depende de   | Status    |
-| ----- | ------------------------------------- | ---- | ---------- | ------------ | ------------ | --------- |
-| F1-01 | Harness de testes do protocolo        | 1    | Crítica    | Média        | —            | concluída |
-| F1-02 | Configuração de ambiente coerente     | 1    | Alta       | Baixa        | F1-01        | concluída |
-| F1-03 | Validação de envelope e log seguro    | 1    | Alta       | Baixa        | F1-01        | concluída |
-| F1-04 | Login único e nome obrigatório        | 1    | Alta       | Baixa        | F1-03        | concluída |
-| F1-05 | Identidade pelo servidor (servidor)   | 1    | Crítica    | Média        | F1-04        | concluída |
-| F1-06 | Identidade pelo servidor (cliente)    | 1    | Crítica    | Baixa        | F1-05        | concluída |
-| F1-07 | Throttle de digitação                 | 1    | Alta       | Baixa        | F1-01        | concluída |
-| F1-08 | Baldes separados + `rate_limited`     | 1    | Alta       | Baixa        | F1-03        | concluída |
-| F1-09 | Feedback de mensagem recusada         | 1    | Alta       | Baixa        | F1-08        | concluída |
-| F1-10 | Preservar ids / mesclar histórico     | 1    | Alta       | Baixa        | F1-01        | concluída |
-| F1-11 | Heartbeat                             | 1    | Alta       | Baixa        | F1-01        | concluída |
-| F1-12 | Shutdown gracioso                     | 1    | Baixa      | Baixa        | F1-11        | concluída |
-| F2-01 | Testes unitários do frontend          | 2    | Alta       | Média        | F1-01        | pendente  |
-| F2-02 | CI completa                           | 2    | Alta       | Baixa        | F2-01        | pendente  |
-| F2-03 | Modularizar backend                   | 2    | Média      | Média        | F2-02        | pendente  |
-| F2-04 | Backend ESM + tipos                   | 2    | Baixa      | Baixa        | F2-03        | pendente  |
-| F2-05 | Protocolo compartilhado               | 2    | Média      | Média        | F2-04        | pendente  |
-| F2-06 | Parâmetros por ambiente               | 2    | Baixa      | Baixa        | F2-03        | pendente  |
-| F2-07 | Logger + `/healthz`                   | 2    | Baixa      | Baixa        | F2-03, V01   | pendente  |
-| F2-08 | Consolidar documentação               | 2    | Baixa      | Baixa        | —            | pendente  |
-| F3-01 | Build enxuto                          | 3    | Média      | Baixa        | V04          | pendente  |
-| F3-02 | Fontes auto-hospedadas                | 3    | Média      | Baixa        | F3-01        | pendente  |
-| F3-03 | Renderização seletiva                 | 3    | Baixa      | Baixa        | F2-01        | pendente  |
-| F3-04 | Limite de mensagens no cliente        | 3    | Baixa      | Baixa        | F1-10        | pendente  |
-| F3-05 | Alinhar buffer do servidor            | 3    | Baixa      | Baixa        | F2-06        | pendente  |
-| F4-01 | Sessão retomável                      | 4    | Média      | Média        | F1-06, F2-03 | pendente  |
-| F4-02 | Confirmação de entrega                | 4    | Média      | Média        | F1-10, F1-09 | pendente  |
-| F4-03 | Fila offline com aviso                | 4    | Baixa      | Baixa        | F2-01        | pendente  |
-| F4-04 | Limpeza de código morto               | 4    | Baixa      | Baixa        | F2-05        | pendente  |
-| F4-05 | Nomes distinguíveis                   | 4    | Baixa      | Baixa        | F1-05, V07   | pendente  |
-| F5-01 | Toasts anunciados                     | 5    | Alta       | Baixa        | —            | pendente  |
-| F5-02 | Indicador de mensagens novas          | 5    | Média      | Baixa        | F3-03        | pendente  |
-| F5-03 | `<time datetime>` + separador de data | 5    | Baixa      | Baixa        | —            | pendente  |
-| F5-04 | Contador no composer                  | 5    | Baixa      | Baixa        | F2-05        | pendente  |
-| F5-05 | Multilinha                            | 5    | Baixa      | Média        | V06, F2-07   | pendente  |
-| F5-06 | Auditoria a11y manual                 | 5    | Média      | Média        | F5-01..04    | pendente  |
-| F6-01 | `npm audit fix` transitivas           | 6    | Média      | Baixa        | F2-02        | pendente  |
-| F6-02 | Fixar Node                            | 6    | Baixa      | Baixa        | V05          | pendente  |
-| F6-03 | Vite major                            | 6    | Média      | Média        | F7-01, F6-01 | pendente  |
-| F6-04 | `ws` patch                            | 6    | Baixa      | Baixa        | F1-01        | pendente  |
-| F6-05 | Ferramentas de qualidade              | 6    | Baixa      | Média        | F2-02        | pendente  |
-| F7-01 | E2E Playwright                        | 7    | Alta       | Média        | F1-06        | pendente  |
-| F7-02 | Teste de carga                        | 7    | Média      | Média        | F2-06, F1-11 | pendente  |
-| F7-03 | Axe automatizado                      | 7    | Média      | Baixa        | F7-01        | pendente  |
-| F8-01 | Deploy declarativo + cabeçalhos       | 8    | Média      | Média        | V01, F2-07   | pendente  |
-| F8-02 | Anti-abuso local                      | 8    | Média      | Baixa        | F1-05        | pendente  |
-| F8-03 | Escala horizontal                     | 8    | Baixa      | Alta         | F2-03, F7-02 | pendente  |
-| F8-04 | PWA                                   | 8    | Baixa      | Média        | F3-01        | pendente  |
-| F8-05 | Menções e links                       | 8    | Baixa      | Média        | F4-05        | pendente  |
+| ID    | Tarefa                                | Fase | Prioridade | Complexidade | Depende de   | Status                             |
+| ----- | ------------------------------------- | ---- | ---------- | ------------ | ------------ | ---------------------------------- |
+| F1-01 | Harness de testes do protocolo        | 1    | Crítica    | Média        | —            | concluída                          |
+| F1-02 | Configuração de ambiente coerente     | 1    | Alta       | Baixa        | F1-01        | concluída                          |
+| F1-03 | Validação de envelope e log seguro    | 1    | Alta       | Baixa        | F1-01        | concluída                          |
+| F1-04 | Login único e nome obrigatório        | 1    | Alta       | Baixa        | F1-03        | concluída                          |
+| F1-05 | Identidade pelo servidor (servidor)   | 1    | Crítica    | Média        | F1-04        | concluída                          |
+| F1-06 | Identidade pelo servidor (cliente)    | 1    | Crítica    | Baixa        | F1-05        | concluída                          |
+| F1-07 | Throttle de digitação                 | 1    | Alta       | Baixa        | F1-01        | concluída                          |
+| F1-08 | Baldes separados + `rate_limited`     | 1    | Alta       | Baixa        | F1-03        | concluída                          |
+| F1-09 | Feedback de mensagem recusada         | 1    | Alta       | Baixa        | F1-08        | concluída                          |
+| F1-10 | Preservar ids / mesclar histórico     | 1    | Alta       | Baixa        | F1-01        | concluída                          |
+| F1-11 | Heartbeat                             | 1    | Alta       | Baixa        | F1-01        | concluída                          |
+| F1-12 | Shutdown gracioso                     | 1    | Baixa      | Baixa        | F1-11        | concluída                          |
+| F2-01 | Testes unitários do frontend          | 2    | Alta       | Média        | F1-01        | concluída                          |
+| F2-02 | CI completa                           | 2    | Alta       | Baixa        | F2-01        | concluída                          |
+| F2-03 | Modularizar backend                   | 2    | Média      | Média        | F2-02        | concluída                          |
+| F2-04 | Backend ESM + tipos                   | 2    | Baixa      | Baixa        | F2-03        | parcial (tipos aguardam aprovação) |
+| F2-05 | Protocolo compartilhado               | 2    | Média      | Média        | F2-04        | concluída                          |
+| F2-06 | Parâmetros por ambiente               | 2    | Baixa      | Baixa        | F2-03        | concluída                          |
+| F2-07 | Logger + `/healthz`                   | 2    | Baixa      | Baixa        | F2-03, V01   | concluída                          |
+| F2-08 | Consolidar documentação               | 2    | Baixa      | Baixa        | —            | concluída                          |
+| F3-01 | Build enxuto                          | 3    | Média      | Baixa        | V04          | pendente                           |
+| F3-02 | Fontes auto-hospedadas                | 3    | Média      | Baixa        | F3-01        | pendente                           |
+| F3-03 | Renderização seletiva                 | 3    | Baixa      | Baixa        | F2-01        | pendente                           |
+| F3-04 | Limite de mensagens no cliente        | 3    | Baixa      | Baixa        | F1-10        | pendente                           |
+| F3-05 | Alinhar buffer do servidor            | 3    | Baixa      | Baixa        | F2-06        | pendente                           |
+| F4-01 | Sessão retomável                      | 4    | Média      | Média        | F1-06, F2-03 | pendente                           |
+| F4-02 | Confirmação de entrega                | 4    | Média      | Média        | F1-10, F1-09 | pendente                           |
+| F4-03 | Fila offline com aviso                | 4    | Baixa      | Baixa        | F2-01        | pendente                           |
+| F4-04 | Limpeza de código morto               | 4    | Baixa      | Baixa        | F2-05        | pendente                           |
+| F4-05 | Nomes distinguíveis                   | 4    | Baixa      | Baixa        | F1-05, V07   | pendente                           |
+| F5-01 | Toasts anunciados                     | 5    | Alta       | Baixa        | —            | pendente                           |
+| F5-02 | Indicador de mensagens novas          | 5    | Média      | Baixa        | F3-03        | pendente                           |
+| F5-03 | `<time datetime>` + separador de data | 5    | Baixa      | Baixa        | —            | pendente                           |
+| F5-04 | Contador no composer                  | 5    | Baixa      | Baixa        | F2-05        | pendente                           |
+| F5-05 | Multilinha                            | 5    | Baixa      | Média        | V06, F2-07   | pendente                           |
+| F5-06 | Auditoria a11y manual                 | 5    | Média      | Média        | F5-01..04    | pendente                           |
+| F6-01 | `npm audit fix` transitivas           | 6    | Média      | Baixa        | F2-02        | pendente                           |
+| F6-02 | Fixar Node                            | 6    | Baixa      | Baixa        | V05          | pendente                           |
+| F6-03 | Vite major                            | 6    | Média      | Média        | F7-01, F6-01 | pendente                           |
+| F6-04 | `ws` patch                            | 6    | Baixa      | Baixa        | F1-01        | pendente                           |
+| F6-05 | Ferramentas de qualidade              | 6    | Baixa      | Média        | F2-02        | pendente                           |
+| F7-01 | E2E Playwright                        | 7    | Alta       | Média        | F1-06        | pendente                           |
+| F7-02 | Teste de carga                        | 7    | Média      | Média        | F2-06, F1-11 | pendente                           |
+| F7-03 | Axe automatizado                      | 7    | Média      | Baixa        | F7-01        | pendente                           |
+| F8-01 | Deploy declarativo + cabeçalhos       | 8    | Média      | Média        | V01, F2-07   | pendente                           |
+| F8-02 | Anti-abuso local                      | 8    | Média      | Baixa        | F1-05        | pendente                           |
+| F8-03 | Escala horizontal                     | 8    | Baixa      | Alta         | F2-03, F7-02 | pendente                           |
+| F8-04 | PWA                                   | 8    | Baixa      | Média        | F3-01        | pendente                           |
+| F8-05 | Menções e links                       | 8    | Baixa      | Média        | F4-05        | pendente                           |

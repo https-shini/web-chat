@@ -1,6 +1,7 @@
 # Inventário técnico · web-chat
 
-> Fotografia do repositório em 2026-11-07 (commit `34b523c`). Todos os dados foram
+> Fotografia do repositório em 2026-11-07, **atualizada ao fim da Fase 2**. A
+> fotografia original (commit `34b523c`) foi tirada antes das Fases 1 e 2. Todos os dados foram
 > extraídos dos arquivos do projeto ou de comandos executados sobre ele
 > (`npm outdated`, `npm audit`, `vite build`, `wc -l`). Para diagnóstico e
 > recomendações, ver [`ANALISE_E_PLANO_DE_MELHORIAS.md`](./ANALISE_E_PLANO_DE_MELHORIAS.md).
@@ -14,10 +15,10 @@
 | Nome              | `web-chat` (raiz) / `backend` (servidor)                      |
 | Versão            | `1.0.0` em ambos os `package.json`                            |
 | Descrição         | Chat em tempo real de sala única, efêmera e anônima           |
-| Licença           | MIT (`LICENSE`; cópia em `read-model/LICENSE`)                |
+| Licença           | MIT (`LICENSE`; cópia histórica em `docs/historico/LICENSE`)  |
 | Repositório       | `https-shini/web-chat` (GitHub)                               |
 | Idioma do código  | JavaScript (ES2022), CSS, HTML; textos e comentários em pt-BR |
-| Commits no branch | 50                                                            |
+| Commits no branch | 50 na análise inicial                                         |
 
 ## 2. Linguagens e volume
 
@@ -36,40 +37,39 @@
 ```
 web-chat/
 ├── .github/workflows/
-│   ├── ci.yml                  format → lint JS → lint CSS → tipos → contraste → build
+│   ├── ci.yml                  format → lint → CSS → tipos → contraste → build → testes → auditoria
 │   └── codeql.yml              CodeQL (security-extended), push/PR em main + semanal
-├── backend/
-│   ├── package.json            ws, dotenv; scripts start/dev
-│   ├── package-lock.json
-│   └── src/server.js           servidor HTTP + WebSocket (CommonJS)
+├── backend/                    ESM ("type": "module")
+│   ├── package.json            ws, dotenv; scripts start/dev/test
+│   ├── src/
+│   │   ├── server.js           ponto de entrada (bootstrap)
+│   │   ├── config.js, logger.js, errors.js, protocol.js, validation.js, rateLimiter.js
+│   │   ├── room/               room.js (regras da sala), sessions.js (identidades)
+│   │   └── transport/          chatServer.js, connection.js, http.js
+│   └── test/
+│       ├── unit/               7 arquivos, 58 testes
+│       └── integration/        helpers.js + 8 arquivos, 64 testes
 ├── docs/
-│   ├── ANALISE_E_PLANO_DE_MELHORIAS.md
-│   ├── ROADMAP_DE_IMPLEMENTACAO.md
-│   ├── INVENTARIO_TECNICO.md   (este arquivo)
-│   ├── design-system.md        plano do design system (tokens, contraste)
-│   ├── refactor-report.md      antes → depois da refatoração do frontend
-│   └── security-report.md      auditoria de segurança (2 rodadas)
+│   ├── ANALISE_E_PLANO_DE_MELHORIAS.md, ROADMAP_DE_IMPLEMENTACAO.md, INVENTARIO_TECNICO.md
+│   ├── FASE_1_RELATORIO_DE_IMPLEMENTACAO.md, FASE_2_RELATORIO_DE_IMPLEMENTACAO.md
+│   ├── PROTOCOLO.md            contrato do WebSocket
+│   ├── design-system.md, refactor-report.md, security-report.md
+│   └── historico/              documentação anterior à refatoração (só registro)
 ├── frontend/
 │   ├── index.html              raiz do Vite, CSP, bootstrap de tema
 │   ├── public/images/          favicon.ico + 7 PNGs não referenciadas
-│   └── src/
-│       ├── main.js             raiz de composição
-│       ├── config.js           URL do WS, reconexão, limites, tempos
-│       ├── a11y/announce.js
-│       ├── i18n/strings.js
-│       ├── state/              store.js, events.js, typing.js
-│       ├── transport/socket.js
-│       ├── ui/                 14 componentes
-│       └── css/                index.css, tokens.css, base/ (4), components/ (17)
-├── read-model/                 documentação histórica (MODEL, STRUCTURE, evolucao, CONTRIBUTING, LICENSE)
-├── scripts/
-│   ├── dev.mjs                 sobe backend + frontend
-│   ├── check-contrast.mjs      mede pares de contraste de tokens.css
-│   └── contrast.pairs.json     42 pares declarados
-├── .env.example                VITE_SOCKET_URL, ALLOWED_ORIGINS
+│   ├── src/
+│   │   ├── main.js, config.js, protocol.js, socketUrl.js
+│   │   ├── a11y/, i18n/, state/, transport/, ui/ (14 componentes)
+│   │   └── css/                index.css, tokens.css, base/ (4), components/ (17)
+│   └── test/                   7 arquivos, 38 testes
+├── read-model/README.md        aviso: conteúdo movido (F2-08)
+├── scripts/                    dev.mjs, check-contrast.mjs, contrast.pairs.json
+├── .env.example                variáveis do frontend e do backend (lido da raiz)
+├── CONTRIBUTING.md
 ├── eslint.config.js, .stylelintrc.json, .prettierrc.json, .prettierignore
 ├── jsconfig.json               checagem de tipos (somente frontend/src)
-├── vite.config.js
+├── vite.config.js              envDir na raiz; valida VITE_SOCKET_URL
 ├── package.json, package-lock.json
 ├── README.md, LICENSE
 ```
@@ -122,16 +122,27 @@ backend.
 
 ## 5. Variáveis de ambiente
 
-| Variável          | Lida por                   | Momento          | Default                             | Onde é lida de fato                     |
-| ----------------- | -------------------------- | ---------------- | ----------------------------------- | --------------------------------------- |
-| `VITE_SOCKET_URL` | `frontend/src/config.js`   | Build/dev (Vite) | `ws(s)://<hostname da página>:8080` | `frontend/.env*` (envDir = `frontend/`) |
-| `ALLOWED_ORIGINS` | `backend/src/server.js:14` | Inicialização    | vazio → qualquer origem aceita      | Ambiente do processo ou `backend/.env`  |
-| `PORT`            | `backend/src/server.js:51` | Inicialização    | `8080`                              | Ambiente do processo ou `backend/.env`  |
+Arquivo: `.env` na **raiz** (exemplo em `.env.example`). Backend: ambiente do
+processo > `.env` da raiz > `backend/.env` (compatibilidade). Leitura e validação em
+`backend/src/config.js`; frontend em `vite.config.js` e `frontend/src/config.js`.
 
-> **Atualizado após a Fase 1:** frontend e backend leem o `.env` da **raiz**
-> (backend: ambiente do processo > raiz > `backend/.env`). Nova variável
-> `HEARTBEAT_MS` (padrão 30000). `PORT`, `ALLOWED_ORIGINS` e `VITE_SOCKET_URL` são
-> validadas. A coluna "Onde é lida de fato" acima descreve o estado anterior.
+| Variável                 | Lado     | Padrão                             | Validação                                        |
+| ------------------------ | -------- | ---------------------------------- | ------------------------------------------------ |
+| `VITE_SOCKET_URL`        | Frontend | `ws(s)://<host da página>:8080`    | `ws://` ou `wss://`, senão o build falha         |
+| `ALLOWED_ORIGINS`        | Backend  | vazio (qualquer origem, com aviso) | Cada entrada é uma origem http(s) sem caminho    |
+| `PORT`                   | Backend  | `8080`                             | Inteiro 0–65535                                  |
+| `HEARTBEAT_MS`           | Backend  | `30000`                            | Inteiro ≥ 50                                     |
+| `MAX_CONNECTIONS`        | Backend  | `500`                              | Inteiro ≥ 1                                      |
+| `MAX_PAYLOAD_BYTES`      | Backend  | `16384`                            | 8192–1048576                                     |
+| `RATE_MESSAGES_CAPACITY` | Backend  | `40`                               | Inteiro ≥ 1                                      |
+| `RATE_MESSAGES_PER_SEC`  | Backend  | `8`                                | Inteiro ≥ 1                                      |
+| `RATE_SIGNALS_CAPACITY`  | Backend  | `40`                               | Inteiro ≥ 1                                      |
+| `RATE_SIGNALS_PER_SEC`   | Backend  | `8`                                | Inteiro ≥ 1                                      |
+| `HISTORY_SIZE`           | Backend  | `1000`                             | 1–100000                                         |
+| `HISTORY_ON_JOIN`        | Backend  | `50`                               | 0–1000 e ≤ `HISTORY_SIZE`                        |
+| `NODE_ENV`               | Backend  | —                                  | `production` eleva o aviso de allowlist a `warn` |
+
+Configuração inválida: linha `config_invalid` com a variável e saída com código 1.
 
 ## 6. Scripts
 
@@ -158,10 +169,11 @@ no backend, `test` = `node --test test/*.test.js`.
 
 ### Backend
 
-| Script  | Comando                      |
-| ------- | ---------------------------- |
-| `start` | `node src/server.js`         |
-| `dev`   | `node --watch src/server.js` |
+| Script  | Comando                                                      |
+| ------- | ------------------------------------------------------------ |
+| `start` | `node src/server.js`                                         |
+| `dev`   | `node --watch src/server.js`                                 |
+| `test`  | `node --test test/unit/*.test.js test/integration/*.test.js` |
 
 ## 7. Módulos do frontend
 
@@ -190,31 +202,36 @@ no backend, `test` = `node --test test/*.test.js`.
 | `ui/empty.js`         |     20 | `createEmpty`                                                      | Estado vazio                                                                                       |
 | `ui/themeToggle.js`   |     64 | `createThemeToggle`                                                | Alternância de tema                                                                                |
 
-## 8. Backend — elementos de `server.js`
+## 8. Módulos do backend
 
-| Elemento                | Linha | Valor / descrição                            |
-| ----------------------- | ----: | -------------------------------------------- |
-| `allowedOrigins`        |    14 | De `ALLOWED_ORIGINS`, separado por vírgula   |
-| `MAX_TOTAL_CONNECTIONS` |    22 | 500 (fecha com 1013 acima disso)             |
-| `httpServer`            |    31 | 200 `ok` para qualquer requisição            |
-| `maxPayload`            |    41 | 16 KiB (fecha com 1009 acima disso)          |
-| `verifyClient`          |    42 | Só ativo se houver allowlist; recusa com 403 |
-| `connectedUsers`        |    54 | `Map<WebSocket, {id, name, ws}>`             |
-| `messageHistory`        |    55 | Array, máx. 1000; envia 50 no login          |
-| `typingUsers`           |    56 | `Set` — escrito, nunca lido                  |
-| `normalizeText`         |    89 | Remove `\x00-\x1f\x7f`, `trim`, `slice`      |
-| `RATE_LIMIT_*`          |   106 | Capacidade 40, reposição 8/s, por conexão    |
-| Limites de texto        |  160+ | `userId` 100, `userName` 30, `content` 1000  |
+| Módulo                    | Exporta                                                                                                          | Depende de                           | Papel                                               |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------ | --------------------------------------------------- |
+| `server.js`               | —                                                                                                                | config, logger, transport/chatServer | Bootstrap: `.env`, configuração, sinais, `listen`   |
+| `config.js`               | `loadEnvFiles`, `loadConfig`, `ConfigError`, `DEFAULTS`                                                          | `dotenv`                             | Configuração validada (função pura)                 |
+| `logger.js`               | `createLogger`                                                                                                   | —                                    | JSON por linha; omite campos sensíveis              |
+| `errors.js`               | `ERROR_CODES`, `ERROR_CATEGORIES`, `describeError`, `logLevelFor`                                                | —                                    | Catálogo de erros                                   |
+| `protocol.js`             | `LIMITS`, `CLIENT_EVENTS`, `SERVER_EVENTS`, `isSignal`, `parseEnvelope`, `errorCodeForEnvelope`, `serverMessage` | errors                               | Contrato do protocolo                               |
+| `validation.js`           | `normalizeText`, `readName`, `readContent`, `readResumeToken`                                                    | errors, protocol                     | Validação de campos                                 |
+| `rateLimiter.js`          | `createRateLimiter`                                                                                              | —                                    | Balde de fichas (relógio injetável)                 |
+| `room/sessions.js`        | `createIdentityStore`, `RESUME_TTL_MS`, `MAX_RELEASED_IDENTITIES`                                                | `node:crypto`                        | Identidades e tokens de retomada (só hash guardado) |
+| `room/room.js`            | `createRoom`                                                                                                     | errors, protocol, validation         | Regras da sala; sem rede                            |
+| `transport/connection.js` | `createConnectionHandler`, `RATE_LIMIT_NOTICE_INTERVAL_MS`                                                       | errors, protocol, rateLimiter        | Limites, envelope, encaminhamento, erros            |
+| `transport/http.js`       | `createHttpHandler`                                                                                              | —                                    | `/`, `/healthz`, 404, 405                           |
+| `transport/chatServer.js` | `createChatServer`, `SHUTDOWN_TIMEOUT_MS`                                                                        | `ws`, room/_, transport/_            | Composição, heartbeat, desligamento                 |
+
+Constantes fixas (não configuráveis): `LIMITS` (nome 30, mensagem 1000, token 100),
+`RESUME_TTL_MS` (10 min), `MAX_RELEASED_IDENTITIES` (2000),
+`RATE_LIMIT_NOTICE_INTERVAL_MS` (1000), `SHUTDOWN_TIMEOUT_MS` (5000).
 
 ## 9. Protocolo WebSocket
 
-Formato: JSON `{ "type": string, "payload": any }` (mensagens de chat do servidor
-têm também `id` no topo). Tabela completa em
-[`ANALISE_E_PLANO_DE_MELHORIAS.md` §3.3](./ANALISE_E_PLANO_DE_MELHORIAS.md#33-protocolo-websocket-contrato-implícito).
+Documentado em [`PROTOCOLO.md`](./PROTOCOLO.md). Fontes: `backend/src/protocol.js` +
+`errors.js` e o espelho `frontend/src/protocol.js`, comparados por
+`backend/test/unit/contract.test.js`.
 
-| Cliente → servidor                                          | Servidor → cliente                                                                                 |
-| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `user_login`, `chat_message`, `typing_start`, `typing_stop` | `message_history`, `chat_message`, `user_joined`, `user_left`, `user_list`, `user_typing`, `error` |
+| Cliente → servidor                                          | Servidor → cliente                                                                                            |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `user_login`, `chat_message`, `typing_start`, `typing_stop` | `session`, `message_history`, `chat_message`, `user_joined`, `user_left`, `user_list`, `user_typing`, `error` |
 
 ## 10. Integrações e infraestrutura
 
@@ -231,18 +248,18 @@ têm também `id` no topo). Tabela completa em
 
 ## 11. Qualidade e verificação existentes
 
-| Verificação                   | Ferramenta                                                       | Resultado em 2026-11-07                                                  |
-| ----------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| Formatação                    | Prettier                                                         | ✅ passa                                                                 |
-| Lint JS                       | ESLint (proíbe `innerHTML`, `outerHTML`, `insertAdjacentHTML`)   | ✅ passa                                                                 |
-| Lint CSS                      | Stylelint (BEM, tokens, sem hex/rgb/`!important` em componentes) | ✅ passa                                                                 |
-| Tipos                         | `tsc` (JSDoc, `strict`, `noUncheckedIndexedAccess`)              | ✅ passa                                                                 |
-| Contraste                     | `scripts/check-contrast.mjs` (42 pares, 2 temas)                 | ✅ todos passam                                                          |
-| Build                         | Vite                                                             | ✅ `dist/` 1,9 MB (HTML 10 KB, JS 13,9 KB, CSS 17,6 KB, imagens ~1,8 MB) |
-| Testes automatizados          | `node:test`                                                      | ✅ 78 após a Fase 1 (55 backend + 23 frontend)                           |
-| `npm audit` backend           | npm                                                              | ✅ 0                                                                     |
-| `npm audit` raiz              | npm                                                              | ⚠️ 7 (dev)                                                               |
-| Análise estática de segurança | CodeQL                                                           | Configurada (resultado não acessível nesta análise)                      |
+| Verificação                   | Ferramenta                                                       | Resultado em 2026-11-07                                                       |
+| ----------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Formatação                    | Prettier                                                         | ✅ passa                                                                      |
+| Lint JS                       | ESLint (proíbe `innerHTML`, `outerHTML`, `insertAdjacentHTML`)   | ✅ passa                                                                      |
+| Lint CSS                      | Stylelint (BEM, tokens, sem hex/rgb/`!important` em componentes) | ✅ passa                                                                      |
+| Tipos                         | `tsc` (JSDoc, `strict`, `noUncheckedIndexedAccess`)              | ✅ passa                                                                      |
+| Contraste                     | `scripts/check-contrast.mjs` (42 pares, 2 temas)                 | ✅ todos passam                                                               |
+| Build                         | Vite                                                             | ✅ `dist/` 1,9 MB (HTML 10 KB, JS 13,9 KB, CSS 17,6 KB, imagens ~1,8 MB)      |
+| Testes automatizados          | `node:test`                                                      | ✅ 160 após a Fase 2 (backend 58 unidade + 64 integração; frontend 38), na CI |
+| `npm audit` backend           | npm                                                              | ✅ 0                                                                          |
+| `npm audit` raiz              | npm                                                              | ⚠️ 7 (dev)                                                                    |
+| Análise estática de segurança | CodeQL                                                           | Configurada (resultado não acessível nesta análise)                           |
 
 ## 12. Navegadores e plataforma
 

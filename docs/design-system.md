@@ -1,7 +1,8 @@
 # Design system · web-chat
 
-> **Estado:** proposta do Portão 1. Nada aqui foi codado ainda — este documento é o
-> contrato que a Etapa 2 executa.
+> **Estado:** implementado. Este documento nasceu como a proposta do Portão 1 e foi
+> executado na refatoração do frontend (ver `docs/refactor-report.md`); os tokens
+> descritos aqui são os de `frontend/src/css/tokens.css`.
 > **Todo ratio nesta página foi medido**, não estimado, por `scripts/check-contrast.mjs`
 > (Anexo A da especificação) rodando sobre o `tokens.css` da §2. Saída completa em §6.
 
