@@ -1,0 +1,86 @@
+# Infraestrutura do Chat no Render (Blueprint).
+#
+# Descreve os dois serviços que já existem no painel do Render, para que a
+# configuração fique versionada e revisável. Este arquivo NÃO é aplicado
+# sozinho: só passa a valer quando um Blueprint é criado (ou sincronizado) no
+# Render apontando para ele. Antes de aplicar, revise o plano de mudanças no
+# painel. Guia: docs/DEPLOY_RENDER.md.
+#
+# Segredos nunca entram aqui: variáveis com `sync: false` são preenchidas no
+# painel. Os valores que aparecem abaixo são públicos (endereços do próprio
+# serviço).
+
+services:
+    # ─── Backend: servidor WebSocket (Node) ──────────────────────────────
+    - type: web
+      name: chat-backend
+      runtime: node
+      plan: free
+      region: oregon
+      branch: main
+      rootDir: backend
+      # `npm ci` respeita o package-lock.json; sem dependências de desenvolvimento.
+      buildCommand: npm ci --omit=dev
+      startCommand: npm start
+      # Liveness: o processo responde. Não use /readyz aqui: ele responde 503
+      # quando a sala está cheia, e o Render reiniciaria o serviço justamente
+      # no pico de uso.
+      healthCheckPath: /healthz
+      autoDeployTrigger: commit
+      envVars:
+          # Mesma versão do CI (.github/workflows/ci.yml).
+          - key: NODE_VERSION
+            value: "22"
+          # Só navegadores vindos do frontend oficial abrem o WebSocket.
+          # Conexões sem cabeçalho Origin também são recusadas. Para outro
+          # domínio, acrescente-o separado por vírgula (origem completa:
+          # esquema + host [+ porta], sem barra final e sem curinga).
+          - key: ALLOWED_ORIGINS
+            value: https://chat-frontend-g42t.onrender.com
+          # Chave de administração (/admin). Segredo: definida só no painel.
+          - key: ADMIN_KEY
+            sync: false
+
+    # ─── Frontend: site estático (Vite) ──────────────────────────────────
+    - type: web
+      name: chat-frontend
+      runtime: static
+      branch: main
+      buildCommand: npm ci && npm run build
+      staticPublishPath: ./dist
+      autoDeployTrigger: commit
+      envVars:
+          - key: NODE_VERSION
+            value: "22"
+          # Embutido no JavaScript no momento do build (público por natureza).
+          - key: VITE_SOCKET_URL
+            value: wss://chat-backend-3sxv.onrender.com
+      headers:
+          # CSP como cabeçalho HTTP: é o único jeito de `frame-ancestors`
+          # valer (no <meta> ele é ignorado). Espelha a CSP do index.html, com
+          # o WebSocket restrito ao backend oficial. O hash é o do script de
+          # tema inline — se o script mudar, o hash muda aqui e no HTML.
+          - path: /*
+            name: Content-Security-Policy
+            value: "default-src 'self'; script-src 'self' 'sha256-Fi5GNExRuHFNJT41G5L8f9zpBwwJ0I4ywQTVAiJUGhs='; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; connect-src 'self' wss://chat-backend-3sxv.onrender.com; base-uri 'self'; form-action 'self'; object-src 'none'; frame-ancestors 'none'"
+          # Navegadores antigos que não conhecem frame-ancestors.
+          - path: /*
+            name: X-Frame-Options
+            value: DENY
+          - path: /*
+            name: X-Content-Type-Options
+            value: nosniff
+          - path: /*
+            name: Referrer-Policy
+            value: strict-origin-when-cross-origin
+          # O chat não usa câmera, microfone, localização nem pagamentos.
+          - path: /*
+            name: Permissions-Policy
+            value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()"
+          # Arquivos com hash no nome nunca mudam; o index.html sempre é revalidado.
+          - path: /assets/*
+            name: Cache-Control
+            value: public, max-age=31536000, immutable
+          - path: /index.html
+            name: Cache-Control
+            value: no-cache
