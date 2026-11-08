@@ -183,87 +183,187 @@
             <main class="c-main" id="conteudo" tabindex="-1">
                 <!-- ─── Entrada ─────────────────────────────────────────── -->
                 <section class="c-entry" aria-labelledby="entrada-titulo">
-                    <div class="c-entry__card">
-                        <span class="c-brand c-brand--large">
+                    <!-- Apresentação: o que é o produto, em três diferenciais reais. -->
+                    <div class="c-entry__showcase">
+                        <span class="c-brand c-brand--large c-entry__brand">
                             <span class="c-brand__logo" data-icon="logo"></span>
                             <span class="c-brand__name">web-chat</span>
                         </span>
-                        <h1 class="c-entry__title" id="entrada-titulo">
-                            Boas-vindas à sala aberta
-                        </h1>
-                        <p class="c-entry__subtitle">
-                            Ninguém sabe quem você é. Escolha um nome e entre na conversa.
-                        </p>
 
-                        <form class="c-entry__form" novalidate>
-                            <div class="c-field">
-                                <label class="c-field__label" for="campo-nome">Nome completo</label>
-                                <input
-                                    class="c-field__input"
-                                    id="campo-nome"
-                                    name="nome"
-                                    type="text"
-                                    maxlength="60"
-                                    autocomplete="name"
-                                    enterkeyhint="next"
-                                    aria-describedby="campo-nome-erro campo-nome-ajuda"
-                                />
-                                <p class="c-field__hint" id="campo-nome-ajuda">
-                                    Como as pessoas vão ver você. Dá para trocar depois com /nick.
-                                </p>
-                                <p class="c-field__error" id="campo-nome-erro" role="alert"></p>
-                            </div>
+                        <div class="c-entry__pitch">
+                            <p class="c-entry__eyebrow">Sala aberta · tempo real</p>
+                            <h1 class="c-entry__headline" id="entrada-titulo">
+                                Converse agora. Sem cadastro, sem rastro.
+                            </h1>
+                            <p class="c-entry__lead">
+                                Escolha como quer aparecer e entre na conversa em segundos.
+                            </p>
+                        </div>
 
-                            <div class="c-field">
-                                <label class="c-field__label" for="campo-username"
-                                    >Nome de usuário</label
-                                >
-                                <div class="c-field__affix">
-                                    <span class="c-field__prefix" aria-hidden="true">@</span>
-                                    <input
-                                        class="c-field__input c-field__input--affixed"
-                                        id="campo-username"
-                                        name="username"
-                                        type="text"
-                                        maxlength="21"
-                                        autocomplete="off"
-                                        autocapitalize="none"
-                                        spellcheck="false"
-                                        enterkeyhint="go"
-                                        aria-describedby="campo-username-erro campo-username-ajuda"
-                                    />
-                                </div>
-                                <p class="c-field__hint" id="campo-username-ajuda">
-                                    Único na sala. De 3 a 20 caracteres: letras minúsculas, números,
-                                    ponto ou _. Fica livre quando você sai.
-                                </p>
-                                <p class="c-field__error" id="campo-username-erro" role="alert"></p>
-                            </div>
+                        <ul class="c-entry__features">
+                            <li class="c-entry__feature">
+                                <span class="c-entry__feature-icon" data-icon="shield"></span>
+                                <span class="c-entry__feature-text">
+                                    <strong>Sem conta e sem senha.</strong>
+                                    <span class="c-entry__feature-detail"
+                                        >Um nome e um @ temporário bastam.</span
+                                    >
+                                </span>
+                            </li>
+                            <li class="c-entry__feature">
+                                <span class="c-entry__feature-icon" data-icon="clock"></span>
+                                <span class="c-entry__feature-text">
+                                    <strong>Temporário de verdade.</strong>
+                                    <span class="c-entry__feature-detail"
+                                        >Nada fica guardado: a conversa some quando o servidor
+                                        reinicia.</span
+                                    >
+                                </span>
+                            </li>
+                            <li class="c-entry__feature">
+                                <span class="c-entry__feature-icon" data-icon="terminal"></span>
+                                <span class="c-entry__feature-text">
+                                    <strong>Comandos com /.</strong>
+                                    <span class="c-entry__feature-detail"
+                                        >/me, /roll, /afk e outros, direto no campo de
+                                        mensagem.</span
+                                    >
+                                </span>
+                            </li>
+                        </ul>
 
-                            <button
-                                type="submit"
-                                class="c-button c-button--primary c-button--block"
+                        <p class="c-entry__credit">
+                            Projeto de
+                            <a
+                                class="c-entry__credit-link"
+                                href="https://gcruz.dev.br"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                >Guilherme Cruz<span class="sr-only"> (abre em nova aba)</span></a
                             >
-                                Entrar
-                            </button>
-                        </form>
-
-                        <p class="c-entry__note">
-                            <span data-icon="info"></span>
-                            A conversa vive só na memória do servidor e some quando ele reinicia.
                         </p>
                     </div>
 
-                    <button
-                        type="button"
-                        class="c-icon-button c-theme-toggle c-entry__theme"
-                        data-theme-toggle
-                        aria-pressed="false"
-                        aria-label="Mudar para tema claro"
-                        data-tooltip="Mudar para tema claro"
-                    >
-                        <span class="c-theme-toggle__icon" data-icon="theme"></span>
-                    </button>
+                    <!-- Formulário: só o necessário para entrar. -->
+                    <div class="c-entry__panel">
+                        <button
+                            type="button"
+                            class="c-icon-button c-theme-toggle c-entry__theme"
+                            data-theme-toggle
+                            aria-pressed="false"
+                            aria-label="Mudar para tema claro"
+                            data-tooltip="Mudar para tema claro"
+                        >
+                            <span class="c-theme-toggle__icon" data-icon="theme"></span>
+                        </button>
+
+                        <div class="c-entry__form-wrap">
+                            <h2 class="c-entry__title" id="entrada-form-titulo">Entrar na sala</h2>
+                            <p class="c-entry__subtitle">Como as pessoas vão ver você.</p>
+
+                            <form
+                                class="c-entry__form"
+                                novalidate
+                                aria-labelledby="entrada-form-titulo"
+                            >
+                                <div class="c-field">
+                                    <label
+                                        class="c-field__label c-field__label--plain"
+                                        for="campo-nome"
+                                        >Nome completo</label
+                                    >
+                                    <input
+                                        class="c-field__input c-field__input--large"
+                                        id="campo-nome"
+                                        name="nome"
+                                        type="text"
+                                        maxlength="60"
+                                        autocomplete="name"
+                                        enterkeyhint="next"
+                                        placeholder="Ex.: Ana Carolina Souza"
+                                        aria-describedby="campo-nome-erro"
+                                    />
+                                    <p class="c-field__error" id="campo-nome-erro" role="alert"></p>
+                                </div>
+
+                                <div class="c-field">
+                                    <label
+                                        class="c-field__label c-field__label--plain"
+                                        for="campo-username"
+                                        >Nome de usuário</label
+                                    >
+                                    <div class="c-field__affix">
+                                        <span class="c-field__prefix" aria-hidden="true">@</span>
+                                        <input
+                                            class="c-field__input c-field__input--large c-field__input--affixed"
+                                            id="campo-username"
+                                            name="username"
+                                            type="text"
+                                            maxlength="21"
+                                            autocomplete="off"
+                                            autocapitalize="none"
+                                            spellcheck="false"
+                                            enterkeyhint="go"
+                                            placeholder="ana.souza"
+                                            aria-describedby="campo-username-ajuda campo-username-erro"
+                                        />
+                                    </div>
+                                    <p
+                                        class="c-field__hint c-entry__username-hint"
+                                        id="campo-username-ajuda"
+                                    >
+                                        Único na sala. Letras minúsculas, números, ponto ou _.
+                                    </p>
+                                    <p
+                                        class="c-field__error"
+                                        id="campo-username-erro"
+                                        role="alert"
+                                    ></p>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    class="c-button c-button--primary c-button--block c-button--large c-entry__submit"
+                                >
+                                    <span class="c-spinner" aria-hidden="true" hidden></span>
+                                    <span class="c-entry__submit-label">Entrar na sala</span>
+                                    <span class="c-entry__submit-icon" data-icon="arrow-in"></span>
+                                </button>
+
+                                <!-- Progresso da conexão enquanto o servidor não confirma. -->
+                                <div
+                                    class="c-entry__status"
+                                    role="status"
+                                    aria-live="polite"
+                                    hidden
+                                >
+                                    <p class="c-entry__status-title"></p>
+                                    <p class="c-entry__status-body"></p>
+                                    <div class="c-entry__status-actions">
+                                        <button
+                                            type="button"
+                                            class="c-button c-button--secondary c-button--sm c-entry__retry"
+                                            hidden
+                                        >
+                                            Tentar de novo
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="c-button c-button--ghost c-button--sm c-entry__cancel"
+                                        >
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+
+                            <p class="c-entry__privacy">
+                                <span data-icon="info"></span>
+                                Seu @ fica livre assim que você sai. Dá para trocar o nome depois
+                                com /nick.
+                            </p>
+                        </div>
+                    </div>
                 </section>
 
                 <!-- ─── Sala ────────────────────────────────────────────── -->

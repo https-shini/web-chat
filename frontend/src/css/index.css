@@ -26,6 +26,7 @@
 @import url("./components/button.css");
 @import url("./components/field.css");
 @import url("./components/avatar.css");
+@import url("./components/spinner.css");
 
 /* casca e navegação */
 @import url("./components/app-shell.css");

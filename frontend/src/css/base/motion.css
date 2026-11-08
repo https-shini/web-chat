@@ -70,6 +70,12 @@
     }
 }
 
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 @keyframes shimmer {
     from {
         opacity: 0.55;
@@ -89,6 +95,7 @@
 @media (prefers-reduced-motion: reduce) {
     /* Parado, o estado continua legível por texto e por forma. */
     .c-typing__dot,
+    .c-spinner,
     .c-skeleton__row,
     .c-connection__dot,
     .c-status-pill__dot {

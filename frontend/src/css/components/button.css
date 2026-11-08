@@ -88,6 +88,13 @@
     width: 100%;
 }
 
+/* Ação principal de uma tela (entrada): mais alta e com texto maior. */
+.c-button--large {
+    min-height: var(--space-12);
+    padding: var(--space-3) var(--space-5);
+    font-size: var(--text-md);
+}
+
 .c-button[data-loading="true"] {
     cursor: progress;
     opacity: 0.8;

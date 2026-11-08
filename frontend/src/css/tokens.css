@@ -285,6 +285,7 @@
     --text-xl: 1.25rem; /* 20px — título de painel */
     --text-2xl: 1.5rem; /* 24px — título de página */
     --text-3xl: 2rem; /* 32px — título de destaque */
+    --text-4xl: 2.75rem; /* 44px — manchete da tela de entrada */
     --weight-regular: 400;
     --weight-medium: 500;
     --weight-semibold: 600;

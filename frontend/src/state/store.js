@@ -70,6 +70,7 @@
 /**
  * @typedef {object} State
  * @property {"entry" | "room"} screen
+ * @property {boolean} joining  pediu para entrar e espera o servidor confirmar (na tela de entrada)
  * @property {Person | null} me
  * @property {"member" | "admin"} role
  * @property {Message[]} messages
@@ -92,6 +93,7 @@ const HIDDEN_LIMIT = 2000;
 /** @returns {State} */
 const initialState = () => ({
     screen: "entry",
+    joining: false,
     me: null,
     role: "member",
     messages: [],
@@ -176,7 +178,23 @@ export const createStore = () => {
              * @param {Person} me
              */
             enterRoom(me) {
-                patch({ screen: "room", me, closeCode: null });
+                patch({ screen: "room", joining: false, me, closeCode: null });
+            },
+
+            /**
+             * Pedido de entrada: a pessoa continua na tela de entrada, que
+             * mostra o progresso, até o servidor aceitar (ver `completeJoin`).
+             * Recusa (nome, username) volta ao formulário sem troca de tela.
+             * @param {Person} me  identidade provisória (o id definitivo vem na sessão)
+             */
+            startJoin(me) {
+                patch({ screen: "entry", joining: true, me, closeCode: null });
+            },
+
+            /** Sessão aceita pelo servidor: agora sim, a sala. */
+            completeJoin() {
+                if (!state.joining) return;
+                patch({ screen: "room", joining: false });
             },
 
             /**
