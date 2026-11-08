@@ -22,13 +22,21 @@
 
 import crypto from "node:crypto";
 
-export const RESUME_TTL_MS = 10 * 60 * 1000;
+/**
+ * Por quanto tempo uma identidade desconectada pode ser retomada — e, junto
+ * com ela, por quanto tempo o username fica reservado para a mesma pessoa.
+ * Eram 10 min; com username exclusivo, 10 min de reserva prenderiam o
+ * @nome de quem só fechou a aba. 2 min cobrem com folga as 6 tentativas
+ * automáticas de reconexão do cliente (cerca de 40 s no pior caso).
+ */
+export const RESUME_TTL_MS = 2 * 60 * 1000;
 export const MAX_RELEASED_IDENTITIES = 2000;
 
 /**
  * @typedef {object} Identity
  * @property {string} id
  * @property {string} name
+ * @property {string} username  único entre as identidades vivas (minúsculo, sem o arroba)
  * @property {unknown} holder        conexão que detém a identidade, ou null
  * @property {number | null} releasedAt
  * @property {string | null} [tokenHash]  hash do token válido (interno; nunca enviado)
@@ -69,6 +77,8 @@ export const createIdentityStore = ({
      * @type {Map<Identity, true>}
      */
     const released = new Map();
+    /** @type {Map<string, Identity>} username → identidade viva (conectada ou retomável) */
+    const usernames = new Map();
 
     const forget = (identity) => {
         released.delete(identity);
@@ -79,16 +89,26 @@ export const createIdentityStore = ({
     const expired = (identity, time) =>
         identity.holder === null && time - /** @type {number} */ (identity.releasedAt) > ttlMs;
 
+    /** Fim definitivo da identidade: token inválido e username livre. */
+    const retire = (identity) => {
+        forget(identity);
+        if (usernames.get(identity.username) === identity) usernames.delete(identity.username);
+    };
+
     return {
         /**
-         * Nova identidade, ainda sem conexão.
+         * Nova identidade, ainda sem conexão, com o username reservado. Quem
+         * chama confere antes com `isUsernameTaken`.
          * @param {string} name
+         * @param {string} username
          * @returns {Identity}
          */
-        create(name) {
-            return {
+        create(name, username) {
+            /** @type {Identity} */
+            const identity = {
                 id: newId(),
                 name,
+                username,
                 holder: null,
                 releasedAt: null,
                 role: "member",
@@ -100,16 +120,34 @@ export const createIdentityStore = ({
                 recent: new Map(),
                 pendingLeave: null,
             };
+            usernames.set(username, identity);
+            return identity;
         },
 
         /**
-         * Invalida o token da identidade: ela não pode mais ser retomada.
-         * Usado ao remover alguém da sala (a pessoa pode voltar, mas como
-         * identidade nova).
+         * O username está com alguma identidade viva? Uma identidade
+         * desconectada além do prazo de retomada é encerrada aqui mesmo, sem
+         * esperar a varredura periódica.
+         * @param {string} username
+         */
+        isUsernameTaken(username) {
+            const holder = usernames.get(username);
+            if (!holder) return false;
+            if (expired(holder, now())) {
+                retire(holder);
+                return false;
+            }
+            return true;
+        },
+
+        /**
+         * Encerra a identidade: o token deixa de valer e o username fica
+         * livre na hora. Usado ao remover alguém da sala e quando a própria
+         * pessoa sai (a volta é sempre como identidade nova).
          * @param {Identity} identity
          */
         revoke(identity) {
-            forget(identity);
+            retire(identity);
         },
 
         /**
@@ -123,7 +161,9 @@ export const createIdentityStore = ({
             const identity = byTokenHash.get(hashToken(token));
             if (!identity) return null;
             const isExpired = expired(identity, now());
-            forget(identity); // uso único: o token deixa de valer de qualquer forma
+            // Uso único: o token deixa de valer de qualquer forma.
+            if (isExpired) retire(identity);
+            else forget(identity);
             return isExpired ? null : identity;
         },
 
@@ -157,7 +197,7 @@ export const createIdentityStore = ({
             // Teto aplicado na hora: a mais antiga sai primeiro.
             while (released.size > maxReleased) {
                 const oldest = /** @type {Identity} */ (released.keys().next().value);
-                forget(oldest);
+                retire(oldest);
             }
         },
 
@@ -169,7 +209,7 @@ export const createIdentityStore = ({
             const time = now();
             for (const identity of released.keys()) {
                 if (!expired(identity, time)) break;
-                forget(identity);
+                retire(identity);
             }
         },
 
@@ -181,6 +221,11 @@ export const createIdentityStore = ({
         /** Identidades liberadas ainda retomáveis. */
         get releasedCount() {
             return released.size;
+        },
+
+        /** Usernames reservados agora (conectados ou retomáveis). */
+        get usernameCount() {
+            return usernames.size;
         },
     };
 };

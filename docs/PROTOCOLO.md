@@ -27,13 +27,14 @@ Todo quadro é um objeto JSON:
 
 ## Cliente → servidor
 
-| `type`         | `payload`                             | Regras                                                                                                                                                                                                                                                                          |
-| -------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `user_login`   | `{ userName, resumeToken?, userId? }` | Uma vez por conexão. `userName`: string, normalizada, 1–30 caracteres. `resumeToken`: opcional. `userId`, `role` e qualquer outro campo: **ignorados**.                                                                                                                         |
-| `chat_message` | `{ content, clientMsgId? }`           | Exige login. `content`: string, normalizada, 1–1000 caracteres. `clientMsgId` (Fase 4): id de correlação do cliente (`[A-Za-z0-9_-]`, até 64) — o servidor o devolve na mensagem e no erro (`ref`), e ignora reenvios com o mesmo id. `kind`/`format` do cliente são ignorados. |
-| `typing_start` | `{}`                                  | Exige login (sem login é ignorado em silêncio). O cliente envia no máximo a cada 2 s.                                                                                                                                                                                           |
-| `typing_stop`  | `{}`                                  | Idem.                                                                                                                                                                                                                                                                           |
-| `command`      | `{ requestId?, text }`                | Fase 4. Exige login. `text`: o comando como digitado (`/nome args`, até 1000). Interpretado só no servidor; resposta em `command_result` com o mesmo `requestId`. Consome o balde de mensagens. Ver [`CHAT_COMMANDS.md`](./CHAT_COMMANDS.md).                                   |
+| `type`         | `payload`                                       | Regras                                                                                                                                                                                                                                                                            |
+| -------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `user_login`   | `{ userName, username, resumeToken?, userId? }` | Uma vez por conexão. `userName`: nome completo, string normalizada, 1–60 caracteres. `username`: obrigatório numa entrada nova (ver [Identidade](#identidade)); numa retomada válida é ignorado. `resumeToken`: opcional. `userId`, `role` e qualquer outro campo: **ignorados**. |
+| `user_logout`  | `{}`                                            | Sair da sala. A identidade é encerrada no servidor (token inválido, username livre na hora), os outros recebem `user_left` imediatamente e a conexão fecha com **4004**. Sem login, só fecha a conexão.                                                                           |
+| `chat_message` | `{ content, clientMsgId? }`                     | Exige login. `content`: string, normalizada, 1–1000 caracteres. `clientMsgId` (Fase 4): id de correlação do cliente (`[A-Za-z0-9_-]`, até 64) — o servidor o devolve na mensagem e no erro (`ref`), e ignora reenvios com o mesmo id. `kind`/`format` do cliente são ignorados.   |
+| `typing_start` | `{}`                                            | Exige login (sem login é ignorado em silêncio). O cliente envia no máximo a cada 2 s.                                                                                                                                                                                             |
+| `typing_stop`  | `{}`                                            | Idem.                                                                                                                                                                                                                                                                             |
+| `command`      | `{ requestId?, text }`                          | Fase 4. Exige login. `text`: o comando como digitado (`/nome args`, até 1000). Interpretado só no servidor; resposta em `command_result` com o mesmo `requestId`. Consome o balde de mensagens. Ver [`CHAT_COMMANDS.md`](./CHAT_COMMANDS.md).                                     |
 
 **Normalização de texto:** caracteres de controle (`\x00–\x1f`, `\x7f`) viram espaço;
 extremidades são aparadas. O cliente aplica a mesma regra ao nome antes de enviar.
@@ -42,9 +43,9 @@ extremidades são aparadas. O cliente aplica a mesma regra ao nome antes de envi
 
 | `type`            | `payload`                                                                                                                    | Quando                                                                                                                                                                                                                                                                                              |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `session`         | `{ id, name, resumeToken, role, historyVersion }`                                                                            | Logo após um login aceito, **antes** de qualquer outro evento. `role`: `member`/`admin`. `historyVersion` muda a cada `/clearall`: diferente da que o cliente conhecia → descartar a conversa local.                                                                                                |
+| `session`         | `{ id, name, username, resumeToken, role, historyVersion }`                                                                  | Logo após um login aceito, **antes** de qualquer outro evento. `role`: `member`/`admin`. `historyVersion` muda a cada `/clearall`: diferente da que o cliente conhecia → descartar a conversa local.                                                                                                |
 | `message_history` | `Array<{ id, type: "chat_message", payload }>`                                                                               | Após `session`, se houver histórico (até `HISTORY_ON_JOIN`, padrão 50).                                                                                                                                                                                                                             |
-| `chat_message`    | `{ userId, userName, content, timestamp, kind?, format?, clientMsgId? }` + `id`                                              | A cada mensagem aceita, para todos (inclusive quem enviou). `kind`: `action`, `roll`, `announcement` (ausente = texto). `format`: `bold`, `italic`, `code`, `spoiler`.                                                                                                                              |
+| `chat_message`    | `{ userId, userName, username?, content, timestamp, kind?, format?, clientMsgId? }` + `id`                                   | A cada mensagem aceita, para todos (inclusive quem enviou). `kind`: `action`, `roll`, `announcement` (ausente = texto). `format`: `bold`, `italic`, `code`, `spoiler`.                                                                                                                              |
 | `user_joined`     | `{ userName, timestamp }`                                                                                                    | Para os outros, quando alguém entra (não em retomada que substitui conexão antiga).                                                                                                                                                                                                                 |
 | `user_left`       | `{ userId, userName, timestamp, reason }`                                                                                    | Para os outros, quando alguém sai. `reason`: `left` ou `removed` (Fase 4: `userId` e `reason` aditivos). Saída comum só é anunciada depois da janela de retomada (`LEAVE_GRACE_MS`, padrão 10 s): quem volta dentro dela não gera `user_left` nem `user_joined`. Não ocorre durante o desligamento. |
 | `user_list`       | `Array<{ id, name, status, role, statusText? }>`                                                                             | Após entradas, saídas e mudanças de nome/presença/papel, **agrupada** (50 ms). `status`: `online`/`away`; `role`: `member`/`admin`; `statusText`: motivo da ausência.                                                                                                                               |
@@ -63,8 +64,20 @@ Só conexões que entraram na sala recebem eventos dela.
 - `resumeToken` é secreto, de uso único e entregue só ao dono. Enviá-lo num novo
   `user_login` (por exemplo, após uma queda de rede) devolve o mesmo `id` e o nome
   guardado, e um token novo vem na `session`.
-- O token expira 10 min depois que a conexão termina. Token inválido ou expirado
-  não é erro: a pessoa entra com uma identidade nova (e precisa de `userName`).
+- O token expira **2 min** depois que a conexão termina (eram 10 min antes da
+  Fase A). Token inválido ou expirado não é erro: a pessoa entra com uma
+  identidade nova (e precisa de `userName` e `username`).
+- **Username** (Fase A): de 3 a 20 caracteres — letras minúsculas sem acento,
+  números, `.` e `_`, sem começar/terminar com ponto e sem `..`. Um `@` inicial
+  é aceito e removido; maiúsculas viram minúsculas. Nomes que imitam o sistema
+  ou uma menção coletiva (`admin`, `sistema`, `todos`, …) são reservados.
+- O username é **único entre as identidades vivas**: conectadas ou ainda
+  retomáveis. Fica reservado durante a janela de retomada (para quem caiu
+  voltar com o mesmo @) e é liberado na hora por `user_logout` ou remoção
+  (`/kick`). O nome completo pode se repetir; o username distingue as pessoas
+  (`/kick @ana`, `/profile @ana`).
+- O id e o username não são autenticação: não há contas nem senha, e a
+  identidade some quando a participação termina.
 - Retomar enquanto a conexão antiga ainda consta substitui a antiga, sem
   `user_left`/`user_joined` para os outros.
 - O cliente guarda o token só em memória.
@@ -76,6 +89,8 @@ Só conexões que entraram na sala recebem eventos dela.
 | `invalid_message`   | protocolo      | Envelope inválido ou `content` que não é string                             |
 | `unknown_type`      | protocolo      | `type` fora da lista acima                                                  |
 | `invalid_name`      | validação      | Nome vazio, só espaços/controle, ausente ou de tipo errado                  |
+| `invalid_username`  | validação      | Username ausente (entrada nova), fora do formato ou reservado               |
+| `username_taken`    | validação      | Username com outra identidade viva                                          |
 | `empty_message`     | validação      | `content` vazio após normalização                                           |
 | `already_logged_in` | autorização    | Segundo `user_login` na mesma conexão                                       |
 | `not_logged_in`     | autorização    | `chat_message` antes do login                                               |
@@ -94,7 +109,12 @@ Por conexão, dois baldes independentes (padrões configuráveis por ambiente):
 
 ## Conexão
 
-- `ALLOWED_ORIGINS` definida: handshake de origem não listada recebe HTTP 403.
+- `ALLOWED_ORIGINS` definida: handshake de origem não listada recebe HTTP 403,
+  e conexão **sem** cabeçalho `Origin` também (clientes automatizados precisam
+  enviar uma origem permitida). A comparação é exata (esquema + host + porta),
+  sem curinga nem prefixo. Isso protege contra páginas de terceiros abrindo o
+  WebSocket pelo navegador de alguém; não é autenticação — fora do navegador,
+  `Origin` pode ser forjado. Vazia: qualquer origem (só para desenvolvimento).
 - Acima de `MAX_CONNECTIONS` (padrão 500): fechamento com 1013.
 - Prazo de login: conexão que não entra na sala em `LOGIN_TIMEOUT_MS` (padrão 30 s)
   é fechada com **4001**. Nome recusado não reinicia o prazo. O cliente oficial
@@ -115,6 +135,7 @@ Por conexão, dois baldes independentes (padrões configuráveis por ambiente):
 | 1013                 | Servidor no teto de conexões                                                 |
 | 4001                 | Não entrou na sala dentro do prazo                                           |
 | 4003                 | Removido por um administrador (`/kick`). O cliente **não** reconecta sozinho |
+| 4004                 | A própria pessoa saiu (`user_logout`). O cliente **não** reconecta sozinho   |
 
 ## HTTP na mesma porta
 

@@ -41,6 +41,63 @@ export const readName = (raw) => {
 };
 
 /**
+ * Usernames que imitariam o sistema, a moderação ou uma menção coletiva.
+ * Ficam indisponíveis para qualquer pessoa.
+ */
+export const RESERVED_USERNAMES = new Set([
+    "admin",
+    "administrador",
+    "administrator",
+    "adm",
+    "mod",
+    "moderador",
+    "moderator",
+    "root",
+    "sistema",
+    "system",
+    "servidor",
+    "server",
+    "suporte",
+    "support",
+    "staff",
+    "bot",
+    "webchat",
+    "todos",
+    "everyone",
+    "all",
+    "here",
+    "aqui",
+    "voce",
+    "you",
+]);
+
+// Letras minúsculas, números, ponto e _, sem começar ou terminar com ponto
+// e sem dois pontos seguidos. O tamanho é conferido à parte.
+const USERNAME_PATTERN = /^(?!.*\.\.)[a-z0-9_](?:[a-z0-9_.]*[a-z0-9_])?$/;
+
+/**
+ * Lê o username pedido no login.
+ *  - tipo errado → recusado de imediato;
+ *  - ausente ou vazio → `username: ""` (quem chama decide: numa retomada o
+ *    username guardado vale; numa entrada nova, recusa);
+ *  - um `@` inicial é aceito e removido; maiúsculas viram minúsculas.
+ * @param {unknown} raw
+ * @returns {{ok: true, username: string} | {ok: false, code: string}}
+ */
+export const readUsername = (raw) => {
+    if (raw === undefined || raw === null) return { ok: true, username: "" };
+    if (typeof raw !== "string") return { ok: false, code: ERROR_CODES.INVALID_USERNAME };
+    const username = raw.trim().replace(/^@/, "").toLowerCase();
+    if (!username) return { ok: true, username: "" };
+    const valid =
+        username.length >= LIMITS.usernameMinLength &&
+        username.length <= LIMITS.usernameMaxLength &&
+        USERNAME_PATTERN.test(username) &&
+        !RESERVED_USERNAMES.has(username);
+    return valid ? { ok: true, username } : { ok: false, code: ERROR_CODES.INVALID_USERNAME };
+};
+
+/**
  * Conteúdo de uma mensagem de chat.
  * @param {unknown} raw
  * @returns {{ok: true, content: string} | {ok: false, code: string}}

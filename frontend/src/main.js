@@ -120,9 +120,13 @@ const transport = createTransport({
         if (!me) return;
         // `userId` é ignorado pelo servidor atual (que atribui a identidade)
         // e mantido só para compatibilidade com um servidor antigo.
+        // Numa retomada o servidor usa o username guardado; o enviado só
+        // vale se a identidade não puder ser retomada (ex.: servidor
+        // reiniciou) — aí ela é recriada com o mesmo @, se estiver livre.
         transport.send(CLIENT_EVENTS.LOGIN, {
             userId: me.id,
             userName: me.name,
+            username: me.username ?? "",
             ...(resumeToken ? { resumeToken } : {}),
         });
     },
@@ -151,6 +155,7 @@ const sendChat = (content) => {
         kind: "chat",
         userId: me.id,
         userName: me.name,
+        ...(me.username ? { username: me.username } : {}),
         content,
         timestamp: new Date().toISOString(),
         own: true,
@@ -304,14 +309,49 @@ for (const button of document.querySelectorAll("[data-action]")) {
     });
 }
 
+/**
+ * Sair da sala. A identidade temporária é encerrada no servidor (token
+ * inválido, username livre na hora) e tudo o que era desta participação é
+ * descartado no navegador: conversa, fila de envio, token de retomada e os
+ * campos da entrada. A preferência de tema não é dado da participação e
+ * fica. Sem conexão no momento, não há como avisar o servidor: a identidade
+ * expira sozinha no fim do prazo de retomada (2 min).
+ */
+const logout = async () => {
+    layout.closeDrawer();
+    const confirmed = await dialog.confirm({
+        title: strings.logout.title,
+        body: strings.logout.body,
+        confirmLabel: strings.logout.confirm,
+    });
+    if (!confirmed) return;
+    typingSignal.stop();
+    transport.signal(CLIENT_EVENTS.LOGOUT);
+    transport.close();
+    resumeToken = null;
+    pendingRequests.clear();
+    typingTracker.clear();
+    memberCard.close({ restoreFocus: false });
+    store.actions.leaveRoom();
+    // A tela de entrada precisa estar visível antes de receber o foco.
+    renderLoop.flush();
+    entry.clear();
+    entry.focus();
+    announcer.say(strings.logout.done, { force: true });
+};
+
+for (const button of document.querySelectorAll('[data-action="logout"]')) {
+    button.addEventListener("click", () => void logout());
+}
+
 const failure = createFailure({
     onRetry: () => transport.retryNow(),
 });
 
 const entry = createEntry({
-    onSubmit: (name) => {
+    onSubmit: (name, username) => {
         // Id provisório: o definitivo chega do servidor no evento `session`.
-        store.actions.enterRoom({ id: crypto.randomUUID(), name });
+        store.actions.enterRoom({ id: crypto.randomUUID(), name, username });
         transport.open();
     },
 });
@@ -339,7 +379,7 @@ handleEvent = createEventHandler({
                 : result;
         store.actions.addMessage(noticeMessage(reply));
     },
-    onLoginRejected: (message) => {
+    onLoginRejected: (message, field) => {
         // Entrada recusada pelo servidor: a pessoa volta à tela do nome com
         // a explicação, em vez de ficar numa sala em que não pode falar.
         transport.close();
@@ -348,7 +388,7 @@ handleEvent = createEventHandler({
         store.actions.leaveRoom();
         // A tela de entrada precisa estar visível antes de receber o foco.
         renderLoop.flush();
-        entry.reset(message);
+        entry.reset(message, field);
     },
 });
 

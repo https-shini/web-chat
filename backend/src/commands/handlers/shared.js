@@ -31,7 +31,7 @@ export const publishFor = (ctx, message) => {
 };
 
 /**
- * Encontra exatamente uma pessoa na sala por nome ou id (prefixo 6+).
+ * Encontra exatamente uma pessoa na sala por @username, nome ou id (prefixo 6+).
  * @param {any} ctx
  * @param {string} query
  * @returns {{ok: true, target: {member: unknown, identity: any}} | {ok: false, response: any}}
@@ -52,7 +52,7 @@ export const findTarget = (ctx, query) => {
             ok: false,
             response: ctx.reply.error(
                 ctx.errors.AMBIGUOUS_TARGET,
-                `Há ${found.length} pessoas chamadas "${query}". Use o id mostrado em /users.`,
+                `Há ${found.length} pessoas chamadas "${query}". Use o @username mostrado em /users.`,
             ),
         };
     }

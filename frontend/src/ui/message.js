@@ -267,6 +267,11 @@ export const renderMessage = (message, handlers = {}, { compact = false } = {}) 
                 withMonogram: false,
             }),
         );
+        if (message.username) {
+            head.appendChild(
+                el("span", { class: "c-message__handle", text: `@${message.username}` }),
+            );
+        }
         if (message.own) head.appendChild(badge(strings.room.youBadge));
         const time = timeElement(message.timestamp);
         if (time) head.appendChild(time);

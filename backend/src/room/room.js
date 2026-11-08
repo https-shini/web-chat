@@ -28,6 +28,7 @@ import {
     readContent,
     readName,
     readResumeToken,
+    readUsername,
 } from "../validation.js";
 import { isMuted } from "./policy.js";
 
@@ -240,15 +241,34 @@ export const createRoom = ({
 
             const requested = readName(payload.userName);
             if (!requested.ok) return requested;
+            const requestedUsername = readUsername(payload.username);
+            if (!requestedUsername.ok) return requestedUsername;
 
-            let identity = identities.claim(readResumeToken(payload.resumeToken));
+            // Entrada nova (sem token válido): nome e username obrigatórios,
+            // e o username não pode estar com outra identidade viva.
+            const token = readResumeToken(payload.resumeToken);
+            const fresh = () => {
+                if (!requested.name) return { ok: false, code: ERROR_CODES.INVALID_NAME };
+                if (!requestedUsername.username) {
+                    return { ok: false, code: ERROR_CODES.INVALID_USERNAME };
+                }
+                if (identities.isUsernameTaken(requestedUsername.username)) {
+                    return { ok: false, code: ERROR_CODES.USERNAME_TAKEN };
+                }
+                return null;
+            };
+
+            let identity = identities.claim(token);
             const resumed = identity !== null;
             let replaced = null;
             let returningInGrace = false;
 
             if (identity === null) {
-                if (!requested.name) return { ok: false, code: ERROR_CODES.INVALID_NAME };
-                identity = identities.create(requested.name);
+                // Retomada com o mesmo id: o username é o guardado; o do
+                // payload só vale para uma identidade nova.
+                const refused = fresh();
+                if (refused) return refused;
+                identity = identities.create(requested.name, requestedUsername.username);
             } else if (identity.holder !== null && identity.holder !== member) {
                 // A conexão antiga ainda consta (queda não detectada): a pessoa
                 // é a mesma, então ela sai em silêncio e a nova assume.
@@ -278,6 +298,22 @@ export const createRoom = ({
         },
 
         leave,
+
+        /**
+         * A própria pessoa sai (`user_logout`): sai na hora, sem janela de
+         * retomada, e a identidade é encerrada — token inválido e username
+         * livre. Voltar é sempre como identidade nova. Quem chama fecha a
+         * conexão.
+         * @param {unknown} member
+         * @returns {boolean} se a conexão estava na sala
+         */
+        logout(member) {
+            const entry = members.get(member);
+            if (!entry) return false;
+            leave(member, { reason: "logout" });
+            identities.revoke(entry.identity);
+            return true;
+        },
 
         /**
          * Mensagem digitada. O autor é a identidade da conexão; `kind` e
@@ -450,8 +486,9 @@ export const createRoom = ({
             [...members.entries()].map(([member, entry]) => ({ member, identity: entry.identity })),
 
         /**
-         * Localiza pessoas na sala por id (ou prefixo de id com 6+
-         * caracteres) ou por nome (sem diferenciar maiúsculas).
+         * Localiza pessoas na sala por `@username` (exato e único), por id
+         * (ou prefixo de id com 6+ caracteres) ou por nome (sem diferenciar
+         * maiúsculas; pode haver mais de uma pessoa com o mesmo nome).
          * @param {string} query
          */
         findMembers(query) {
@@ -461,11 +498,17 @@ export const createRoom = ({
                 member,
                 identity: entry.identity,
             }));
+            if (wanted.startsWith("@")) {
+                return all.filter(({ identity }) => identity.username === wanted.slice(1));
+            }
             const byId = /^[0-9a-f-]{6,36}$/.test(wanted)
                 ? all.filter(({ identity }) => identity.id.startsWith(wanted))
                 : [];
             if (byId.length > 0) return byId;
-            return all.filter(({ identity }) => identity.name.toLowerCase() === wanted);
+            const byName = all.filter(({ identity }) => identity.name.toLowerCase() === wanted);
+            if (byName.length > 0) return byName;
+            // Sem @ e sem nome igual: o texto ainda pode ser um username.
+            return all.filter(({ identity }) => identity.username === wanted);
         },
 
         get memberCount() {

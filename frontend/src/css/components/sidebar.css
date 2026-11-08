@@ -126,6 +126,11 @@
     display: inline-flex;
 }
 
+/* Os três botões do painel ficam mais juntos, para sobrar espaço ao nome. */
+.c-user-panel .c-icon-button + .c-icon-button {
+    margin-left: calc(var(--space-1) * -1);
+}
+
 .c-user-panel__info {
     display: flex;
     flex: 1 1 auto;

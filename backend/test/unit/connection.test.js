@@ -17,6 +17,10 @@ class FakeSocket extends EventEmitter {
     terminate() {
         this.terminated = true;
     }
+    closed = null;
+    close(code, reason) {
+        this.closed = { code, reason };
+    }
     frame(value) {
         this.emit("message", Buffer.from(JSON.stringify(value)), false);
     }
@@ -49,18 +53,31 @@ const setup = (roomOverrides = {}) => {
 
 test("encaminha cada evento ao método certo da sala", () => {
     const { ws, calls } = setup();
-    ws.frame({ type: "user_login", payload: { userName: "Ana" } });
+    ws.frame({ type: "user_login", payload: { userName: "Ana", username: "ana" } });
     ws.frame({ type: "chat_message", payload: { content: "oi" } });
     ws.frame({ type: "typing_start" });
     ws.frame({ type: "typing_stop" });
     ws.emit("close");
     assert.deepEqual(calls, [
-        ["join", { userName: "Ana" }],
+        ["join", { userName: "Ana", username: "ana" }],
         ["post", { content: "oi" }],
         ["typing", true],
         ["typing", false],
         ["leave"],
     ]);
+});
+
+test("user_logout: encerra a identidade na sala e fecha a conexão com 4004", () => {
+    const { ws, calls } = setup({ logout: () => (calls.push(["logout"]), true) });
+    ws.frame({ type: "user_logout" });
+    assert.deepEqual(calls, [["logout"]]);
+    assert.deepEqual(ws.closed, { code: 4004, reason: "Você saiu da sala" });
+});
+
+test("user_logout fora da sala também fecha a conexão (sem efeito na sala)", () => {
+    const { ws } = setup({ logout: () => false });
+    ws.frame({ type: "user_logout" });
+    assert.equal(ws.closed?.code, 4004);
 });
 
 test("recusa da sala vira erro com código e log com contexto", () => {
@@ -133,7 +150,7 @@ test("defeito do servidor: cliente recebe só internal_error; log tem stack", ()
 test("retomada que substitui conexão antiga encerra a antiga", () => {
     const old = new FakeSocket();
     const { ws } = setup({ join: () => ({ ok: true, replaced: old }) });
-    ws.frame({ type: "user_login", payload: { userName: "Ana" } });
+    ws.frame({ type: "user_login", payload: { userName: "Ana", username: "ana" } });
     assert.equal(old.terminated, true);
 });
 

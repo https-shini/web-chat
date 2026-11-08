@@ -15,7 +15,11 @@ import { describeError, ERROR_CODES } from "./errors.js";
 
 /** Limites do contrato, aplicados pelo servidor e espelhados no cliente. */
 export const LIMITS = Object.freeze({
-    nameMaxLength: 30,
+    /** Nome completo de exibição. */
+    nameMaxLength: 60,
+    /** Username (`@nome`): único entre as identidades vivas da sala. */
+    usernameMinLength: 3,
+    usernameMaxLength: 20,
     messageMaxLength: 1000,
     resumeTokenMaxLength: 100,
     /** Texto bruto de um comando (`/nome argumentos`). */
@@ -33,6 +37,8 @@ export const CLIENT_EVENTS = Object.freeze({
     TYPING_START: "typing_start",
     TYPING_STOP: "typing_stop",
     COMMAND: "command",
+    /** Sair da sala: libera a identidade temporária e o username na hora. */
+    LOGOUT: "user_logout",
 });
 
 /** Eventos que o servidor envia. */
@@ -91,6 +97,8 @@ export const TONES = Object.freeze({
 export const CLOSE_CODES = Object.freeze({
     LOGIN_TIMEOUT: 4001,
     REMOVED: 4003,
+    /** A própria pessoa saiu (`user_logout`); o cliente não reconecta. */
+    LOGGED_OUT: 4004,
 });
 
 const SIGNAL_EVENTS = new Set([CLIENT_EVENTS.TYPING_START, CLIENT_EVENTS.TYPING_STOP]);
@@ -144,7 +152,7 @@ export const errorCodeForEnvelope = (reason) =>
  */
 export const serverMessage = Object.freeze({
     /**
-     * @param {{id: string, name: string, role?: string}} user
+     * @param {{id: string, name: string, username?: string, role?: string}} user
      * @param {string} resumeToken
      * @param {number} [historyVersion] muda quando a sala é limpa (`/clearall`)
      */
@@ -153,6 +161,7 @@ export const serverMessage = Object.freeze({
         payload: {
             id: user.id,
             name: user.name,
+            username: user.username ?? "",
             resumeToken,
             role: user.role ?? ROLES.MEMBER,
             historyVersion,
@@ -166,7 +175,8 @@ export const serverMessage = Object.freeze({
      * Mensagem de chat. `kind`, `format` e `clientMsgId` são aditivos: só
      * entram no payload quando presentes, e clientes antigos os ignoram.
      * @param {{
-     *   id: string, user: {id: string, name: string}, content: string, timestamp: string,
+     *   id: string, user: {id: string, name: string, username?: string},
+     *   content: string, timestamp: string,
      *   kind?: string, format?: string | null, clientMsgId?: string | null,
      * }} message
      */
@@ -184,6 +194,7 @@ export const serverMessage = Object.freeze({
         payload: {
             userId: user.id,
             userName: user.name,
+            ...(user.username ? { username: user.username } : {}),
             content,
             timestamp,
             ...(kind !== MESSAGE_KINDS.TEXT ? { kind } : {}),
@@ -211,13 +222,14 @@ export const serverMessage = Object.freeze({
     /**
      * `status` já existia ("online"); agora também "away". `role` e
      * `statusText` são aditivos.
-     * @param {{id: string, name: string, role?: string, away?: string | null}[]} users
+     * @param {{id: string, name: string, username?: string, role?: string, away?: string | null}[]} users
      */
     userList: (users) => ({
         type: SERVER_EVENTS.USER_LIST,
         payload: users.map((user) => ({
             id: user.id,
             name: user.name,
+            username: user.username ?? "",
             status: user.away === null || user.away === undefined ? PRESENCE.ONLINE : PRESENCE.AWAY,
             role: user.role ?? ROLES.MEMBER,
             ...(user.away ? { statusText: user.away } : {}),

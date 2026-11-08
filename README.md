@@ -55,7 +55,7 @@ Cada item corresponde a código neste repositório.
 
 | Funcionalidade                                                                                                                                                                                                                       | Onde                                                                              |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| Entrada com um nome (até 30 caracteres), sem senha                                                                                                                                                                                   | `frontend/src/ui/entry.js`                                                        |
+| Entrada com nome completo (até 60 caracteres) e nome de usuário único na sala (`@username`), sem conta nem senha; botão Sair libera a identidade na hora                                                                             | `frontend/src/ui/entry.js`                                                        |
 | Mensagens em tempo real para todos os conectados (até 1000 caracteres)                                                                                                                                                               | `backend/src/server.js`, `frontend/src/state/events.js`                           |
 | Últimas 50 mensagens enviadas a quem entra                                                                                                                                                                                           | `backend/src/server.js`                                                           |
 | Interface em painéis: barra lateral (sala, atalhos, conexão, você), conversa com mensagens agrupadas e painel de pessoas; gavetas em tablet e celular                                                                                | `frontend/index.html`, `frontend/src/ui/layout.js`                                |
@@ -355,9 +355,10 @@ O backend não tem etapa de build: roda direto com Node.
 
 ## Deploy
 
-O repositório **não contém configuração de deploy** (Dockerfile, Procfile ou
-arquivo de plataforma). O projeto é composto de duas partes publicadas
-separadamente:
+A hospedagem é no **Render**, descrita em [`render.yaml`](./render.yaml) (Blueprint
+com os dois serviços, health check e cabeçalhos de segurança do site estático).
+Como aplicar, variáveis e verificação: [`docs/DEPLOY_RENDER.md`](./docs/DEPLOY_RENDER.md).
+O projeto é composto de duas partes publicadas separadamente:
 
 **Frontend (estático)** — duas formas, ambas verificadas no
 [`docs/refactor-report.md`](./docs/refactor-report.md) §10:
@@ -449,6 +450,7 @@ prevista no roadmap (F5-06).
 | [`docs/ROADMAP_DE_IMPLEMENTACAO.md`](./docs/ROADMAP_DE_IMPLEMENTACAO.md)                   | 49 tarefas em 8 fases, estratégia e plano de testes                |
 | [`docs/INVENTARIO_TECNICO.md`](./docs/INVENTARIO_TECNICO.md)                               | Tecnologias, dependências, módulos, variáveis e scripts            |
 | [`docs/PROTOCOLO.md`](./docs/PROTOCOLO.md)                                                 | Contrato do WebSocket: eventos, erros, identidade, limites         |
+| [`docs/DEPLOY_RENDER.md`](./docs/DEPLOY_RENDER.md)                                         | Deploy no Render: Blueprint, variáveis, origens, cabeçalhos        |
 | [`docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md) | Correções da Fase 1: decisões, testes e compatibilidade            |
 | [`docs/FASE_2_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_2_RELATORIO_DE_IMPLEMENTACAO.md) | Fase 2: arquitetura modular do backend, testes e CI                |
 | [`docs/FASE_3_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_3_RELATORIO_DE_IMPLEMENTACAO.md) | Fase 3: heartbeat, conexões, métricas, carga e otimizações medidas |

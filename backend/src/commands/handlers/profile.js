@@ -39,7 +39,7 @@ export const profileCommands = [
         category: "profile",
         description: "Mostra o perfil público de alguém (ou o seu).",
         syntax: "/profile [nome ou id]",
-        examples: ["/profile", "/profile Ana"],
+        examples: ["/profile", "/profile @ana", "/profile Ana"],
         params: [{ name: "nome ou id", type: "text", optional: true }],
         run: (ctx) => {
             let identity = ctx.identity;
@@ -53,6 +53,7 @@ export const profileCommands = [
             return ctx.reply.result(identity.name, {
                 title: "Perfil",
                 lines: [
+                    `Username: @${identity.username}`,
                     `Id: ${identity.id}`,
                     `Papel: ${identity.role === "admin" ? "administrador" : "participante"}`,
                     `Status: ${identity.away !== null ? `ausente (${identity.away})` : "presente"}${isMuted(identity, time) ? " · silenciado" : ""}`,

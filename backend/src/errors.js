@@ -25,6 +25,8 @@ export const ERROR_CODES = Object.freeze({
     INVALID_MESSAGE: "invalid_message",
     UNKNOWN_TYPE: "unknown_type",
     INVALID_NAME: "invalid_name",
+    INVALID_USERNAME: "invalid_username",
+    USERNAME_TAKEN: "username_taken",
     EMPTY_MESSAGE: "empty_message",
     ALREADY_LOGGED_IN: "already_logged_in",
     NOT_LOGGED_IN: "not_logged_in",
@@ -44,7 +46,16 @@ const CATALOG = Object.freeze({
     [ERROR_CODES.UNKNOWN_TYPE]: { category: PROTOCOL, message: "Tipo de mensagem desconhecido." },
     [ERROR_CODES.INVALID_NAME]: {
         category: VALIDATION,
-        message: "Nome inválido. Use de 1 a 30 caracteres.",
+        message: "Nome inválido. Use de 1 a 60 caracteres.",
+    },
+    [ERROR_CODES.INVALID_USERNAME]: {
+        category: VALIDATION,
+        message:
+            "Username inválido ou reservado. Use de 3 a 20 caracteres: letras minúsculas sem acento, números, ponto ou _.",
+    },
+    [ERROR_CODES.USERNAME_TAKEN]: {
+        category: VALIDATION,
+        message: "Este username já está em uso na sala. Escolha outro.",
     },
     [ERROR_CODES.EMPTY_MESSAGE]: { category: VALIDATION, message: "Mensagem vazia." },
     [ERROR_CODES.ALREADY_LOGGED_IN]: {

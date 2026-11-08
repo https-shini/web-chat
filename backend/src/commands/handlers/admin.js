@@ -96,7 +96,7 @@ export const adminCommands = [
         permission: PERMISSIONS.ADMIN,
         description: "Impede alguém de enviar mensagens, por um tempo (minutos) ou até /unmute.",
         syntax: "/mute <nome ou id> [minutos]",
-        examples: ["/mute Ana", "/mute Ana 10", '/mute "João Silva" 5'],
+        examples: ["/mute @ana 10", "/mute Ana", '/mute "João Silva" 5'],
         params: [
             { name: "nome ou id", type: "word" },
             { name: "minutos", type: "int", optional: true, min: 1, max: 1440 },
@@ -121,7 +121,7 @@ export const adminCommands = [
         permission: PERMISSIONS.ADMIN,
         description: "Libera alguém silenciado.",
         syntax: "/unmute <nome ou id>",
-        examples: ["/unmute Ana"],
+        examples: ["/unmute @ana", "/unmute Ana"],
         params: [{ name: "nome ou id", type: "word" }],
         run: (ctx) => {
             const found = findModerationTarget(ctx, ctx.args["nome ou id"]);
@@ -141,7 +141,7 @@ export const adminCommands = [
         permission: PERMISSIONS.ADMIN,
         description: "Remove alguém da sala agora. A pessoa pode voltar, mas como identidade nova.",
         syntax: "/kick <nome ou id>",
-        examples: ["/kick Ana", '/kick "João Silva"'],
+        examples: ["/kick @ana", "/kick Ana", '/kick "João Silva"'],
         params: [{ name: "nome ou id", type: "word" }],
         run: (ctx) => {
             const found = findModerationTarget(ctx, ctx.args["nome ou id"]);

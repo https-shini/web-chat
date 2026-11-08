@@ -67,17 +67,16 @@ export const createPeople = ({ onSelect }) => {
         if (own) line.appendChild(badge(strings.room.youBadge));
         if (person.role === "admin") line.appendChild(badge(strings.people.admin, "role"));
         info.appendChild(line);
-        // Presença em texto (não só a cor do ponto).
-        if (away) {
-            info.appendChild(
-                el("span", {
-                    class: "c-member__sub",
-                    text: person.statusText
-                        ? format(strings.memberCard.awayWith, { reason: person.statusText })
-                        : strings.memberCard.away,
-                }),
-            );
-        }
+        // Linha de baixo: @username e, se ausente, a presença em texto (não
+        // só a cor do ponto).
+        const handle = person.username ? `@${person.username}` : "";
+        const presence = away
+            ? person.statusText
+                ? format(strings.memberCard.awayWith, { reason: person.statusText })
+                : strings.memberCard.away
+            : "";
+        const sub = [handle, presence].filter(Boolean).join(" · ");
+        if (sub) info.appendChild(el("span", { class: "c-member__sub", text: sub }));
         button.appendChild(info);
         return button;
     };

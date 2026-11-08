@@ -110,6 +110,10 @@ const createCollector = () => ({
  * Cliente que entra na sala e registra latência das mensagens recebidas
  * (o conteúdo carrega o instante de envio: mesmo processo, mesmo relógio).
  */
+/** Usernames únicos por cliente (exigidos desde a Fase A). */
+let usernameSeq = 0;
+const nextUsername = () => `carga_${(usernameSeq += 1).toString(36)}`;
+
 const createClient = (url, name, collector, { autoPong = true, resumeToken } = {}) =>
     new Promise((resolve) => {
         const ws = new WebSocket(url, { autoPong });
@@ -122,7 +126,12 @@ const createClient = (url, name, collector, { autoPong = true, resumeToken } = {
             open: false,
             sessionAt: null,
         };
-        const login = { userName: name, ...(resumeToken ? { resumeToken } : {}) };
+        // Numa retomada o servidor usa o username guardado; o enviado é ignorado.
+        const login = {
+            userName: name,
+            username: nextUsername(),
+            ...(resumeToken ? { resumeToken } : {}),
+        };
         let settled = false;
         const done = () => {
             if (!settled) {

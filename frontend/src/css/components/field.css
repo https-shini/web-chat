@@ -57,3 +57,24 @@
 .c-field__error:empty {
     display: none;
 }
+
+/* Campo com prefixo visual (o "@" do nome de usuário). O prefixo é só
+   desenho: o rótulo e a ajuda dizem o que é o campo. */
+.c-field__affix {
+    position: relative;
+    display: flex;
+}
+
+.c-field__prefix {
+    position: absolute;
+    top: 50%;
+    left: var(--space-3);
+    color: var(--color-text-3);
+    font-size: var(--text-md);
+    pointer-events: none;
+    transform: translateY(-50%);
+}
+
+.c-field__input--affixed {
+    padding-left: var(--space-8);
+}

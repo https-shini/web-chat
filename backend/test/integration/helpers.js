@@ -10,6 +10,7 @@ import { spawn } from "node:child_process";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { withUsername } from "../identity.js";
 import WebSocket from "ws";
 
 const BACKEND_DIR = fileURLToPath(new URL("../../", import.meta.url));
@@ -228,7 +229,11 @@ const connect = (url, options = {}) =>
                     return closeInfo;
                 },
                 send(type, payload) {
-                    ws.send(JSON.stringify(payload === undefined ? { type } : { type, payload }));
+                    // Login sem username declarado ganha um automático (ver identity.js).
+                    const body = type === "user_login" ? withUsername(payload) : payload;
+                    ws.send(
+                        JSON.stringify(body === undefined ? { type } : { type, payload: body }),
+                    );
                 },
                 sendRaw(data, sendOptions) {
                     ws.send(data, sendOptions);

@@ -39,11 +39,16 @@ test("variedades, formatos, tons e códigos de fechamento coincidem", () => {
     assert.equal(client.LIMITS.commandMaxLength, server.LIMITS.commandMaxLength);
 });
 
-test("limites de nome e mensagem são os mesmos nos dois lados e no HTML", () => {
+test("limites de nome, username e mensagem são os mesmos nos dois lados e no HTML", () => {
     assert.equal(client.LIMITS.nameMaxLength, server.LIMITS.nameMaxLength);
     assert.equal(client.LIMITS.messageMaxLength, server.LIMITS.messageMaxLength);
     const maxlength = (id) =>
         Number(new RegExp(`id="${id}"[\\s\\S]*?maxlength="(\\d+)"`).exec(indexHtml)?.[1]);
     assert.equal(maxlength("campo-nome"), server.LIMITS.nameMaxLength);
     assert.equal(maxlength("campo-mensagem"), server.LIMITS.messageMaxLength);
+    // Username: mesmos limites nos dois lados; o campo aceita um caractere a
+    // mais para o "@" opcional, que cliente e servidor removem.
+    assert.equal(client.LIMITS.usernameMinLength, server.LIMITS.usernameMinLength);
+    assert.equal(client.LIMITS.usernameMaxLength, server.LIMITS.usernameMaxLength);
+    assert.equal(maxlength("campo-username"), server.LIMITS.usernameMaxLength + 1);
 });
