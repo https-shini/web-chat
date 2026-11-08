@@ -55,9 +55,9 @@ describe("validação de nome", () => {
         client.close();
     });
 
-    test("nome acima do limite é cortado em 30 caracteres", async () => {
-        const { client, session } = await join(server.url, { userName: "N".repeat(45) });
-        assert.equal(session.name.length, 30);
+    test("nome acima do limite é cortado em 60 caracteres", async () => {
+        const { client, session } = await join(server.url, { userName: "N".repeat(75) });
+        assert.equal(session.name.length, 60);
         client.close();
     });
 

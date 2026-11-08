@@ -47,13 +47,21 @@ export const createUserPanel = ({ onToggleAway }) => {
                 }),
             );
             name.textContent = me.name;
+            // Nome e @username podem ser cortados com reticências: a dica
+            // nativa mostra o texto inteiro (leitores de tela já leem tudo).
+            name.title = me.name;
             const presence = !online
                 ? strings.conn.offline
                 : isAway
                   ? strings.userPanel.away
                   : strings.userPanel.online;
-            status.textContent =
-                role === "admin" ? `${strings.userPanel.admin} · ${presence}` : presence;
+            const parts = [
+                me.username ? `@${me.username}` : "",
+                role === "admin" ? strings.userPanel.admin : "",
+                presence,
+            ].filter(Boolean);
+            status.textContent = parts.join(" · ");
+            status.title = status.textContent;
 
             // Nome fixo + aria-pressed: o estado é anunciado, o nome não muda.
             // Só a dica visual diz o que o próximo clique faz.

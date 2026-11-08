@@ -5,6 +5,10 @@ import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { createRoom } from "../../src/room/room.js";
 import { createIdentityStore } from "../../src/room/sessions.js";
+import { withUsername } from "../identity.js";
+
+/** Entra na sala com username automático (ver test/identity.js). */
+const joinRoom = (room, member, payload, label) => room.join(member, withUsername(payload), label);
 import { createMetrics } from "../../src/metrics.js";
 import { createHttpHandler } from "../../src/transport/http.js";
 import { createConnectionHandler } from "../../src/transport/connection.js";
@@ -39,7 +43,7 @@ describe("agrupamento da lista de pessoas", () => {
     test("várias entradas seguidas viram um envio só, com o estado final", () => {
         const { room, inbox, flush, lists } = setup();
         const members = Array.from({ length: 20 }, (_, i) => ({ i }));
-        members.forEach((member, i) => room.join(member, { userName: `p${i}` }, `c${i}`));
+        members.forEach((member, i) => joinRoom(room, member, { userName: `p${i}` }, `c${i}`));
         assert.equal(lists(), 0, "nada enviado antes do agendamento disparar");
         flush();
         assert.equal(lists(), 1);
@@ -54,8 +58,8 @@ describe("agrupamento da lista de pessoas", () => {
         const { room, inbox, flush } = setup();
         const a = { a: 1 };
         const b = { b: 1 };
-        room.join(a, { userName: "A" }, "a");
-        room.join(b, { userName: "B" }, "b");
+        joinRoom(room, a, { userName: "A" }, "a");
+        joinRoom(room, b, { userName: "B" }, "b");
         room.leave(b);
         flush();
         const list = inbox.get(a).filter((m) => m.type === "user_list");
@@ -69,7 +73,7 @@ describe("agrupamento da lista de pessoas", () => {
     test("ordem para quem entra continua: sessão antes da lista", () => {
         const { room, inbox, flush } = setup();
         const a = { a: 1 };
-        room.join(a, { userName: "A" }, "a");
+        joinRoom(room, a, { userName: "A" }, "a");
         flush();
         assert.deepEqual(
             inbox.get(a).map((m) => m.type),
@@ -79,7 +83,7 @@ describe("agrupamento da lista de pessoas", () => {
 
     test("silence cancela o envio pendente (nenhum timer sobra)", () => {
         const { room, flush, lists } = setup();
-        room.join({ x: 1 }, { userName: "X" }, "x");
+        joinRoom(room, { x: 1 }, { userName: "X" }, "x");
         room.silence();
         flush();
         assert.equal(lists(), 0);
@@ -191,7 +195,9 @@ describe("prazo de login e sinal de atividade", () => {
         handle(active);
         active.emit(
             "message",
-            Buffer.from(JSON.stringify({ type: "user_login", payload: { userName: "A" } })),
+            Buffer.from(
+                JSON.stringify({ type: "user_login", payload: { userName: "A", username: "aaa" } }),
+            ),
             false,
         );
         await new Promise((resolve) => setTimeout(resolve, 60));

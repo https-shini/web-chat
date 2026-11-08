@@ -288,3 +288,9 @@
         font-size: var(--text-xs);
     }
 }
+
+/* @username ao lado do nome: distingue pessoas com o mesmo nome. */
+.c-message__handle {
+    font-size: var(--text-xs);
+    color: var(--color-text-3);
+}

@@ -8,7 +8,7 @@ import { CLOSE_CODES } from "../protocol.js";
  * Reconectar sozinho a colocaria de volta sem que ela pedisse.
  */
 /** @type {Set<number>} */
-const TERMINAL_CLOSE_CODES = new Set([CLOSE_CODES.REMOVED]);
+const TERMINAL_CLOSE_CODES = new Set([CLOSE_CODES.REMOVED, CLOSE_CODES.LOGGED_OUT]);
 
 /**
  * Camada de transporte. Conecta, reconecta com backoff exponencial com teto
@@ -204,11 +204,20 @@ export const createTransport = ({ url, onStatus, onEvent, onOpen, onQueueChange 
             open();
         },
 
+        /**
+         * Encerra de vez. A fila é descartada: o que esperava a conexão
+         * pertence a esta participação e não pode sair depois, em nome de
+         * uma entrada nova.
+         */
         close() {
             closedByUs = true;
             cancelRetry();
             socket?.close();
             socket = null;
+            if (queue.length > 0) {
+                queue = [];
+                publishQueue();
+            }
         },
     };
 };

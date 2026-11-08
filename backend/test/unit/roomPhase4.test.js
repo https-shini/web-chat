@@ -5,6 +5,10 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createRoom } from "../../src/room/room.js";
 import { createIdentityStore } from "../../src/room/sessions.js";
+import { withUsername } from "../identity.js";
+
+/** Entra na sala com username automático (ver test/identity.js). */
+const joinRoom = (room, member, payload, label) => room.join(member, withUsername(payload), label);
 
 const setup = ({ leaveGraceMs = 0 } = {}) => {
     let clock = Date.UTC(2026, 10, 7, 10);
@@ -47,8 +51,8 @@ describe("publicação", () => {
         const { room, got } = setup();
         const a = {};
         const b = {};
-        room.join(a, { userName: "A" }, "a");
-        room.join(b, { userName: "B" }, "b");
+        joinRoom(room, a, { userName: "A" }, "a");
+        joinRoom(room, b, { userName: "B" }, "b");
         room.post(a, { content: "oi", clientMsgId: "c-1" });
         const dup = room.post(a, { content: "oi", clientMsgId: "c-1" });
         assert.equal(dup.duplicate, true);
@@ -64,7 +68,7 @@ describe("publicação", () => {
     test("clientMsgId inválido é ignorado; kind e format do payload também", () => {
         const { room, got } = setup();
         const a = {};
-        room.join(a, { userName: "A" }, "a");
+        joinRoom(room, a, { userName: "A" }, "a");
         room.post(a, {
             content: "x",
             clientMsgId: "<script>",
@@ -81,8 +85,8 @@ describe("publicação", () => {
         const { room, advance } = setup();
         const admin = {};
         const target = {};
-        room.join(admin, { userName: "Adm" }, "x");
-        room.join(target, { userName: "T" }, "y");
+        joinRoom(room, admin, { userName: "Adm" }, "x");
+        joinRoom(room, target, { userName: "T" }, "y");
         const t = room.entryOf(target);
         room.setMuted(
             { identity: room.entryOf(admin).identity },
@@ -101,7 +105,7 @@ describe("publicação", () => {
     test("falar encerra a ausência", () => {
         const { room } = setup();
         const a = {};
-        room.join(a, { userName: "A" }, "a");
+        joinRoom(room, a, { userName: "A" }, "a");
         room.setAway(a, "almoço");
         assert.equal(room.entryOf(a).identity.away, "almoço");
         room.post(a, { content: "voltei" });
@@ -114,8 +118,8 @@ describe("nome", () => {
         const { room, got, advance } = setup();
         const a = {};
         const b = {};
-        const { user } = room.join(a, { userName: "Ana" }, "a");
-        room.join(b, { userName: "Bia" }, "b");
+        const { user } = joinRoom(room, a, { userName: "Ana" }, "a");
+        joinRoom(room, b, { userName: "Bia" }, "b");
         assert.deepEqual(room.rename(a, "  Ana Maria "), {
             ok: true,
             changed: true,
@@ -135,13 +139,13 @@ describe("limpeza da sala", () => {
     test("apaga o histórico, muda a versão e avisa todos; quem entra depois não vê nada", () => {
         const { room, got } = setup();
         const a = {};
-        room.join(a, { userName: "A" }, "a");
+        joinRoom(room, a, { userName: "A" }, "a");
         room.post(a, { content: "antiga" });
         room.clearHistory(a);
         assert.equal(room.historyVersion, 1);
         assert.equal(got(a, "chat_cleared")[0].payload.historyVersion, 1);
         const late = {};
-        room.join(late, { userName: "L" }, "l");
+        joinRoom(room, late, { userName: "L" }, "l");
         assert.equal(got(late, "message_history").length, 0);
         assert.equal(got(late, "session")[0].payload.historyVersion, 1);
     });
@@ -152,8 +156,8 @@ describe("remoção", () => {
         const { room, got } = setup({ leaveGraceMs: 10_000 });
         const adm = {};
         const t = {};
-        room.join(adm, { userName: "Adm" }, "x");
-        room.join(t, { userName: "T" }, "y");
+        joinRoom(room, adm, { userName: "Adm" }, "x");
+        joinRoom(room, t, { userName: "T" }, "y");
         const token = got(t, "session")[0].payload.resumeToken;
         room.remove(
             { identity: room.entryOf(adm).identity },
@@ -166,7 +170,7 @@ describe("remoção", () => {
             "sem janela de retomada",
         );
         const back = {};
-        const result = room.join(back, { userName: "T", resumeToken: token }, "z");
+        const result = joinRoom(room, back, { userName: "T", resumeToken: token }, "z");
         assert.notEqual(
             result.user.id,
             got(t, "session")[0].payload.id,
@@ -180,14 +184,14 @@ describe("janela de retomada (F4-01)", () => {
         const { room, got, advance } = setup({ leaveGraceMs: 10_000 });
         const watcher = {};
         const a = {};
-        room.join(watcher, { userName: "W" }, "w");
-        room.join(a, { userName: "A" }, "a");
+        joinRoom(room, watcher, { userName: "W" }, "w");
+        joinRoom(room, a, { userName: "A" }, "a");
         const joinedBefore = got(watcher, "user_joined").length;
         const token = got(a, "session")[0].payload.resumeToken;
         room.leave(a);
         advance(3_000);
         const back = {};
-        room.join(back, { userName: "A", resumeToken: token }, "a2");
+        joinRoom(room, back, { userName: "A", resumeToken: token }, "a2");
         advance(20_000);
         assert.equal(got(watcher, "user_left").length, 0);
         assert.equal(got(watcher, "user_joined").length, joinedBefore);
@@ -197,8 +201,8 @@ describe("janela de retomada (F4-01)", () => {
         const { room, got, advance } = setup({ leaveGraceMs: 10_000 });
         const watcher = {};
         const a = {};
-        room.join(watcher, { userName: "W" }, "w");
-        room.join(a, { userName: "A" }, "a");
+        joinRoom(room, watcher, { userName: "W" }, "w");
+        joinRoom(room, a, { userName: "A" }, "a");
         room.leave(a);
         assert.equal(got(watcher, "user_left").length, 0, "ainda na janela");
         advance(10_001);
@@ -210,8 +214,8 @@ describe("janela de retomada (F4-01)", () => {
         const { room, got, advance } = setup({ leaveGraceMs: 10_000 });
         const watcher = {};
         const a = {};
-        room.join(watcher, { userName: "W" }, "w");
-        room.join(a, { userName: "A" }, "a");
+        joinRoom(room, watcher, { userName: "W" }, "w");
+        joinRoom(room, a, { userName: "A" }, "a");
         room.leave(a);
         room.silence();
         advance(20_000);

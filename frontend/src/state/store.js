@@ -14,6 +14,7 @@
  * @typedef {object} Person
  * @property {string} id
  * @property {string} name
+ * @property {string} [username]  sem o arroba, minúsculo; único na sala
  * @property {"online" | "away"} [status]
  * @property {string} [statusText]
  * @property {"member" | "admin"} [role]
@@ -35,6 +36,7 @@
  * @property {"chat" | "system" | "notice"} kind
  * @property {string} userId
  * @property {string} userName
+ * @property {string} [username]
  * @property {string} content
  * @property {string} timestamp
  * @property {boolean} own
@@ -183,7 +185,12 @@ export const createStore = () => {
              * @param {"member" | "admin"} [role]
              */
             setIdentity(me, role = state.role) {
-                if (state.me?.id === me.id && state.me.name === me.name && state.role === role)
+                if (
+                    state.me?.id === me.id &&
+                    state.me.name === me.name &&
+                    state.me.username === me.username &&
+                    state.role === role
+                )
                     return;
                 patch({ me, role });
             },

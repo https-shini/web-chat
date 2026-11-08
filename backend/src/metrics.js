@@ -29,6 +29,7 @@ export const createMetrics = ({ now = () => Date.now(), startedAt = Date.now() }
         connectionsRejected: {},
         heartbeatTimeouts: 0,
         loginTimeouts: 0,
+        logouts: 0,
         slowConsumerDisconnects: 0,
         framesReceived: {},
         invalidFrames: {},

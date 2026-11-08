@@ -23,44 +23,86 @@ const CONTROL_CHARS = /[\x00-\x1f\x7f]/g;
 export const normalizeName = (value) =>
     value.replace(CONTROL_CHARS, " ").trim().slice(0, LIMITS.nameMaxLength);
 
+// Mesmo formato que o servidor aceita (backend/src/validation.js). O servidor
+// continua sendo a autoridade: aqui é só para avisar antes de conectar.
+const USERNAME_PATTERN = /^(?!.*\.\.)[a-z0-9_](?:[a-z0-9_.]*[a-z0-9_])?$/;
+
 /**
- * @param {{onSubmit: (name: string) => void}} handlers
+ * Normaliza o username como o servidor: sem @ inicial, aparado, minúsculo.
+ * @param {string} value
+ * @returns {string}
+ */
+export const normalizeUsername = (value) => value.trim().replace(/^@/, "").toLowerCase();
+
+/**
+ * Formato válido? (Reservados como "admin" só o servidor conhece.)
+ * @param {string} username já normalizado
+ * @returns {boolean}
+ */
+export const isUsernameFormatValid = (username) =>
+    username.length >= LIMITS.usernameMinLength &&
+    username.length <= LIMITS.usernameMaxLength &&
+    USERNAME_PATTERN.test(username);
+
+/**
+ * @param {{onSubmit: (name: string, username: string) => void}} handlers
  */
 export const createEntry = ({ onSubmit }) => {
     const section = /** @type {HTMLElement} */ (must(".c-entry"));
     const form = /** @type {HTMLFormElement} */ (must(".c-entry__form"));
-    const input = /** @type {HTMLInputElement} */ (must("#campo-nome"));
-    const error = /** @type {HTMLElement} */ (must("#campo-nome-erro"));
+    const nameInput = /** @type {HTMLInputElement} */ (must("#campo-nome"));
+    const nameError = /** @type {HTMLElement} */ (must("#campo-nome-erro"));
+    const userInput = /** @type {HTMLInputElement} */ (must("#campo-username"));
+    const userError = /** @type {HTMLElement} */ (must("#campo-username-erro"));
     const submit = /** @type {HTMLButtonElement} */ (must('button[type="submit"]', form));
 
+    const fields = {
+        name: { input: nameInput, error: nameError },
+        username: { input: userInput, error: userError },
+    };
+
     /**
+     * @param {"name" | "username"} field
      * @param {string} message
      */
-    const showError = (message) => {
+    const showError = (field, message) => {
+        const { input, error } = fields[field];
         error.textContent = message;
         input.setAttribute("aria-invalid", "true");
         input.focus();
     };
 
-    const clearError = () => {
+    /** @param {"name" | "username"} field */
+    const clearError = (field) => {
+        const { input, error } = fields[field];
         error.textContent = "";
         input.removeAttribute("aria-invalid");
     };
 
+    const idle = () => {
+        delete submit.dataset.loading;
+        submit.textContent = strings.entry.submit;
+    };
+
     form.addEventListener("submit", (event) => {
         event.preventDefault();
-        const name = normalizeName(input.value);
-        if (!name) {
-            showError(strings.entry.nameRequired);
-            return;
+        const name = normalizeName(nameInput.value);
+        const username = normalizeUsername(userInput.value);
+        clearError("name");
+        clearError("username");
+        // O primeiro campo com problema recebe o foco.
+        if (!name) return showError("name", strings.entry.nameRequired);
+        if (!username) return showError("username", strings.entry.usernameRequired);
+        if (!isUsernameFormatValid(username)) {
+            return showError("username", strings.entry.usernameInvalid);
         }
-        clearError();
         submit.dataset.loading = "true";
         submit.textContent = strings.entry.submitting;
-        onSubmit(name);
+        onSubmit(name, username);
     });
 
-    input.addEventListener("input", clearError);
+    nameInput.addEventListener("input", () => clearError("name"));
+    userInput.addEventListener("input", () => clearError("username"));
 
     return {
         /**
@@ -71,18 +113,29 @@ export const createEntry = ({ onSubmit }) => {
         },
 
         focus() {
-            input.focus();
+            nameInput.focus();
         },
 
         /**
          * Volta ao estado inicial do formulário com um erro, quando o
          * servidor recusa a entrada. Chamar depois que a tela estiver visível.
          * @param {string} message
+         * @param {"name" | "username"} [field]
          */
-        reset(message) {
-            delete submit.dataset.loading;
-            submit.textContent = strings.entry.submit;
-            showError(message);
+        reset(message, field = "name") {
+            idle();
+            showError(field, message);
+        },
+
+        /**
+         * Formulário limpo, para uma entrada nova depois de sair: nada da
+         * participação anterior fica nos campos.
+         */
+        clear() {
+            idle();
+            form.reset();
+            clearError("name");
+            clearError("username");
         },
     };
 };

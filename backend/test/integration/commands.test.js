@@ -221,7 +221,9 @@ describe("comandos", () => {
         assert.ok(
             (await run(a.client, "/users")).lines.some((line) => line.startsWith("Silencioso")),
         );
-        assert.ok((await run(a.client, "/profile Silencioso")).lines[0].includes(b.session.id));
+        const profile = await run(a.client, "/profile Silencioso");
+        assert.equal(profile.lines[0], `Username: @${b.session.username}`);
+        assert.ok(profile.lines.some((line) => line.includes(b.session.id)));
         assert.ok((await run(a.client, "/id")).text.includes(a.session.id));
         assert.equal((await run(a.client, "/ping")).text, "pong");
         assert.ok((await run(a.client, "/rules")).lines.length >= 3);

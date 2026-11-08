@@ -168,6 +168,15 @@
                     >
                         <span class="c-theme-toggle__icon" data-icon="theme"></span>
                     </button>
+                    <button
+                        type="button"
+                        class="c-icon-button c-user-panel__logout"
+                        data-action="logout"
+                        aria-label="Sair da sala"
+                        data-tooltip="Sair da sala"
+                    >
+                        <span data-icon="logout"></span>
+                    </button>
                 </section>
             </nav>
 
@@ -188,23 +197,47 @@
 
                         <form class="c-entry__form" novalidate>
                             <div class="c-field">
-                                <label class="c-field__label" for="campo-nome"
-                                    >Como quer ser chamado</label
-                                >
+                                <label class="c-field__label" for="campo-nome">Nome completo</label>
                                 <input
                                     class="c-field__input"
                                     id="campo-nome"
                                     name="nome"
                                     type="text"
-                                    maxlength="30"
-                                    autocomplete="nickname"
-                                    enterkeyhint="go"
+                                    maxlength="60"
+                                    autocomplete="name"
+                                    enterkeyhint="next"
                                     aria-describedby="campo-nome-erro campo-nome-ajuda"
                                 />
                                 <p class="c-field__hint" id="campo-nome-ajuda">
-                                    De 1 a 30 caracteres. Dá para trocar depois com /nick.
+                                    Como as pessoas vão ver você. Dá para trocar depois com /nick.
                                 </p>
                                 <p class="c-field__error" id="campo-nome-erro" role="alert"></p>
+                            </div>
+
+                            <div class="c-field">
+                                <label class="c-field__label" for="campo-username"
+                                    >Nome de usuário</label
+                                >
+                                <div class="c-field__affix">
+                                    <span class="c-field__prefix" aria-hidden="true">@</span>
+                                    <input
+                                        class="c-field__input c-field__input--affixed"
+                                        id="campo-username"
+                                        name="username"
+                                        type="text"
+                                        maxlength="21"
+                                        autocomplete="off"
+                                        autocapitalize="none"
+                                        spellcheck="false"
+                                        enterkeyhint="go"
+                                        aria-describedby="campo-username-erro campo-username-ajuda"
+                                    />
+                                </div>
+                                <p class="c-field__hint" id="campo-username-ajuda">
+                                    Único na sala. De 3 a 20 caracteres: letras minúsculas, números,
+                                    ponto ou _. Fica livre quando você sai.
+                                </p>
+                                <p class="c-field__error" id="campo-username-erro" role="alert"></p>
                             </div>
 
                             <button

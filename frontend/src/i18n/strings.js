@@ -12,7 +12,10 @@ export const strings = {
         submit: "Entrar",
         submitting: "Entrando…",
         ephemeralNote: "A conversa some quando você sai.",
-        nameRequired: "Escreva um nome para entrar.",
+        nameRequired: "Escreva seu nome completo para entrar.",
+        usernameRequired: "Escolha um nome de usuário para entrar.",
+        usernameInvalid:
+            "Use de 3 a 20 caracteres: letras minúsculas sem acento, números, ponto ou _ (sem começar ou terminar com ponto).",
     },
     room: {
         composerLabel: "Mensagem",
@@ -116,6 +119,13 @@ export const strings = {
         closeSidebar: "Fechar barra lateral",
         members: "Pessoas",
     },
+    logout: {
+        button: "Sair da sala",
+        title: "Sair da sala?",
+        body: "Esta conversa some da sua tela e o seu nome de usuário fica livre para outra pessoa. Para voltar, você entra de novo, como uma participação nova.",
+        confirm: "Sair",
+        done: "Você saiu da sala.",
+    },
     userPanel: {
         online: "Online",
         away: "Ausente",
@@ -143,7 +153,10 @@ export const strings = {
         generic: "Algo deu errado. Tente de novo.",
         rateLimited:
             "Sua mensagem não foi enviada: você está escrevendo rápido demais. Aguarde um instante e envie de novo.",
-        invalidName: "O servidor recusou esse nome. Escolha outro com letras ou números.",
+        invalidName: "O servidor recusou esse nome. Use de 1 a 60 caracteres.",
+        invalidUsername:
+            "Nome de usuário recusado: formato inválido ou reservado (como admin ou sistema). Escolha outro.",
+        usernameTaken: "Este nome de usuário já está em uso na sala. Escolha outro.",
     },
 };
 

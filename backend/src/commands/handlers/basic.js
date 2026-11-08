@@ -45,7 +45,7 @@ export const basicCommands = [
         name: "users",
         aliases: ["online", "who"],
         category: "basic",
-        description: "Lista quem está na sala agora, com o id curto de cada pessoa.",
+        description: "Lista quem está na sala agora, com o @username e o id curto de cada pessoa.",
         syntax: "/users",
         examples: ["/users"],
         run: (ctx) => {
@@ -58,7 +58,7 @@ export const basicCommands = [
                     identity.away !== null ? `ausente: ${identity.away}` : null,
                     isMuted(identity, time) ? "silenciado" : null,
                 ].filter(Boolean);
-                return `${identity.name} · ${identity.id.slice(0, 8)}${tags.length ? ` · ${tags.join(" · ")}` : ""}`;
+                return `${identity.name} (@${identity.username}) · ${identity.id.slice(0, 8)}${tags.length ? ` · ${tags.join(" · ")}` : ""}`;
             });
             return ctx.reply.result(
                 people.length === 1 ? "1 pessoa na sala" : `${people.length} pessoas na sala`,

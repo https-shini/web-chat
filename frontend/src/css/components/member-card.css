@@ -121,3 +121,8 @@
         animation: rise-in var(--duration-base) var(--ease-out);
     }
 }
+
+.c-member-card__handle {
+    font-weight: var(--weight-medium);
+    color: var(--color-text-1);
+}

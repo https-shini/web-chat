@@ -36,7 +36,7 @@ describe("identidade", () => {
     test("session substitui o id provisório e entrega o token de retomada", () => {
         const { store, calls, handle } = setup();
         handle({ type: "session", payload: { id: "srv-1", name: "Ana", resumeToken: "tok" } });
-        assert.deepEqual(store.getState().me, { id: "srv-1", name: "Ana" });
+        assert.deepEqual(store.getState().me, { id: "srv-1", name: "Ana", username: "" });
         assert.deepEqual(calls.sessions, ["tok"]);
     });
 
@@ -166,9 +166,9 @@ describe("presença e digitação", () => {
         const { store, handle } = setup();
         handle({ type: "user_list", payload: [{ id: "1", name: "Ana" }, null, { id: 2 }] });
         assert.deepEqual(store.getState().people, [
-            { id: "1", name: "Ana", status: "online", role: "member" },
-            { id: "", name: "", status: "online", role: "member" },
-            { id: "2", name: "", status: "online", role: "member" },
+            { id: "1", name: "Ana", username: "", status: "online", role: "member" },
+            { id: "", name: "", username: "", status: "online", role: "member" },
+            { id: "2", name: "", username: "", status: "online", role: "member" },
         ]);
         handle({ type: "user_list", payload: "lixo" });
         assert.deepEqual(store.getState().people, []);

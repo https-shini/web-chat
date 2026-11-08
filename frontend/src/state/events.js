@@ -40,6 +40,9 @@ const toMessage = (raw, meId) => {
         kind: "chat",
         userId: String(payload.userId ?? ""),
         userName: String(payload.userName ?? ""),
+        ...(typeof payload.username === "string" && payload.username
+            ? { username: payload.username }
+            : {}),
         content: payload.content,
         timestamp: String(payload.timestamp ?? new Date().toISOString()),
         own: Boolean(meId) && payload.userId === meId,
@@ -104,7 +107,7 @@ export const noticeMessage = ({ tone, text: content, title, lines }) => {
  *   notifier: {show: (title: string, body: string) => void},
  *   typingTracker: {set: (id: string, name: string, isTyping: boolean) => void, remove?: (id: string) => void},
  *   onSession?: (resumeToken: string | null) => void,
- *   onLoginRejected?: (message: string) => void,
+ *   onLoginRejected?: (message: string, field: "name" | "username") => void,
  *   onCommandResult?: (requestId: string | null, result: {tone: string, text: string, title?: string, lines?: string[], code?: string, data?: Record<string, unknown>}) => void,
  * }} deps
  * @returns {(event: {type: string, payload: unknown, id?: string}) => void}
@@ -136,6 +139,10 @@ export const createEventHandler =
                             typeof payload.name === "string"
                                 ? payload.name
                                 : (state.me?.name ?? ""),
+                        username:
+                            typeof payload.username === "string" && payload.username
+                                ? payload.username
+                                : (state.me?.username ?? ""),
                     },
                     payload.role === "admin" ? "admin" : "member",
                 );
@@ -179,6 +186,7 @@ export const createEventHandler =
                     list.map((person) => ({
                         id: String(person?.id ?? ""),
                         name: String(person?.name ?? ""),
+                        username: typeof person?.username === "string" ? person.username : "",
                         status: person?.status === "away" ? "away" : "online",
                         role: person?.role === "admin" ? "admin" : "member",
                         ...(typeof person?.statusText === "string"
@@ -301,8 +309,18 @@ export const createEventHandler =
                 const code = typeof payload?.code === "string" ? payload.code : null;
                 const message = String(payload?.message ?? strings.errors.generic);
                 const ref = typeof payload?.ref === "string" ? payload.ref : null;
+                // Entrada recusada: a pessoa volta à tela de entrada, com o
+                // erro no campo certo.
                 if (code === ERROR_CODES.INVALID_NAME) {
-                    onLoginRejected(strings.errors.invalidName);
+                    onLoginRejected(strings.errors.invalidName, "name");
+                    break;
+                }
+                if (code === ERROR_CODES.INVALID_USERNAME) {
+                    onLoginRejected(strings.errors.invalidUsername, "username");
+                    break;
+                }
+                if (code === ERROR_CODES.USERNAME_TAKEN) {
+                    onLoginRejected(strings.errors.usernameTaken, "username");
                     break;
                 }
                 // Recusa de uma mensagem específica: ela fica marcada como não

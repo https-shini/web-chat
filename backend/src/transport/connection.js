@@ -18,6 +18,7 @@ import crypto from "node:crypto";
 import { describeError, ERROR_CODES, logLevelFor } from "../errors.js";
 import {
     CLIENT_EVENTS,
+    CLOSE_CODES,
     errorCodeForEnvelope,
     isSignal,
     parseEnvelope,
@@ -144,6 +145,15 @@ export const createConnectionHandler = ({
             [CLIENT_EVENTS.COMMAND]: (payload) => {
                 if (!commands) return reject(CLIENT_EVENTS.COMMAND, ERROR_CODES.UNKNOWN_TYPE);
                 commands.execute(ws, payload);
+            },
+            // Sair: a identidade é encerrada no servidor (token inválido,
+            // username livre) e a conexão fecha com um código que o cliente
+            // trata como definitivo. Fechar mesmo sem estar na sala: quem
+            // pediu para sair não deve continuar conectado.
+            [CLIENT_EVENTS.LOGOUT]: () => {
+                if (room.logout(ws)) metrics.count("logouts");
+                clearLoginTimer();
+                ws.close(CLOSE_CODES.LOGGED_OUT, "Você saiu da sala");
             },
             [CLIENT_EVENTS.TYPING_START]: () => room.typing(ws, true),
             [CLIENT_EVENTS.TYPING_STOP]: () => room.typing(ws, false),

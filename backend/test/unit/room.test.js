@@ -5,6 +5,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createRoom } from "../../src/room/room.js";
 import { createIdentityStore } from "../../src/room/sessions.js";
+import { withUsername } from "../identity.js";
 
 const setup = ({ historySize = 1000, historyOnJoin = 50 } = {}) => {
     let clock = 0;
@@ -31,7 +32,7 @@ const setup = ({ historySize = 1000, historyOnJoin = 50 } = {}) => {
     });
     const member = (name) => ({ name });
     const received = (m, type) => (inbox.get(m) ?? []).filter((x) => x.type === type);
-    const enter = (m, payload) => room.join(m, payload, `conn-${m.name}`);
+    const enter = (m, payload) => room.join(m, withUsername(payload), `conn-${m.name}`);
     return { room, identities, inbox, logs, member, received, enter, tick: (ms) => (clock += ms) };
 };
 

@@ -222,6 +222,9 @@ export const createMemberCard = ({ getContext, runCommand, prefill, confirm, not
                     : strings.memberCard.away
                 : strings.memberCard.online;
             meta.replaceChildren(
+                ...(person.username
+                    ? [el("span", { class: "c-member-card__handle", text: `@${person.username}` })]
+                    : []),
                 el("span", {
                     text: `${person.role === "admin" ? strings.memberCard.roleAdmin : strings.memberCard.roleMember} · ${presence}`,
                 }),

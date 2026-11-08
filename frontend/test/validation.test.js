@@ -25,5 +25,5 @@ test("normalizeName segue a mesma regra do servidor", () => {
     assert.equal(normalizeName("   Ana   "), "Ana");
     assert.equal(normalizeName("\u0000\u0007\n"), "");
     assert.equal(normalizeName("Ana\n[FORJADO]\r\tBot"), "Ana [FORJADO]  Bot");
-    assert.equal(normalizeName("N".repeat(45)).length, 30);
+    assert.equal(normalizeName("N".repeat(75)).length, 60);
 });

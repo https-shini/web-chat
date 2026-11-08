@@ -13,7 +13,9 @@
 
 /** Limites do contrato. */
 export const LIMITS = Object.freeze({
-    nameMaxLength: 30,
+    nameMaxLength: 60,
+    usernameMinLength: 3,
+    usernameMaxLength: 20,
     messageMaxLength: 1000,
     commandMaxLength: 1000,
 });
@@ -25,6 +27,7 @@ export const CLIENT_EVENTS = Object.freeze({
     TYPING_START: "typing_start",
     TYPING_STOP: "typing_stop",
     COMMAND: "command",
+    LOGOUT: "user_logout",
 });
 
 /** Eventos que o servidor envia. */
@@ -73,11 +76,14 @@ export const TONES = Object.freeze({
 export const CLOSE_CODES = Object.freeze({
     LOGIN_TIMEOUT: 4001,
     REMOVED: 4003,
+    LOGGED_OUT: 4004,
 });
 
 /** Códigos de erro que o cliente trata de forma específica. */
 export const ERROR_CODES = Object.freeze({
     INVALID_NAME: "invalid_name",
+    INVALID_USERNAME: "invalid_username",
+    USERNAME_TAKEN: "username_taken",
     RATE_LIMITED: "rate_limited",
     MUTED: "muted",
 });

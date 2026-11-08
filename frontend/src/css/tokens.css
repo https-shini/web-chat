@@ -299,7 +299,7 @@
     --tracking-caps: 0.06em;
 
     /* Medidas de layout */
-    --sidebar-width: 15rem; /* 240px */
+    --sidebar-width: 16rem; /* 256px — cabe nome, @username e 3 botões no painel "você" */
     --members-width: 15rem; /* 240px */
     --header-height: 3rem; /*  48px */
     --avatar-sm: 1.5rem; /*  24px */
