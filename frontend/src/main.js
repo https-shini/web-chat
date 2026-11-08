@@ -350,10 +350,18 @@ const failure = createFailure({
 
 const entry = createEntry({
     onSubmit: (name, username) => {
-        // Id provisório: o definitivo chega do servidor no evento `session`.
-        store.actions.enterRoom({ id: crypto.randomUUID(), name, username });
+        // A pessoa fica na entrada, vendo o progresso, até o servidor aceitar
+        // (evento `session`). Id provisório: o definitivo vem na sessão.
+        store.actions.startJoin({ id: crypto.randomUUID(), name, username });
         transport.open();
     },
+    // Desistiu de esperar: nada fica pendente nem tenta de novo sozinho.
+    onCancel: () => {
+        transport.close();
+        resumeToken = null;
+        store.actions.leaveRoom();
+    },
+    onRetry: () => transport.retryNow(),
 });
 
 handleEvent = createEventHandler({
@@ -442,6 +450,9 @@ const render = (state, previous) => {
 
     if (changed(state, previous, ["link", "attempt"])) {
         connection.render(state.link, state.attempt);
+    }
+    if (changed(state, previous, ["joining", "link", "attempt"])) {
+        entry.setProgress(state.joining, state.link, state.attempt);
     }
     if (changed(state, previous, ["screen", "link"]) || noMessages !== wasEmpty) {
         empty.render(inRoom && state.link === "online" && noMessages);

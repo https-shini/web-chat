@@ -43,6 +43,25 @@
     border-color: var(--color-danger-text);
 }
 
+/* Rótulo em caixa normal: para formulários curtos, em que o rótulo é
+   lido como frase e não como cabeçalho de seção. */
+.c-field__label--plain {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-normal);
+    text-transform: none;
+    color: var(--color-text-1);
+}
+
+.c-field__input--large {
+    min-height: var(--space-12);
+    padding: var(--space-3) var(--space-4);
+}
+
+.c-field__input::placeholder {
+    color: var(--color-text-3);
+}
+
 .c-field__hint {
     font-size: var(--text-xs);
     color: var(--color-text-3);
@@ -77,4 +96,13 @@
 
 .c-field__input--affixed {
     padding-left: var(--space-8);
+}
+
+.c-field__input--large.c-field__input--affixed {
+    padding-left: var(--space-10);
+}
+
+.c-field__input--large ~ .c-field__prefix,
+.c-field__affix:has(.c-field__input--large) .c-field__prefix {
+    left: var(--space-4);
 }

@@ -146,6 +146,9 @@ export const createEventHandler =
                     },
                     payload.role === "admin" ? "admin" : "member",
                 );
+                // Primeira sessão desta entrada: só agora a pessoa vai para a
+                // sala (numa reconexão já está nela, e nada muda).
+                store.actions.completeJoin();
                 if (typeof payload.historyVersion === "number") {
                     // A sala foi limpa enquanto você estava fora: a conversa
                     // local deixa de valer antes do histórico novo chegar.

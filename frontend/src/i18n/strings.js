@@ -6,16 +6,22 @@
  */
 export const strings = {
     entry: {
-        title: "Sala aberta.",
-        subtitle: "Ninguém sabe quem você é.",
-        nameLabel: "Como quer ser chamado",
-        submit: "Entrar",
+        submit: "Entrar na sala",
         submitting: "Entrando…",
-        ephemeralNote: "A conversa some quando você sai.",
         nameRequired: "Escreva seu nome completo para entrar.",
         usernameRequired: "Escolha um nome de usuário para entrar.",
-        usernameInvalid:
-            "Use de 3 a 20 caracteres: letras minúsculas sem acento, números, ponto ou _ (sem começar ou terminar com ponto).",
+        usernameHint: "Único na sala. Letras minúsculas, números, ponto ou _.",
+        usernameSuggested: "Sugerido a partir do seu nome. Você pode trocar.",
+        usernameValid: "Formato válido. A disponibilidade é conferida ao entrar.",
+        usernameChars: "Use só letras minúsculas sem acento, números, ponto ou _.",
+        usernameDots: "Não comece nem termine com ponto, nem use dois pontos seguidos.",
+        usernameTooShort: "Use pelo menos 3 caracteres.",
+        usernameTooLong: "Use no máximo 20 caracteres.",
+        slowTitle: "Conectando ao servidor…",
+        slowBody:
+            "Se ele estava parado, acordar pode levar até um minuto. Você entra assim que ele responder.",
+        failedTitle: "Não foi possível conectar.",
+        failedBody: "Verifique sua internet ou tente de novo em instantes.",
     },
     room: {
         composerLabel: "Mensagem",
