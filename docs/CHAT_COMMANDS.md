@@ -76,7 +76,7 @@ cliente: ele só lê o nome para saber se o comando é local.
 | `/help`    | `/ajuda`, `/comandos` | `/help [comando]` | Lista os comandos por categoria ou explica um (uso, aliases, exemplos, permissão)                                                | navegador |
 | `/clear`   | `/limpar`             | `/clear`          | Limpa a conversa **só na sua tela**. Não apaga nada no servidor nem afeta ninguém; o histórico não traz essas mensagens de volta | navegador |
 | `/time`    | `/hora`, `/date`      | `/time`           | Data e hora deste dispositivo                                                                                                    | navegador |
-| `/users`   | `/online`, `/who`     | `/users`          | Quem está na sala, com id curto, papel, ausência e silêncio                                                                      | servidor  |
+| `/users`   | `/online`, `/who`     | `/users`          | Quem está na sala, com @username, id curto, papel, ausência e silêncio                                                           | servidor  |
 | `/ping`    | —                     | `/ping`           | Tempo de **ida e volta** da sua mensagem até o servidor (inclui o processamento)                                                 | servidor  |
 | `/about`   | `/sobre`              | `/about`          | O que é a sala                                                                                                                   | servidor  |
 | `/version` | `/versao`             | `/version`        | Versão do servidor e tempo no ar                                                                                                 | servidor  |
@@ -87,7 +87,7 @@ cliente: ele só lê o nome para saber se o comando é local.
 | Comando    | Aliases             | Sintaxe                 | O que faz                                                                                                           |
 | ---------- | ------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `/nick`    | `/nome`             | `/nick <novo nome>`     | Troca o nome de exibição (1–30 caracteres visíveis; no máximo 1 troca a cada 10 s). O id não muda. A sala é avisada |
-| `/profile` | `/whois`, `/perfil` | `/profile [nome ou id]` | Perfil público: id, papel, status, desde quando está na sala, mensagens enviadas                                    |
+| `/profile` | `/whois`, `/perfil` | `/profile [nome ou id]` | Perfil público: @username, id, papel, status, desde quando está na sala, mensagens enviadas                         |
 | `/id`      | —                   | `/id`                   | Seu id completo (atribuído pelo servidor)                                                                           |
 | `/me`      | —                   | `/me <ação>`            | Publica uma ação em terceira pessoa: “Ana está estudando”                                                           |
 | `/afk`     | `/away`, `/ausente` | `/afk [motivo]`         | Marca ausência (visível na lista de pessoas). Repetir `/afk` ou enviar uma mensagem volta                           |
@@ -125,9 +125,9 @@ com elementos (`<strong>`, `<em>`, `<code>`, botão) — nunca com HTML vindo da
 | `/unmute`   | admin     | `/unmute <nome ou id>`         | Libera                                                                                            |
 | `/kick`     | admin     | `/kick <nome ou id>`           | Remove alguém da sala agora (fechamento 4003). A pessoa pode entrar de novo, como identidade nova |
 
-**Alvos:** nome (sem diferenciar maiúsculas) ou id/prefixo de id com 6+ caracteres
-(veja `/users`). Nome com espaço vai entre aspas: `/mute "João Silva" 5`. Nomes
-repetidos pedem o id.
+**Alvos:** `@username` (exato e único — o jeito recomendado), nome (sem diferenciar
+maiúsculas) ou id/prefixo de id com 6+ caracteres (veja `/users`). Nome com espaço
+vai entre aspas: `/mute "João Silva" 5`. Nomes repetidos pedem o `@username`.
 
 **`/clearall` — o que acontece de fato:**
 
