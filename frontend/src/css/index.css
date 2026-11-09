@@ -40,6 +40,7 @@
 
 /* telas e conversa */
 @import url("./components/entry.css");
+@import url("./home.css");
 @import url("./components/conversation.css");
 @import url("./components/message-list.css");
 @import url("./components/message.css");
