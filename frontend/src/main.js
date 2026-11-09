@@ -493,8 +493,15 @@ const home = createHome({
 const roomNavigation = document.createElement("nav");
 roomNavigation.className = "c-room-navigation";
 roomNavigation.setAttribute("aria-label", "Navegação da conversa");
-roomNavigation.innerHTML = `<button type="button" data-room-nav="home">← Início</button>
-    <button type="button" data-room-nav="leave">Sair da sala</button>`;
+const homeButton = document.createElement("button");
+homeButton.type = "button";
+homeButton.dataset.roomNav = "home";
+homeButton.textContent = "← Início";
+const leaveButton = document.createElement("button");
+leaveButton.type = "button";
+leaveButton.dataset.roomNav = "leave";
+leaveButton.textContent = "Sair da sala";
+roomNavigation.append(homeButton, leaveButton);
 room.prepend(roomNavigation);
 roomNavigation.querySelector('[data-room-nav="home"]')?.addEventListener("click", () => {
     void shortcuts["go-home"]?.();
