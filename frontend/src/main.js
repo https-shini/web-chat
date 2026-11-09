@@ -19,6 +19,7 @@ import { createConnection } from "./ui/connection.js";
 import { createEmpty } from "./ui/empty.js";
 import { createFailure } from "./ui/failure.js";
 import { createEntry } from "./ui/entry.js";
+import { createConversationTabs } from "./ui/conversationTabs.js";
 import { createHome } from "./ui/home.js";
 import { createMessageList } from "./ui/messageList.js";
 import { createPeople } from "./ui/people.js";
@@ -365,9 +366,12 @@ const shortcuts = {
         const active = store.getState().room;
         if (!active) return;
         const confirmed = await dialog.confirm({
-            title: "Sair da sala?",
-            body: "Você deixará esta sala. Se não houver outros participantes, ela será encerrada e o histórico apagado.",
-            confirmLabel: "Sair da sala",
+            title: active.kind === "dm" ? "Encerrar DM?" : "Sair da sala?",
+            body:
+                active.kind === "dm"
+                    ? "O histórico da conversa privada será apagado para ambos."
+                    : "Você deixará esta sala. Se não houver outros participantes, o histórico será apagado.",
+            confirmLabel: active.kind === "dm" ? "Encerrar DM" : "Sair da sala",
         });
         if (!confirmed) return;
         transport.send(CLIENT_EVENTS.ROOM_LEAVE, { conversationId: active.conversationId });
@@ -467,6 +471,20 @@ for (const button of document.querySelectorAll('[data-action="logout"]')) {
     button.addEventListener("click", () => void logout());
 }
 
+const openConversation = (id) => {
+    if (!store.actions.openConversation(id)) return;
+    const selected = store.getState().room;
+    history.replaceState(
+        null,
+        "",
+        selected?.kind === "dm"
+            ? location.pathname + location.search
+            : selected
+              ? inviteHash(selected.code)
+              : location.pathname + location.search,
+    );
+};
+
 const home = createHome({
     onCreate: () => enterRoom(),
     onJoin: (code) => enterRoom(code),
@@ -511,6 +529,8 @@ leaveButton.type = "button";
 leaveButton.dataset.roomNav = "leave";
 leaveButton.textContent = "Sair da sala";
 roomNavigation.append(homeButton, leaveButton);
+const conversationTabs = createConversationTabs({ onOpen: openConversation });
+roomNavigation.append(conversationTabs.element);
 room.prepend(roomNavigation);
 roomNavigation.querySelector('[data-room-nav="home"]')?.addEventListener("click", () => {
     void shortcuts["go-home"]?.();
@@ -673,6 +693,9 @@ const render = (state, previous) => {
 
     if (changed(state, previous, ["conversations"])) {
         home.renderConversations(state.conversations);
+    }
+    if (changed(state, previous, ["conversations", "room"])) {
+        conversationTabs.render(state.conversations, state.room?.conversationId ?? null);
     }
     if (changed(state, previous, ["link", "attempt"])) {
         home.setConnection(state.link);
