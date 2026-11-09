@@ -358,10 +358,11 @@ export const createEventHandler =
                 onUserSearchResults(
                     payload.query,
                     users
-                        .filter((user) =>
-                            typeof user?.id === "string" &&
-                            typeof user?.name === "string" &&
-                            typeof user?.username === "string",
+                        .filter(
+                            (user) =>
+                                typeof user?.id === "string" &&
+                                typeof user?.name === "string" &&
+                                typeof user?.username === "string",
                         )
                         .slice(0, 10)
                         .map((user) => ({
