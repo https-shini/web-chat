@@ -36,6 +36,7 @@
 @import url("./components/sidebar.css");
 @import url("./components/header.css");
 @import url("./components/members.css");
+@import url("./components/resizer.css");
 
 /* telas e conversa */
 @import url("./components/entry.css");

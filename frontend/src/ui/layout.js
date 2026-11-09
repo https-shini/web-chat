@@ -38,6 +38,8 @@ export const createLayout = () => {
     let membersPinned = true;
     /** @type {HTMLElement | null} */
     let returnFocus = null;
+    /** Avisados a cada mudança de painel (ex.: bordas de redimensionar). @type {(() => void)[]} */
+    const listeners = [];
 
     /** @param {Panel} panel */
     const isDrawer = (panel) => (panel === "sidebar" ? !medium.matches : !wide.matches);
@@ -61,6 +63,7 @@ export const createLayout = () => {
             const panel = /** @type {Panel} */ (button.dataset.drawerOpen);
             button.setAttribute("aria-expanded", String(!node(panel).hidden));
         }
+        for (const listener of listeners) listener();
     };
 
     /** @param {Panel} panel @param {HTMLElement | null} opener */
@@ -120,5 +123,17 @@ export const createLayout = () => {
 
         /** Há gaveta aberta? */
         hasDrawer: () => drawer !== null,
+
+        /**
+         * O painel está visível e encaixado ao lado da conversa (não é gaveta)?
+         * Só nesse caso a largura dele é ajustável.
+         * @param {Panel} panel
+         */
+        isDocked: (panel) => inRoom && !node(panel).hidden && !isDrawer(panel),
+
+        /** @param {() => void} listener chamado depois de cada mudança de painel */
+        onChange(listener) {
+            listeners.push(listener);
+        },
     };
 };

@@ -1,6 +1,8 @@
 /* Barra lateral: marca, sala, atalhos, conexão e o painel "você". */
 
 .c-sidebar {
+    /* Referência da borda de redimensionar. */
+    position: relative;
     display: flex;
     flex: 0 0 var(--sidebar-width);
     flex-direction: column;

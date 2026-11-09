@@ -28,6 +28,7 @@ import { createNotifier } from "./ui/notify.js";
 import { createDialog } from "./ui/dialog.js";
 import { hydrateIcons } from "./ui/icons.js";
 import { createLayout } from "./ui/layout.js";
+import { createPanelResize } from "./ui/panelResize.js";
 import { createMemberCard } from "./ui/memberCard.js";
 import { createTooltips } from "./ui/tooltip.js";
 import { createUserPanel } from "./ui/userPanel.js";
@@ -48,6 +49,7 @@ const shell = /** @type {HTMLElement} */ (must(".c-app"));
 const skeleton = /** @type {HTMLElement} */ (must(".c-skeleton"));
 
 const layout = createLayout();
+const panelResize = createPanelResize({ layout, label: strings.layout.width });
 const dialog = createDialog();
 createTooltips();
 
@@ -332,6 +334,8 @@ const logout = async () => {
     pendingRequests.clear();
     typingTracker.clear();
     memberCard.close({ restoreFocus: false });
+    // Larguras ajustadas são desta participação: a próxima começa no padrão.
+    panelResize.reset();
     store.actions.leaveRoom();
     // A tela de entrada precisa estar visível antes de receber o foco.
     renderLoop.flush();

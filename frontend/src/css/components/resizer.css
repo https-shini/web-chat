@@ -1,0 +1,77 @@
+/* Borda arrastável das barras laterais (ui/panelResize.js).
+
+   A área de arraste é mais larga que a linha visível, para ser fácil de
+   pegar. Cada borda fica onde não disputa com uma barra de rolagem:
+   - barra lateral: metade sobre a própria borda, metade sobre a conversa
+     (a conversa não tem rolagem à esquerda);
+   - pessoas: inteira dentro do painel, na borda esquerda (a rolagem da
+     conversa fica logo ao lado, à direita dela).
+
+   A linha só aparece ao passar o ponteiro, com foco de teclado ou durante o
+   arraste. Em gaveta a borda nem existe: o JS a esconde com `hidden`. */
+
+.c-resizer {
+    position: absolute;
+    inset-block: 0;
+    z-index: calc(var(--z-sticky) + 1);
+    width: var(--resizer-hit);
+    cursor: col-resize;
+    touch-action: none;
+}
+
+.c-resizer--sidebar {
+    right: calc(var(--resizer-hit) / -2);
+}
+
+.c-resizer--members {
+    left: 0;
+}
+
+.c-resizer::after {
+    position: absolute;
+    inset-block: 0;
+    left: 50%;
+    width: var(--rule-2);
+    content: "";
+    background-color: transparent;
+    transform: translateX(-50%);
+    transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+/* A linha da borda de pessoas fica sobre a divisória do painel. */
+.c-resizer--members::after {
+    left: 0;
+    transform: none;
+}
+
+.c-resizer:hover::after {
+    background-color: var(--color-text-3);
+}
+
+.c-resizer:focus-visible {
+    outline: none;
+}
+
+.c-resizer:focus-visible::after,
+.c-resizer[data-active]::after {
+    width: var(--rule-3);
+    background-color: var(--color-focus-ring);
+}
+
+/* Durante o arraste, o cursor não pisca ao passar sobre outros elementos e
+   nenhum texto é selecionado. */
+.c-app[data-resizing],
+.c-app[data-resizing] * {
+    cursor: col-resize;
+    user-select: none;
+}
+
+@media (pointer: coarse) {
+    .c-resizer {
+        width: var(--resizer-hit-coarse);
+    }
+
+    .c-resizer--sidebar {
+        right: calc(var(--resizer-hit-coarse) / -2);
+    }
+}
