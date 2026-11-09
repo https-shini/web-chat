@@ -1,0 +1,15 @@
+.c-home {
+    padding: clamp(2rem, 7vw, 6rem) 1.5rem;
+    min-height: 70vh;
+}
+.c-home[hidden], .c-home__join[hidden] { display: none; }
+.c-home__content { max-width: 760px; margin: 0 auto; }
+.c-home__eyebrow { letter-spacing: .16em; font-size: .75rem; opacity: .7; }
+.c-home__title { font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.12; margin: 1.5rem 0; }
+.c-home__identity, .c-home__description { opacity: .8; margin: 1rem 0; }
+.c-home__actions { display: flex; flex-wrap: wrap; gap: .75rem; margin: 2rem 0; }
+.c-home__actions button, .c-home__join button { border: 1px solid currentColor; border-radius: .75rem; padding: .9rem 1.1rem; cursor: pointer; }
+.c-home__join { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-top: 1rem; }
+.c-home__join label { flex-basis: 100%; }
+.c-home__join input { padding: .85rem; border-radius: .5rem; min-width: min(100%, 260px); }
+.c-home__notice { min-height: 1.5rem; }
