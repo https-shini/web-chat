@@ -172,6 +172,7 @@ export const createEventHandler =
                     },
                     payload.role === "admin" ? "admin" : "member",
                 );
+                store.actions.completeLogin();
                 // A sessão não põe ninguém em sala: a conversa aparece com o
                 // `room_joined` (a retomada traz as salas sozinha).
                 onSession(
