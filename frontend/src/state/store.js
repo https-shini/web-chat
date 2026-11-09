@@ -181,7 +181,7 @@ export const createStore = () => {
         const record = records.get(conversationId);
         if (!record) return;
         const active = state.screen === "room" && state.room?.conversationId === conversationId;
-        let messages = record.messages.slice();
+        const messages = record.messages.slice();
         let freshUnread = 0;
         for (const item of incoming) {
             if (hidden.has(item.id)) continue;
@@ -189,7 +189,7 @@ export const createStore = () => {
                 ? messages.findIndex((known) => known.own && known.clientMsgId === item.clientMsgId)
                 : -1;
             if (optimisticIndex >= 0) {
-                messages[optimisticIndex] = { ...item, key: messages[optimisticIndex].key, delivery: "confirmed" };
+                messages[optimisticIndex] = { ...item, key: messages[optimisticIndex]?.key ?? item.key, delivery: "confirmed" };
                 continue;
             }
             if (messages.some((known) => known.id === item.id)) continue;
@@ -221,11 +221,12 @@ export const createStore = () => {
      */
     const patch = (partial) => {
         state = { ...state, ...partial };
-        const active = state.room && records.get(state.room.conversationId);
-        if (active) {
-            records.set(state.room.conversationId, {
+        const room = state.room;
+        const active = room && records.get(room.conversationId);
+        if (active && room) {
+            records.set(room.conversationId, {
                 ...active,
-                room: state.room,
+                room,
                 messages: state.messages,
                 people: state.people,
                 typing: state.typing,
@@ -338,7 +339,8 @@ export const createStore = () => {
                 patch({ screen: "room" });
                 // Visualizar marca a conversa como lida; participar continua
                 // independente de qual conversa está selecionada.
-                records.set(conversationId, { ...records.get(conversationId), unread: 0 });
+                const refreshed = records.get(conversationId);
+                if (refreshed) records.set(conversationId, { ...refreshed, unread: 0 });
                 patch({});
                 return true;
             },
