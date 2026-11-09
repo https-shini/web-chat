@@ -62,6 +62,7 @@ export const CLIENT_EVENTS = Object.freeze({
     ROOM_LEAVE: "room_leave",
     /** Pedir a lista das salas de que a identidade participa. */
     ROOM_LIST: "room_list",
+    USER_SEARCH: "user_search",
 });
 
 /** Eventos que o servidor envia. */
@@ -86,6 +87,7 @@ export const SERVER_EVENTS = Object.freeze({
     ROOM_LIST: "room_list",
     /** O resumo de uma sala mudou (ex.: anfitrião novo). */
     ROOM_UPDATED: "room_updated",
+    USER_SEARCH_RESULTS: "user_search_results",
 });
 
 /**
