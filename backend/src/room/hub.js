@@ -298,6 +298,21 @@ export const createHub = ({
          * @param {Record<string, unknown>} payload
          * @returns {{ok: true, users: {id: string, name: string, username: string}[], query: string} | Refusal}
          */
+        openDirect(member, payload) {
+            const entry = connections.get(member);
+            if (!entry) return { ok: false, code: ERROR_CODES.NOT_LOGGED_IN };
+            if (!searchAllowed(entry.identity)) {
+                return { ok: false, code: ERROR_CODES.RATE_LIMITED };
+            }
+            const read = readUsername(payload.username);
+            if (!read.ok || !read.username) {
+                return { ok: false, code: ERROR_CODES.INVALID_USERNAME };
+            }
+            const target = identities.findOnline(read.username);
+            if (!target) return { ok: false, code: ERROR_CODES.USER_NOT_FOUND };
+            return directory.openDirect(entry.identity, target);
+        },
+
         searchUsers(member, payload) {
             const entry = connections.get(member);
             if (!entry) return { ok: false, code: ERROR_CODES.NOT_LOGGED_IN };
