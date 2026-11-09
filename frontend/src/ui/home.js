@@ -99,7 +99,11 @@ export const createHome = ({
     conversations.setAttribute("aria-label", "Conversas ativas");
     conversations.append(
         create("h2", "", "Suas conversas"),
-        create("p", "c-home__empty", "Nenhuma conversa ativa. Crie uma sala ou procure alguém por @username."),
+        create(
+            "p",
+            "c-home__empty",
+            "Nenhuma conversa ativa. Crie uma sala ou procure alguém por @username.",
+        ),
         create("ul", "c-home__conversation-list"),
     );
     content.append(
@@ -202,7 +206,8 @@ export const createHome = ({
                 open.dataset.conversationId = room.conversationId;
                 open.dataset.action = "open";
                 const title = document.createElement("strong");
-                title.textContent = (room.kind === "dm" ? "Mensagem direta · " : "Sala · ") + room.name;
+                title.textContent =
+                    (room.kind === "dm" ? "Mensagem direta · " : "Sala · ") + room.name;
                 const detail = document.createElement("span");
                 detail.textContent = room.unread
                     ? " · " + room.unread + " não lida(s)"
