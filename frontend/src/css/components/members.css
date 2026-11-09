@@ -2,6 +2,8 @@
    que abre o cartão dela. */
 
 .c-members {
+    /* Referência da borda de redimensionar. */
+    position: relative;
     display: flex;
     flex: 0 0 var(--members-width);
     flex-direction: column;

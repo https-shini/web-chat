@@ -124,6 +124,8 @@ export const strings = {
         openSidebar: "Abrir barra lateral",
         closeSidebar: "Fechar barra lateral",
         members: "Pessoas",
+        /** @param {number} px */
+        width: (px) => `${px} pixels`,
     },
     logout: {
         button: "Sair da sala",

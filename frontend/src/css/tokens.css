@@ -302,6 +302,10 @@
     /* Medidas de layout */
     --sidebar-width: 16rem; /* 256px — cabe nome, @username e 3 botões no painel "você" */
     --members-width: 15rem; /* 240px */
+    /* Larguras padrão das barras; a pessoa pode arrastar as bordas
+       (ui/panelResize.js, limites em state/panelSizes.js). */
+    --resizer-hit: 0.5rem; /*  8px — área de arraste da borda */
+    --resizer-hit-coarse: 1rem; /* 16px — com toque */
     --header-height: 3rem; /*  48px */
     --avatar-sm: 1.5rem; /*  24px */
     --avatar-md: 2rem; /*  32px */
