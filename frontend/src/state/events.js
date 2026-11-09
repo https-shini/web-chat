@@ -121,6 +121,7 @@ export const noticeMessage = ({ tone, text: content, title, lines }) => {
  *   onRoomJoined?: (room: import("./store.js").RoomInfo) => void,
  *   onRoomLeft?: (reason: string, conversationId: string | null) => void,
  *   onRoomList?: () => void,
+ *   onUserSearchResults?: (query: string, users: {id: string, name: string, username: string}[]) => void,
  *   onRoomRefused?: (code: string, message: string) => void,
  *   onLoginRejected?: (message: string, field: "name" | "username") => void,
  *   onCommandResult?: (requestId: string | null, result: {tone: string, text: string, title?: string, lines?: string[], code?: string, data?: Record<string, unknown>}) => void,
@@ -137,6 +138,7 @@ export const createEventHandler =
         onRoomJoined = () => {},
         onRoomLeft = () => {},
         onRoomList = () => {},
+        onUserSearchResults = () => {},
         onRoomRefused = () => {},
         onLoginRejected = () => {},
         onCommandResult = () => {},
@@ -343,6 +345,29 @@ export const createEventHandler =
                         String(payload?.timestamp ?? new Date().toISOString()),
                         { tone: TONES.ADMIN },
                     ),
+                );
+                break;
+            }
+
+            case SERVER_EVENTS.USER_SEARCH_RESULTS: {
+                if (typeof payload?.query !== "string") break;
+                const users = /** @type {any[]} */ (
+                    Array.isArray(payload.users) ? payload.users : []
+                );
+                onUserSearchResults(
+                    payload.query,
+                    users
+                        .filter((user) =>
+                            typeof user?.id === "string" &&
+                            typeof user?.name === "string" &&
+                            typeof user?.username === "string",
+                        )
+                        .slice(0, 10)
+                        .map((user) => ({
+                            id: user.id,
+                            name: user.name,
+                            username: user.username,
+                        })),
                 );
                 break;
             }
