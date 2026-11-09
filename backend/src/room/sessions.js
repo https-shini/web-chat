@@ -139,6 +139,45 @@ export const createIdentityStore = ({
          * esperar a varredura periódica.
          * @param {string} username
          */
+        /**
+         * Busca limitada às identidades conectadas. Não expõe tokens,
+         * identidades desconectadas nem o cadastro interno.
+         * @param {string} query prefixo ou trecho normalizado
+         * @param {string} excludeId
+         * @param {number} [limit]
+         */
+        searchOnline(query, excludeId, limit = 10) {
+            /** @type {{id: string, name: string, username: string}[]} */
+            const results = [];
+            for (const [username, identity] of usernames) {
+                if (
+                    username.includes(query) &&
+                    identity.id !== excludeId &&
+                    identity.holder !== null &&
+                    !identity.retired
+                ) {
+                    results.push({
+                        id: identity.id,
+                        name: identity.name,
+                        username: identity.username,
+                    });
+                }
+            }
+            return results
+                .sort((a, b) => {
+                    const aPrefix = a.username.startsWith(query) ? 0 : 1;
+                    const bPrefix = b.username.startsWith(query) ? 0 : 1;
+                    return aPrefix - bPrefix || a.username.localeCompare(b.username);
+                })
+                .slice(0, limit);
+        },
+
+        /** @param {string} username */
+        findOnline(username) {
+            const identity = usernames.get(username);
+            return identity && identity.holder !== null && !identity.retired ? identity : null;
+        },
+
         isUsernameTaken(username) {
             const holder = usernames.get(username);
             if (!holder) return false;
