@@ -487,6 +487,7 @@ const openConversation = (id) => {
 };
 
 const home = createHome({
+    onLogout: () => void logout(),
     onCreate: () => enterRoom(),
     onJoin: (code) => enterRoom(code),
     onOpen: (id) => {
@@ -697,6 +698,7 @@ const render = (state, previous) => {
     }
     if (changed(state, previous, ["conversations", "room"])) {
         conversationTabs.render(state.conversations, state.room?.conversationId ?? null);
+        leaveButton.textContent = state.room?.kind === "dm" ? "Encerrar DM" : "Sair da sala";
     }
     if (changed(state, previous, ["link", "attempt"])) {
         home.setConnection(state.link);
