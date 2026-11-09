@@ -154,18 +154,21 @@ export const createStore = () => {
     /** @param {RoomInfo} room */
     const register = (room) => {
         const existing = records.get(room.conversationId);
-        records.set(room.conversationId, existing
-            ? { ...existing, room }
-            : {
-                room,
-                messages: [],
-                people: [],
-                typing: [],
-                historyVersion: null,
-                unread: 0,
-                lastMessage: null,
-                lastActivity: null,
-            });
+        records.set(
+            room.conversationId,
+            existing
+                ? { ...existing, room }
+                : {
+                      room,
+                      messages: [],
+                      people: [],
+                      typing: [],
+                      historyVersion: null,
+                      unread: 0,
+                      lastMessage: null,
+                      lastActivity: null,
+                  },
+        );
     };
 
     /** @param {Message[]} messages */
@@ -189,7 +192,11 @@ export const createStore = () => {
                 ? messages.findIndex((known) => known.own && known.clientMsgId === item.clientMsgId)
                 : -1;
             if (optimisticIndex >= 0) {
-                messages[optimisticIndex] = { ...item, key: messages[optimisticIndex]?.key ?? item.key, delivery: "confirmed" };
+                messages[optimisticIndex] = {
+                    ...item,
+                    key: messages[optimisticIndex]?.key ?? item.key,
+                    delivery: "confirmed",
+                };
                 continue;
             }
             if (messages.some((known) => known.id === item.id)) continue;
@@ -207,7 +214,6 @@ export const createStore = () => {
         if (active) patch({ messages });
         else patch({});
     };
-
 
     /** @type {Set<Listener>} */
     const listeners = new Set();
