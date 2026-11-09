@@ -118,6 +118,7 @@ const readSavedSession = () => {
         return null;
     }
 };
+/** @param {import("./state/store.js").Person | null} me @param {string | null} token */
 const saveSession = (me, token) => {
     try {
         if (token && me) {
@@ -442,6 +443,7 @@ const logout = async () => {
  * servidor reiniciou e a identidade é outra) ou uma sala nova. Numa
  * retomada o servidor devolve as salas sozinho.
  */
+/** @param {string | null} [requestedCode] */
 const enterRoom = (requestedCode = null) => {
     const code = requestedCode ? normalizeRoomCode(requestedCode) : null;
     if (requestedCode && !code) {
@@ -495,10 +497,10 @@ roomNavigation.innerHTML = `<button type="button" data-room-nav="home">← Iníc
     <button type="button" data-room-nav="leave">Sair da sala</button>`;
 room.prepend(roomNavigation);
 roomNavigation.querySelector('[data-room-nav="home"]')?.addEventListener("click", () => {
-    void shortcuts["go-home"]();
+    void shortcuts["go-home"]?.();
 });
 roomNavigation.querySelector('[data-room-nav="leave"]')?.addEventListener("click", () => {
-    void shortcuts["leave-room"]();
+    void shortcuts["leave-room"]?.();
 });
 
 const failure = createFailure({
@@ -562,7 +564,7 @@ handleEvent = createEventHandler({
         }
         toasts.show(message, "error");
     },
-    onRoomLeft: (reason, _conversationId) => {
+    onRoomLeft: (reason) => {
         // O estado da sala já foi removido do registro. Outras conversas
         // seguem ativas, inclusive se o aviso era de outra sala.
         if (!store.getState().room) {
