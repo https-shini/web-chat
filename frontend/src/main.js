@@ -19,6 +19,7 @@ import { createConnection } from "./ui/connection.js";
 import { createEmpty } from "./ui/empty.js";
 import { createFailure } from "./ui/failure.js";
 import { createEntry } from "./ui/entry.js";
+import { createHome } from "./ui/home.js";
 import { createMessageList } from "./ui/messageList.js";
 import { createPeople } from "./ui/people.js";
 import { createThemeToggle } from "./ui/themeToggle.js";
@@ -388,8 +389,8 @@ const logout = async () => {
  * servidor reiniciou e a identidade é outra) ou uma sala nova. Numa
  * retomada o servidor devolve as salas sozinho.
  */
-const enterRoom = () => {
-    const code = store.getState().room?.code ?? pendingInvite;
+const enterRoom = (requestedCode = null) => {
+    const code = requestedCode ?? store.getState().room?.code ?? pendingInvite;
     // Identidade nova: a participação anterior não existe mais no servidor.
     store.actions.forgetRoom();
     roomRequest = code ? "join" : "create";
@@ -402,6 +403,12 @@ const enterRoom = () => {
 for (const button of document.querySelectorAll('[data-action="logout"]')) {
     button.addEventListener("click", () => void logout());
 }
+
+const home = createHome({
+    onCreate: () => enterRoom(),
+    onJoin: (code) => enterRoom(code),
+    onDirect: () => home.showNotice("Mensagens diretas por @ serão disponibilizadas em breve."),
+});
 
 const failure = createFailure({
     onRetry: () => transport.retryNow(),
@@ -433,7 +440,8 @@ handleEvent = createEventHandler({
     typingTracker,
     onSession: (token, resumed) => {
         resumeToken = token;
-        if (!resumed) enterRoom();
+        home.setIdentity(store.getState().me?.name ?? "", store.getState().me?.username ?? "");
+        if (pendingInvite) home.setInvite(pendingInvite);
     },
     onRoomJoined: (room) => {
         pendingInvite = null;
@@ -443,12 +451,9 @@ handleEvent = createEventHandler({
     },
     onRoomRefused: (code, message) => {
         if (roomRequest === "join" && store.getState().room === null) {
-            // Convite que não deu certo (código errado, sala que já acabou,
-            // remoção): a pessoa não fica sem sala — ganha uma nova.
             pendingInvite = null;
-            toasts.show(format(strings.room.inviteFailed, { reason: message }), "error");
-            roomRequest = "create";
-            transport.send(CLIENT_EVENTS.ROOM_CREATE, { requestId: ROOM_REQUEST_ID });
+            roomRequest = null;
+            home.showNotice(message);
             return;
         }
         if (roomRequest === "create" && store.getState().room === null) {
@@ -534,7 +539,8 @@ const render = (state, previous) => {
 
     if (changed(state, previous, ["screen"])) {
         shell.dataset.screen = state.screen;
-        entry.setVisible(!inRoom);
+        entry.setVisible(state.screen === "entry");
+        home.setVisible(state.screen === "home");
         room.hidden = !inRoom;
         composer.setVisible(inRoom);
         layout.setInRoom(inRoom);
@@ -582,6 +588,7 @@ const render = (state, previous) => {
 
     // Trocar `display` sem mover o foco é bug de acessibilidade: na entrada
     // da sala o foco vai para o composer e a mudança de contexto é anunciada.
+    if (state.screen === "home" && lastScreen !== "home") home.focus();
     if (inRoom && lastScreen !== "room") {
         composer.focus();
         announcer.say(strings.a11y.enteredRoom, { force: true });
