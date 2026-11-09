@@ -29,10 +29,10 @@
 
 ## Eventos WebSocket adicionados
 
-| Cliente | Servidor | Finalidade |
-| --- | --- | --- |
-| `user_search` | `user_search_results` | Pesquisa de perfis online |
-| `dm_open` | `room_joined` | Criar ou retomar DM existente |
+| Cliente       | Servidor              | Finalidade                    |
+| ------------- | --------------------- | ----------------------------- |
+| `user_search` | `user_search_results` | Pesquisa de perfis online     |
+| `dm_open`     | `room_joined`         | Criar ou retomar DM existente |
 
 As DMs usam `room_list`, `chat_message`, `message_history`, `user_list` e `room_left`, com `kind: "dm"` no resumo. O servidor exige participação antes de postar ou encerrar conversas.
 
