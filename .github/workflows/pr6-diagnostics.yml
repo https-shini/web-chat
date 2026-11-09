@@ -18,6 +18,25 @@ jobs:
                   cache: npm
             - run: npm ci
             - run: npm --prefix backend ci
+            - name: Emit canonical Prettier output for reviewable corrections
+              shell: bash
+              run: |
+                  node --input-type=module <<'NODE'
+                  import fs from "node:fs";
+                  import prettier from "prettier";
+                  for (const path of [
+                    "frontend/src/main.js",
+                    "frontend/src/state/events.js",
+                    "frontend/src/state/store.js",
+                    "frontend/src/ui/home.js",
+                    "frontend/test/conversations.test.js",
+                  ]) {
+                    const original = fs.readFileSync(path, "utf8");
+                    const config = await prettier.resolveConfig(path);
+                    const formatted = await prettier.format(original, { ...config, filepath: path });
+                    console.log("PR6_FORMAT:" + JSON.stringify({ path, content: formatted }));
+                  }
+                  NODE
             - name: Run all independent quality checks without skipping failures
               shell: bash
               run: |
