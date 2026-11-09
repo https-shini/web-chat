@@ -139,3 +139,45 @@
         flex-direction: column;
     }
 }
+
+.c-user-search {
+    margin: 1.5rem 0;
+    padding: 1.5rem;
+    border: 1px solid currentcolor;
+    border-radius: 0.75rem;
+}
+
+.c-user-search[hidden] {
+    display: none;
+}
+
+.c-user-search label {
+    display: block;
+    margin: 1rem 0 0.5rem;
+}
+
+.c-user-search input {
+    width: 100%;
+    padding: 0.8rem;
+    border-radius: 0.5rem;
+}
+
+.c-user-search__results {
+    display: grid;
+    gap: 0.5rem;
+    padding: 0;
+    list-style: none;
+}
+
+.c-user-search__results button {
+    width: 100%;
+    padding: 0.75rem;
+    text-align: left;
+    border: 1px solid currentcolor;
+    border-radius: 0.5rem;
+    cursor: pointer;
+}
+
+.c-user-search__status {
+    margin: 0.75rem 0;
+}
