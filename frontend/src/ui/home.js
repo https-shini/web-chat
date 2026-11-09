@@ -6,7 +6,15 @@
  */
 import { normalizeRoomCode } from "../state/invite.js";
 
-/** @param {{onCreate: () => void, onJoin: (code: string) => void, onDirect: () => void, onOpen: (id: string) => void, onLeave: (id: string) => void}} actions */
+/**
+ * @param {{
+ *   onCreate: () => void,
+ *   onJoin: (code: string) => void,
+ *   onDirect: () => void,
+ *   onOpen: (id: string) => void,
+ *   onLeave: (id: string) => void,
+ * }} actions
+ */
 export const createHome = ({ onCreate, onJoin, onDirect, onOpen, onLeave }) => {
     const section = document.createElement("section");
     section.className = "c-home";
@@ -43,7 +51,9 @@ export const createHome = ({ onCreate, onJoin, onDirect, onOpen, onLeave }) => {
     const input = /** @type {HTMLInputElement} */ (section.querySelector("input"));
     const notice = section.querySelector(".c-home__notice");
     const connection = section.querySelector(".c-home__connection");
-    const list = /** @type {HTMLUListElement} */ (section.querySelector(".c-home__conversation-list"));
+    const list = /** @type {HTMLUListElement} */ (
+        section.querySelector(".c-home__conversation-list")
+    );
     const empty = section.querySelector(".c-home__empty");
     section.querySelector('[data-home-action="create"]')?.addEventListener("click", onCreate);
     section.querySelector('[data-home-action="join"]')?.addEventListener("click", () => {
@@ -107,7 +117,9 @@ export const createHome = ({ onCreate, onJoin, onDirect, onOpen, onLeave }) => {
                 const detail = document.createElement("span");
                 detail.textContent = room.unread
                     ? " · " + room.unread + " não lida(s)"
-                    : room.lastMessage ? " · " + room.lastMessage.slice(0, 80) : " · Sem mensagens recentes";
+                    : room.lastMessage
+                      ? " · " + room.lastMessage.slice(0, 80)
+                      : " · Sem mensagens recentes";
                 open.append(title, detail);
                 const leave = document.createElement("button");
                 leave.type = "button";
@@ -121,10 +133,16 @@ export const createHome = ({ onCreate, onJoin, onDirect, onOpen, onLeave }) => {
         },
         /** @param {import("../state/store.js").LinkState} link */
         setConnection(link) {
-            if (connection) connection.textContent =
-                link === "online" ? "Conectado" :
-                link === "retrying" || link === "connecting" ? "Reconectando…" :
-                link === "offline" ? "Sem conexão" : "Aguardando conexão";
+            if (connection) {
+                connection.textContent =
+                    link === "online"
+                        ? "Conectado"
+                        : link === "retrying" || link === "connecting"
+                          ? "Reconectando…"
+                          : link === "offline"
+                            ? "Sem conexão"
+                            : "Aguardando conexão";
+            }
         },
         focus() {
             section.querySelector("h1")?.setAttribute("tabindex", "-1");
