@@ -35,9 +35,15 @@ test("alternar entre salas não apaga transcrições nem participações", () =>
     assert.equal(store.actions.openConversation("b"), true);
     store.actions.addConversationMessage("b", message("b1", "Olá B"));
     store.actions.openConversation("a");
-    assert.deepEqual(store.getState().messages.map((item) => item.id), ["a1"]);
+    assert.deepEqual(
+        store.getState().messages.map((item) => item.id),
+        ["a1"],
+    );
     store.actions.openConversation("b");
-    assert.deepEqual(store.getState().messages.map((item) => item.id), ["b1"]);
+    assert.deepEqual(
+        store.getState().messages.map((item) => item.id),
+        ["b1"],
+    );
 });
 
 test("mensagens da sala não selecionada acumulam não lidas e são deduplicadas", () => {
@@ -47,9 +53,15 @@ test("mensagens da sala não selecionada acumulam não lidas e são deduplicadas
     store.actions.openConversation("a");
     store.actions.addConversationMessage("b", message("b1", "Não lida"));
     store.actions.addConversationMessage("b", message("b1", "Não lida"));
-    assert.equal(store.getState().conversations.find((item) => item.conversationId === "b")?.unread, 1);
+    assert.equal(
+        store.getState().conversations.find((item) => item.conversationId === "b")?.unread,
+        1,
+    );
     store.actions.openConversation("b");
-    assert.equal(store.getState().conversations.find((item) => item.conversationId === "b")?.unread, 0);
+    assert.equal(
+        store.getState().conversations.find((item) => item.conversationId === "b")?.unread,
+        0,
+    );
     assert.equal(store.getState().messages.length, 1);
 });
 
@@ -60,7 +72,10 @@ test("room_list reconcilia conversas com o estado autoritativo do servidor", () 
     store.actions.openConversation("old");
     store.actions.syncRooms([room("current", "Atual")]);
     assert.equal(store.getState().screen, "home");
-    assert.deepEqual(store.getState().conversations.map((item) => item.conversationId), ["current"]);
+    assert.deepEqual(
+        store.getState().conversations.map((item) => item.conversationId),
+        ["current"],
+    );
 });
 
 test("eventos de outra sala atualizam o registro sem substituir a tela aberta", () => {
@@ -93,7 +108,10 @@ test("eventos de outra sala atualizam o registro sem substituir a tela aberta", 
     });
     assert.equal(store.getState().room?.conversationId, "a");
     assert.equal(store.getState().messages.length, 0);
-    assert.equal(store.getState().conversations.find((item) => item.conversationId === "b")?.unread, 1);
+    assert.equal(
+        store.getState().conversations.find((item) => item.conversationId === "b")?.unread,
+        1,
+    );
     store.actions.openConversation("b");
     assert.equal(store.getState().messages[0]?.content, "Mensagem da B");
 });
