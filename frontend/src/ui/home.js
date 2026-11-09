@@ -18,7 +18,15 @@ import { createUserSearch } from "./userSearch.js";
  *   onStartDirect: (username: string) => void,
  * }} actions
  */
-export const createHome = ({ onCreate, onJoin, onDirect, onOpen, onLeave, onSearch, onStartDirect }) => {
+export const createHome = ({
+    onCreate,
+    onJoin,
+    onDirect,
+    onOpen,
+    onLeave,
+    onSearch,
+    onStartDirect,
+}) => {
     const section = document.createElement("section");
     section.className = "c-home";
     section.hidden = true;
