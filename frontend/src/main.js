@@ -112,7 +112,8 @@ const readSavedSession = () => {
             typeof data?.name !== "string" ||
             typeof data?.username !== "string" ||
             typeof data?.token !== "string"
-        ) return null;
+        )
+            return null;
         return data;
     } catch {
         return null;
