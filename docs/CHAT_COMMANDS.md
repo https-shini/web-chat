@@ -49,12 +49,21 @@ cliente: ele só lê o nome para saber se o comando é local.
 
 ## 3. Permissões
 
-| Permissão  | Quem                    | Como se obtém                                                                   |
-| ---------- | ----------------------- | ------------------------------------------------------------------------------- |
-| `everyone` | Qualquer pessoa na sala | Entrando na sala                                                                |
-| `admin`    | Administradores         | `/admin <chave>`, com a chave definida em `ADMIN_KEY` por quem opera o servidor |
+| Permissão   | Quem                                         | Como se obtém                                                                   |
+| ----------- | -------------------------------------------- | ------------------------------------------------------------------------------- |
+| `everyone`  | Qualquer pessoa com sessão                   | Entrando no chat                                                                |
+| `moderator` | Anfitrião **da sala** ou administrador       | Criando a sala (ou herdando o papel de quem a criou), ou sendo administrador    |
+| `admin`     | Administradores (globais, em todas as salas) | `/admin <chave>`, com a chave definida em `ADMIN_KEY` por quem opera o servidor |
 
-- O papel fica na identidade, **no servidor**. Nada vem do cliente: `role`,
+- **Desde a Fase 2 da evolução (várias salas)** a moderação é **por sala**: o
+  comando roda na conversa informada em `payload.conversationId`, e o executor
+  confere que a sessão participa dela e qual é o papel dela **ali**. Anfitrião de
+  uma sala não tem poder em outra.
+- Comandos de sala (marcados `requiresRoom` no catálogo — `/users`, `/me`, `/roll`,
+  formatação, moderação, `/invite`) recusam com `no_conversation` quando chegam sem
+  uma conversa válida. Comandos gerais (`/ping`, `/nick`, `/afk`, `/rooms`, `/id`…)
+  funcionam sem.
+- O papel fica no servidor. Nada vem do cliente: `role`,
   `isAdmin` ou `userId` em qualquer payload são ignorados (há teste para isso).
 - Sem `ADMIN_KEY` configurada, a administração fica **desativada**: os comandos
   administrativos aparecem com 🔒 e respondem que não há permissão; `/admin`
@@ -62,12 +71,16 @@ cliente: ele só lê o nome para saber se o comando é local.
 - `/admin`: comparação em tempo constante; 5 erros bloqueiam aquela identidade por
   10 min; mais de 20 erros por minuto no servidor bloqueiam todas as tentativas por
   1 min. A chave nunca é registrada em log, nem ecoada na tela.
-- Hierarquia de moderação: só administrador modera; ninguém modera a si mesmo;
-  administrador não modera outro administrador.
-- O papel dura enquanto a identidade existir (inclusive em reconexões com o token);
-  some quando o servidor reinicia.
+- Hierarquia de moderação: só quem modera a sala modera alguém nela; ninguém modera
+  a si mesmo; administrador não é moderado por ninguém; anfitrião só é moderado por
+  administrador.
+- O papel de anfitrião passa para quem está na sala há mais tempo quando o
+  anfitrião sai de vez (sai da sala, encerra a sessão ou não volta no prazo de
+  retomada). Uma queda curta não passa o papel.
+- Os papéis duram enquanto a identidade existir (inclusive em reconexões com o
+  token); somem quando o servidor reinicia.
 
-## 4. Comandos disponíveis (28)
+## 4. Comandos disponíveis (30)
 
 ### Básicos
 
@@ -78,19 +91,26 @@ cliente: ele só lê o nome para saber se o comando é local.
 | `/time`    | `/hora`, `/date`      | `/time`           | Data e hora deste dispositivo                                                                                                    | navegador |
 | `/users`   | `/online`, `/who`     | `/users`          | Quem está na sala, com @username, id curto, papel, ausência e silêncio                                                           | servidor  |
 | `/ping`    | —                     | `/ping`           | Tempo de **ida e volta** da sua mensagem até o servidor (inclui o processamento)                                                 | servidor  |
-| `/about`   | `/sobre`              | `/about`          | O que é a sala                                                                                                                   | servidor  |
+| `/about`   | `/sobre`              | `/about`          | O que é o chat                                                                                                                   | servidor  |
 | `/version` | `/versao`             | `/version`        | Versão do servidor e tempo no ar                                                                                                 | servidor  |
 | `/rules`   | `/regras`             | `/rules`          | Regras de convivência                                                                                                            | servidor  |
 
+### Salas
+
+| Comando   | Aliases               | Sintaxe   | O que faz                                                                  |
+| --------- | --------------------- | --------- | -------------------------------------------------------------------------- |
+| `/invite` | `/convite`, `/codigo` | `/invite` | Mostra o código de convite da sala (só para quem já está nela)             |
+| `/rooms`  | `/salas`              | `/rooms`  | Lista as salas de que você participa, com o código e se você é o anfitrião |
+
 ### Perfil
 
-| Comando    | Aliases             | Sintaxe                 | O que faz                                                                                                           |
-| ---------- | ------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `/nick`    | `/nome`             | `/nick <novo nome>`     | Troca o nome de exibição (1–30 caracteres visíveis; no máximo 1 troca a cada 10 s). O id não muda. A sala é avisada |
-| `/profile` | `/whois`, `/perfil` | `/profile [nome ou id]` | Perfil público: @username, id, papel, status, desde quando está na sala, mensagens enviadas                         |
-| `/id`      | —                   | `/id`                   | Seu id completo (atribuído pelo servidor)                                                                           |
-| `/me`      | —                   | `/me <ação>`            | Publica uma ação em terceira pessoa: “Ana está estudando”                                                           |
-| `/afk`     | `/away`, `/ausente` | `/afk [motivo]`         | Marca ausência (visível na lista de pessoas). Repetir `/afk` ou enviar uma mensagem volta                           |
+| Comando    | Aliases             | Sintaxe                 | O que faz                                                                                                     |
+| ---------- | ------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `/nick`    | `/nome`             | `/nick <novo nome>`     | Troca o nome de exibição (no máximo 1 troca a cada 10 s). O id não muda. Todas as suas salas são avisadas     |
+| `/profile` | `/whois`, `/perfil` | `/profile [nome ou id]` | Perfil público de alguém **da sala**: @username, id, papel na sala, status, desde quando está nela, mensagens |
+| `/id`      | —                   | `/id`                   | Seu id completo (atribuído pelo servidor)                                                                     |
+| `/me`      | —                   | `/me <ação>`            | Publica uma ação em terceira pessoa: “Ana está estudando”                                                     |
+| `/afk`     | `/away`, `/ausente` | `/afk [motivo]`         | Marca ausência em todas as suas salas. Repetir `/afk` ou enviar uma mensagem (em qualquer sala) volta         |
 
 ### Interação
 
@@ -114,16 +134,16 @@ cliente: ele só lê o nome para saber se o comando é local.
 A formatação é aplicada pelo servidor (`payload.format`) e desenhada pelo cliente
 com elementos (`<strong>`, `<em>`, `<code>`, botão) — nunca com HTML vindo da rede.
 
-### Administração
+### Moderação
 
-| Comando     | Permissão | Sintaxe                        | O que faz                                                                                         |
-| ----------- | --------- | ------------------------------ | ------------------------------------------------------------------------------------------------- |
-| `/admin`    | todos     | `/admin <chave>`               | Torna você administrador, se a chave estiver certa                                                |
-| `/clearall` | admin     | `/clearall confirmar`          | Apaga o histórico da sala **para todos**. Sem `confirmar`, só explica o efeito                    |
-| `/announce` | admin     | `/announce <texto>`            | Aviso destacado para a sala                                                                       |
-| `/mute`     | admin     | `/mute <nome ou id> [minutos]` | Impede alguém de publicar (mensagens e comandos que publicam), por 1–1440 min ou até `/unmute`    |
-| `/unmute`   | admin     | `/unmute <nome ou id>`         | Libera                                                                                            |
-| `/kick`     | admin     | `/kick <nome ou id>`           | Remove alguém da sala agora (fechamento 4003). A pessoa pode entrar de novo, como identidade nova |
+| Comando     | Permissão | Sintaxe                        | O que faz                                                                                                                     |
+| ----------- | --------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `/admin`    | todos     | `/admin <chave>`               | Torna você administrador global, se a chave estiver certa                                                                     |
+| `/clearall` | moderator | `/clearall confirmar`          | Apaga o histórico **desta sala** para todos. Sem `confirmar`, só explica o efeito                                             |
+| `/announce` | moderator | `/announce <texto>`            | Aviso destacado para a sala                                                                                                   |
+| `/mute`     | moderator | `/mute <nome ou id> [minutos]` | Impede alguém de publicar **nesta sala**, por 1–1440 min ou até `/unmute`                                                     |
+| `/unmute`   | moderator | `/unmute <nome ou id>`         | Libera                                                                                                                        |
+| `/kick`     | moderator | `/kick <nome ou id>`           | Remove alguém **desta sala** agora. A pessoa continua conectada e nas outras salas, mas não volta a esta enquanto ela existir |
 
 **Alvos:** `@username` (exato e único — o jeito recomendado), nome (sem diferenciar
 maiúsculas) ou id/prefixo de id com 6+ caracteres (veja `/users`). Nome com espaço
@@ -133,17 +153,20 @@ vai entre aspas: `/mute "João Silva" 5`. Nomes repetidos pedem o `@username`.
 
 - o histórico em memória do servidor é descartado e a versão do histórico muda;
 - quem está na sala recebe `chat_cleared` e a conversa some da tela;
-- quem estava fora e volta com o token percebe pela versão na `session` e descarta a
-  conversa antiga;
+- quem estava fora e volta com o token percebe pela versão no `room_joined` e
+  descarta a conversa antiga;
 - quem entra depois não vê nada;
 - **não** há como apagar cópias que alguém tenha feito (captura de tela, cópia do
   texto). O servidor não guarda nada em disco, então não há “exclusão permanente” a
   prometer além da memória;
-- a operação é registrada no log (`admin_action`, com ids — sem conteúdo).
+- a operação é registrada no log (`moderation_action`, com ids e a conversa — sem
+  conteúdo nem código de convite).
 
 **Limites conhecidos de `/mute` e `/kick`:** valem para a identidade emitida pelo
-servidor. Como a sala é anônima, quem abrir uma nova aba entra como identidade nova
-e não silenciada. Banimento exige identificação persistente (fora do escopo; ver §8).
+servidor, naquela sala. Como o chat é anônimo, quem abrir uma nova aba entra como
+identidade nova e, se tiver o código, pode voltar à sala. Quem modera pode então
+criar uma sala nova e chamar só quem quer. Banimento exige identificação
+persistente (fora do escopo; ver §8).
 
 ## 5. Respostas
 
@@ -254,7 +277,7 @@ npm test
 
 | Arquivo                                     | Cobre                                                                                                                                                                                                                                                                                  |
 | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `backend/test/unit/commands.test.js`        | Parser, argumentos e aspas, registro (duplicados, 28 comandos, aliases), catálogo por permissão, chave de administrador e bloqueios, política                                                                                                                                          |
+| `backend/test/unit/commands.test.js`        | Parser, argumentos e aspas, registro (duplicados, 30 comandos, aliases), catálogo por permissão, chave de administrador e bloqueios, política                                                                                                                                          |
 | `backend/test/unit/roomPhase4.test.js`      | Publicação única, anti-duplicação, silêncio, nome, ausência, limpeza, remoção, janela de retomada                                                                                                                                                                                      |
 | `backend/test/integration/commands.test.js` | Ponta a ponta com servidor real, incluindo: usuário comum em `/clear` e `/clearall`, administrador em `/clearall` com dois usuários, texto com `/` que não executa, comando inexistente, manipulação de permissão pelo cliente, `/mute`, `/kick`, hierarquia, administração desativada |
 | `frontend/test/commands.test.js`            | Encaminhamento (`1/2`, `//`, aliases), autocomplete (`/cl` → `/clear`, `/clearall`), `/help`, `/time`                                                                                                                                                                                  |

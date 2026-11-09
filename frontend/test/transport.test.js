@@ -28,7 +28,7 @@ class FakeWebSocket {
     close() {}
 }
 
-test("eventos recebidos carregam o id do servidor quando existe", () => {
+test("eventos recebidos carregam o id e a conversa do servidor quando existem", () => {
     globalThis.WebSocket = /** @type {any} */ (FakeWebSocket);
     const events = [];
     const transport = createTransport({
@@ -49,11 +49,24 @@ test("eventos recebidos carregam o id do servidor quando existe", () => {
     socket.emit("message", { data: JSON.stringify({ type: "user_list", payload: [] }) });
     socket.emit("message", { data: JSON.stringify({ type: "x", id: 7, payload: {} }) });
     socket.emit("message", { data: "não é json" });
+    // Fase 2 da evolução: o escopo da conversa vem no topo do envelope.
+    socket.emit("message", {
+        data: JSON.stringify({
+            type: "room_joined",
+            conversationId: "r_sala00000001",
+            payload: {},
+        }),
+    });
+    socket.emit("message", {
+        data: JSON.stringify({ type: "user_list", conversationId: 9, payload: [] }),
+    });
 
     assert.deepEqual(events, [
         { type: "chat_message", id: "m-1", payload: {} },
         { type: "user_list", payload: [] },
         { type: "x", payload: {} },
+        { type: "room_joined", conversationId: "r_sala00000001", payload: {} },
+        { type: "user_list", payload: [] },
     ]);
     transport.close();
 });

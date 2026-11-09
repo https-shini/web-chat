@@ -99,9 +99,11 @@ describe("registro", () => {
         );
     });
 
-    test("o registro padrão tem 28 comandos, sem colisão, e resolve aliases", () => {
+    test("o registro padrão tem 30 comandos, sem colisão, e resolve aliases", () => {
         const registry = createDefaultRegistry();
-        assert.equal(registry.list().length, 28);
+        assert.equal(registry.list().length, 30);
+        assert.equal(registry.resolve("convite")?.name, "invite");
+        assert.equal(registry.resolve("salas")?.name, "rooms");
         assert.equal(registry.resolve("dice")?.name, "roll");
         assert.equal(registry.resolve("whois")?.name, "profile");
         assert.equal(registry.resolve("date")?.name, "time");
@@ -112,9 +114,13 @@ describe("registro", () => {
         const registry = createDefaultRegistry();
         const member = registry.catalogFor({ role: "member" });
         const admin = registry.catalogFor({ role: "admin" });
+        const host = registry.catalogFor({ role: "member" }, { role: "host", mutedUntil: null });
         const clearall = (list) => list.find((c) => c.name === "clearall");
         assert.equal(clearall(member).allowed, false);
         assert.equal(clearall(admin).allowed, true);
+        assert.equal(clearall(host).allowed, true, "anfitrião modera a própria sala");
+        assert.equal(clearall(member).requiresRoom, true);
+        assert.equal(member.find((c) => c.name === "ping").requiresRoom, false);
         assert.ok(member.every((c) => !("run" in c) && !("params" in c)));
         assert.equal(member.find((c) => c.name === "clear").scope, "client");
     });
@@ -158,15 +164,36 @@ describe("política de autorização", () => {
     const admin = { id: "a", role: "admin" };
     const other = { id: "b", role: "admin" };
     const member = { id: "m", role: "member" };
+    const hostPerson = { id: "h", role: "member" };
+    const plain = { role: "member", mutedUntil: null };
+    const hosting = { role: "host", mutedUntil: null };
+    const check = (actor, actorMembership, target, targetMembership) =>
+        canModerate({ actor, actorMembership, target, targetMembership });
 
     test("permissões e hierarquia", () => {
         assert.equal(hasPermission(member, "everyone"), true);
         assert.equal(hasPermission(member, "admin"), false);
         assert.equal(hasPermission(admin, "admin"), true);
-        assert.deepEqual(canModerate(admin, member), { ok: true });
-        assert.equal(canModerate(member, admin).reason, "forbidden");
-        assert.equal(canModerate(admin, admin).reason, "self");
-        assert.equal(canModerate(admin, other).reason, "protected");
+        assert.equal(hasPermission(member, "moderator", plain), false);
+        assert.equal(hasPermission(hostPerson, "moderator", hosting), true);
+        assert.equal(hasPermission(hostPerson, "admin", hosting), false, "anfitrião não é admin");
+        assert.equal(hasPermission(admin, "moderator", plain), true);
+        assert.deepEqual(check(admin, plain, member, plain), { ok: true });
+        assert.equal(check(member, plain, admin, plain).reason, "forbidden");
+        assert.equal(check(admin, plain, admin, plain).reason, "self");
+        assert.equal(check(admin, plain, other, plain).reason, "protected");
+    });
+
+    test("anfitrião modera a própria sala, mas não administrador", () => {
+        assert.deepEqual(check(hostPerson, hosting, member, plain), { ok: true });
+        assert.equal(check(hostPerson, hosting, admin, plain).reason, "protected");
+        assert.equal(check(member, plain, hostPerson, hosting).reason, "forbidden");
+        assert.deepEqual(check(admin, plain, hostPerson, hosting), { ok: true });
+        assert.equal(
+            check(hostPerson, plain, member, plain).reason,
+            "forbidden",
+            "papel é por sala",
+        );
     });
 
     test("silêncio com prazo expira sozinho", () => {

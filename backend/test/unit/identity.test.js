@@ -3,46 +3,39 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { createRoom } from "../../src/room/room.js";
-import { createIdentityStore, RESUME_TTL_MS } from "../../src/room/sessions.js";
+import { RESUME_TTL_MS } from "../../src/room/sessions.js";
+import { setup as harness } from "./harness.js";
 import { readUsername, RESERVED_USERNAMES } from "../../src/validation.js";
 import { ERROR_CODES } from "../../src/errors.js";
 import { LIMITS } from "../../src/protocol.js";
 
+/**
+ * Login sem username automático (aqui o username é o assunto) e entrada na
+ * sala compartilhada; `room` é a sala, `hub` as sessões.
+ */
 const setup = () => {
-    let clock = 0;
-    let nextId = 0;
-    const identities = createIdentityStore({
-        now: () => clock,
-        newId: () => `user-${++nextId}`,
-        newToken: () => `token-${++nextId}`,
-    });
-    /** @type {Map<object, any[]>} */
-    const inbox = new Map();
-    const room = createRoom({
-        identities,
-        historySize: 100,
-        historyOnJoin: 50,
-        log: () => {},
-        deliver: (member, data) => {
-            if (!inbox.has(member)) inbox.set(member, []);
-            inbox.get(member).push(JSON.parse(data));
-        },
-        now: () => new Date(Date.UTC(2026, 10, 7, 10, 0, 0) + clock),
-        newMessageId: () => `msg-${++nextId}`,
-    });
+    const h = harness();
+    let shared = null;
     const member = (label) => ({ label });
-    const received = (m, type) => (inbox.get(m) ?? []).filter((x) => x.type === type);
-    const enter = (m, payload) => room.join(m, payload, `conn-${m.label}`);
-    const tokenOf = (m) => received(m, "session").at(-1).payload.resumeToken;
+    const enter = (m, payload) => {
+        const result = h.hub.login(m, payload, `conn-${m.label}`);
+        if (!result.ok) return result;
+        if (shared === null) shared = h.hub.createRoom(m, {}).room;
+        else h.hub.joinRoom(m, { code: shared.code });
+        return result;
+    };
+    const tokenOf = (m) => h.received(m, "session").at(-1).payload.resumeToken;
     return {
-        room,
-        identities,
+        hub: h.hub,
+        get room() {
+            return shared;
+        },
+        post: (m, payload) => h.hub.post(m, { conversationId: shared?.id, ...payload }),
         member,
-        received,
+        received: h.received,
         enter,
         tokenOf,
-        tick: (ms) => (clock += ms),
+        tick: h.tick,
     };
 };
 
@@ -135,21 +128,22 @@ describe("entrada com username", () => {
     });
 
     test("a mensagem carrega o username de quem escreveu", () => {
-        const { member, enter, room, received } = setup();
+        const { member, enter, post, received } = setup();
         const ana = member("a");
         enter(ana, { userName: "Ana", username: "ana" });
-        room.post(ana, { content: "oi" });
+        post(ana, { content: "oi" });
         assert.equal(received(ana, "chat_message")[0].payload.username, "ana");
     });
 });
 
 describe("reconexão e reserva do username", () => {
     test("retomada mantém id e username, mesmo com outro username no payload", () => {
-        const { member, enter, tokenOf, room, received } = setup();
+        const ctx = setup();
+        const { member, enter, tokenOf, received } = ctx;
         const first = member("a1");
         enter(first, { userName: "Ana", username: "ana" });
         const token = tokenOf(first);
-        room.leave(first);
+        ctx.hub.disconnect(first);
         const again = member("a2");
         const result = enter(again, { userName: "Ana", username: "outro", resumeToken: token });
         assert.equal(result.ok, true);
@@ -158,10 +152,11 @@ describe("reconexão e reserva do username", () => {
     });
 
     test("queda abrupta: username reservado durante a janela de retomada", () => {
-        const { member, enter, room, tick } = setup();
+        const ctx = setup();
+        const { member, enter, tick } = ctx;
         const ana = member("a");
         enter(ana, { userName: "Ana", username: "ana" });
-        room.leave(ana); // conexão caiu, sem logout
+        ctx.hub.disconnect(ana); // conexão caiu, sem logout
         tick(RESUME_TTL_MS - 1);
         assert.equal(
             enter(member("b"), { userName: "Bia", username: "ana" }).code,
@@ -170,11 +165,12 @@ describe("reconexão e reserva do username", () => {
     });
 
     test("depois do prazo de retomada o username fica livre e o token deixa de valer", () => {
-        const { member, enter, tokenOf, room, tick } = setup();
+        const ctx = setup();
+        const { member, enter, tokenOf, tick } = ctx;
         const ana = member("a");
         enter(ana, { userName: "Ana", username: "ana" });
         const token = tokenOf(ana);
-        room.leave(ana);
+        ctx.hub.disconnect(ana);
         tick(RESUME_TTL_MS + 1);
         assert.equal(enter(member("b"), { userName: "Bia", username: "ana" }).ok, true);
         // O token antigo não reativa a identidade, e o username agora é de outra pessoa.
@@ -189,13 +185,14 @@ describe("reconexão e reserva do username", () => {
 
 describe("sair (logout)", () => {
     test("sai na hora, avisa os outros e libera o username", () => {
-        const { member, enter, room, received } = setup();
+        const ctx = setup();
+        const { member, enter, received } = ctx;
         const ana = member("a");
         const bia = member("b");
         enter(ana, { userName: "Ana", username: "ana" });
         enter(bia, { userName: "Bia", username: "bia" });
-        assert.equal(room.logout(ana), true);
-        assert.equal(room.isMember(ana), false);
+        assert.equal(ctx.hub.logout(ana), true);
+        assert.equal(ctx.hub.isLoggedIn(ana), false);
         assert.equal(received(bia, "user_left").at(-1).payload.userName, "Ana");
         assert.deepEqual(
             received(bia, "user_list")
@@ -207,43 +204,47 @@ describe("sair (logout)", () => {
     });
 
     test("depois de sair, o token não retoma a identidade", () => {
-        const { member, enter, room, tokenOf } = setup();
+        const ctx = setup();
+        const { member, enter, tokenOf } = ctx;
         const ana = member("a");
         enter(ana, { userName: "Ana", username: "ana" });
         const token = tokenOf(ana);
-        room.logout(ana);
+        ctx.hub.logout(ana);
         const back = enter(member("a2"), { userName: "Ana", username: "ana", resumeToken: token });
         assert.equal(back.ok, true);
         assert.notEqual(back.user.id, "user-1");
     });
 
     test("depois de sair, a conexão não publica mais", () => {
-        const { member, enter, room } = setup();
+        const ctx = setup();
+        const { member, enter } = ctx;
         const ana = member("a");
         enter(ana, { userName: "Ana", username: "ana" });
-        room.logout(ana);
-        assert.deepEqual(room.post(ana, { content: "ainda aqui?" }), {
+        ctx.hub.logout(ana);
+        assert.deepEqual(ctx.post(ana, { content: "ainda aqui?" }), {
             ok: false,
             code: ERROR_CODES.NOT_LOGGED_IN,
         });
     });
 
     test("sair sem estar na sala não tem efeito", () => {
-        const { member, room } = setup();
-        assert.equal(room.logout(member("ninguem")), false);
+        const ctx = setup();
+        const { member } = ctx;
+        assert.equal(ctx.hub.logout(member("ninguem")), false);
     });
 });
 
 describe("localizar pessoas por @username", () => {
     test("@username resolve o homônimo; nome sozinho continua ambíguo", () => {
-        const { member, enter, room } = setup();
+        const ctx = setup();
+        const { member, enter } = ctx;
         enter(member("a"), { userName: "Ana", username: "ana.souza" });
         enter(member("b"), { userName: "Ana", username: "ana.lima" });
-        assert.equal(room.findMembers("Ana").length, 2);
-        const found = room.findMembers("@ana.lima");
+        assert.equal(ctx.room.findMembers("Ana").length, 2);
+        const found = ctx.room.findMembers("@ana.lima");
         assert.equal(found.length, 1);
         assert.equal(found[0].identity.username, "ana.lima");
-        assert.equal(room.findMembers("ana.souza").length, 1);
-        assert.equal(room.findMembers("@ninguem").length, 0);
+        assert.equal(ctx.room.findMembers("ana.souza").length, 1);
+        assert.equal(ctx.room.findMembers("@ninguem").length, 0);
     });
 });

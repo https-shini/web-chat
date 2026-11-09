@@ -28,6 +28,15 @@ export const strings = {
         send: "Enviar",
         you: "Você",
         youBadge: "você",
+        /** Sem nome ainda (antes de o servidor confirmar a sala). */
+        untitled: "sala",
+        topic: "Código {code} · efêmera e anônima",
+        topicPending: "Sala efêmera e anônima",
+        welcome: "Boas-vindas à {name}!",
+        placeholder: "Conversar em {name} — digite / para comandos",
+        inviteFailed:
+            "Não foi possível entrar pelo convite ({reason}) Criamos uma sala nova para você.",
+        removed: "Você foi removido da sala por quem a modera.",
     },
     empty: {
         title: "Silêncio por enquanto.",
@@ -85,6 +94,7 @@ export const strings = {
     },
     people: {
         admin: "admin",
+        host: "anfitrião",
         away: "ausente",
         groupAdmins: "Administradores — {n}",
         groupOnline: "Online — {n}",
@@ -93,7 +103,8 @@ export const strings = {
         openCard: "{name}: abrir cartão",
     },
     memberCard: {
-        roleAdmin: "Administrador da sala",
+        roleAdmin: "Administrador",
+        roleHost: "Anfitrião da sala",
         roleMember: "Participante",
         online: "Online",
         away: "Ausente",
@@ -138,6 +149,7 @@ export const strings = {
         online: "Online",
         away: "Ausente",
         admin: "Admin",
+        host: "Anfitrião",
         goAway: "Ficar ausente",
         comeBack: "Voltar a ficar presente",
     },
@@ -164,7 +176,7 @@ export const strings = {
         invalidName: "O servidor recusou esse nome. Use de 1 a 60 caracteres.",
         invalidUsername:
             "Nome de usuário recusado: formato inválido ou reservado (como admin ou sistema). Escolha outro.",
-        usernameTaken: "Este nome de usuário já está em uso na sala. Escolha outro.",
+        usernameTaken: "Este nome de usuário já está em uso. Escolha outro.",
     },
 };
 

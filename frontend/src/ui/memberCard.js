@@ -25,7 +25,7 @@ import { icon } from "./icons.js";
 
 /**
  * @param {{
- *   getContext: () => {meId: string | null, role: "member" | "admin"},
+ *   getContext: () => {meId: string | null, role: "member" | "admin" | "host"},
  *   runCommand: (text: string) => void,
  *   prefill: (text: string) => void,
  *   confirm: (options: {title: string, body: string, confirmLabel: string}) => Promise<boolean>,
@@ -116,7 +116,13 @@ export const createMemberCard = ({ getContext, runCommand, prefill, confirm, not
                     },
                 },
             );
-        } else if (role === "admin" && person.role !== "admin") {
+        } else if (
+            // Quem modera: administrador (em qualquer sala) ou anfitrião (só
+            // nesta). Administrador não é moderado; anfitrião, só por admin.
+            (role === "admin" || role === "host") &&
+            person.role !== "admin" &&
+            !(role === "host" && person.role === "host")
+        ) {
             list.push(
                 {
                     label: strings.memberCard.mute,
@@ -215,6 +221,7 @@ export const createMemberCard = ({ getContext, runCommand, prefill, confirm, not
             name.replaceChildren(document.createTextNode(person.name));
             if (own) name.appendChild(badge(strings.room.youBadge));
             if (person.role === "admin") name.appendChild(badge(strings.people.admin, "role"));
+            if (person.role === "host") name.appendChild(badge(strings.people.host, "role"));
 
             const presence = away
                 ? person.statusText
@@ -226,7 +233,13 @@ export const createMemberCard = ({ getContext, runCommand, prefill, confirm, not
                     ? [el("span", { class: "c-member-card__handle", text: `@${person.username}` })]
                     : []),
                 el("span", {
-                    text: `${person.role === "admin" ? strings.memberCard.roleAdmin : strings.memberCard.roleMember} · ${presence}`,
+                    text: `${
+                        person.role === "admin"
+                            ? strings.memberCard.roleAdmin
+                            : person.role === "host"
+                              ? strings.memberCard.roleHost
+                              : strings.memberCard.roleMember
+                    } · ${presence}`,
                 }),
                 el("span", {
                     class: "c-member-card__id",

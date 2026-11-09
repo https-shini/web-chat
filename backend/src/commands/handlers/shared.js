@@ -1,7 +1,8 @@
 /**
  * Apoio comum aos handlers. Nenhuma regra nova aqui: localizar alvo usa
  * `room.findMembers`, publicar usa `room.publish`, autorizar usa
- * `room/policy.js`.
+ * `room/policy.js`. Todos operam na sala do comando (`ctx.room`), que o
+ * executor já conferiu.
  */
 
 import { ERROR_CODES } from "../../errors.js";
@@ -19,12 +20,12 @@ export const publishFor = (ctx, message) => {
             "O texto ficou longo demais (máximo 1000 caracteres).",
         );
     }
-    const result = ctx.room.publish(ctx.member, message);
+    const result = ctx.room.publish(ctx.identity, message);
     if (result.ok) return null; // o efeito já aparece na sala para todos
     if (result.code === ERROR_CODES.MUTED) {
         return ctx.reply.error(
             ctx.errors.MUTED,
-            "Você foi silenciado por um administrador e não pode publicar agora.",
+            "Você foi silenciado nesta sala e não pode publicar agora.",
         );
     }
     return ctx.reply.error(result.code, "Não foi possível publicar.");
@@ -34,7 +35,7 @@ export const publishFor = (ctx, message) => {
  * Encontra exatamente uma pessoa na sala por @username, nome ou id (prefixo 6+).
  * @param {any} ctx
  * @param {string} query
- * @returns {{ok: true, target: {member: unknown, identity: any}} | {ok: false, response: any}}
+ * @returns {{ok: true, target: {identity: any, membership: any}} | {ok: false, response: any}}
  */
 export const findTarget = (ctx, query) => {
     const found = ctx.room.findMembers(query);
@@ -67,12 +68,17 @@ export const findTarget = (ctx, query) => {
 export const findModerationTarget = (ctx, query) => {
     const found = findTarget(ctx, query);
     if (!found.ok) return found;
-    const allowed = canModerate(ctx.identity, found.target.identity);
+    const allowed = canModerate({
+        actor: ctx.identity,
+        actorMembership: ctx.membership,
+        target: found.target.identity,
+        targetMembership: found.target.membership,
+    });
     if (allowed.ok) return found;
     const text = {
-        forbidden: "Somente administradores podem moderar.",
+        forbidden: "Somente quem modera a sala (anfitrião ou administrador) pode fazer isso.",
         self: "Você não pode aplicar isso a si mesmo.",
-        protected: "Administradores não podem moderar outros administradores.",
+        protected: "Esta pessoa também modera a sala e não pode ser moderada por você.",
     }[allowed.reason];
     return { ok: false, response: ctx.reply.error(ctx.errors.CANNOT_MODERATE, text) };
 };

@@ -172,11 +172,11 @@ describe("validação da configuração", () => {
 describe("parâmetros operacionais por ambiente (F2-06)", () => {
     test("RATE_MESSAGES_CAPACITY é aplicada de ponta a ponta", async () => {
         const server = await startServer({
-            RATE_MESSAGES_CAPACITY: "3",
+            RATE_MESSAGES_CAPACITY: "4",
             RATE_MESSAGES_PER_SEC: "1",
         });
         const { client } = await join(server.url, { userName: "Limitado" });
-        // O login gastou 1 ficha: restam 2 mensagens antes do aviso.
+        // Login e criação da sala gastaram 2 fichas: restam 2 mensagens antes do aviso.
         for (let index = 0; index < 4; index += 1) {
             client.send("chat_message", { content: `m${index}` });
         }

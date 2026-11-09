@@ -53,6 +53,17 @@ const toMessage = (raw, meId) => {
     };
 };
 
+/** Recusas de pedidos de sala (entrar, criar). */
+const ROOM_REFUSALS = new Set([
+    ERROR_CODES.INVALID_ROOM_CODE,
+    ERROR_CODES.ROOM_NOT_FOUND,
+    ERROR_CODES.REMOVED_FROM_ROOM,
+    ERROR_CODES.ROOM_JOIN_LIMIT,
+    ERROR_CODES.ROOM_CREATE_LIMIT,
+    ERROR_CODES.ROOMS_FULL,
+    ERROR_CODES.ROOM_JOIN_LOCKED,
+]);
+
 /**
  * Entrada de sistema (entrada/saída, avisos do servidor).
  * @param {string} content
@@ -106,11 +117,14 @@ export const noticeMessage = ({ tone, text: content, title, lines }) => {
  *   toasts: {show: (text: string, kind?: "info" | "error", options?: {announce?: boolean}) => void},
  *   notifier: {show: (title: string, body: string) => void},
  *   typingTracker: {set: (id: string, name: string, isTyping: boolean) => void, remove?: (id: string) => void},
- *   onSession?: (resumeToken: string | null) => void,
+ *   onSession?: (resumeToken: string | null, resumed: boolean) => void,
+ *   onRoomJoined?: (room: import("./store.js").RoomInfo) => void,
+ *   onRoomLeft?: (reason: string) => void,
+ *   onRoomRefused?: (code: string, message: string) => void,
  *   onLoginRejected?: (message: string, field: "name" | "username") => void,
  *   onCommandResult?: (requestId: string | null, result: {tone: string, text: string, title?: string, lines?: string[], code?: string, data?: Record<string, unknown>}) => void,
  * }} deps
- * @returns {(event: {type: string, payload: unknown, id?: string}) => void}
+ * @returns {(event: {type: string, payload: unknown, id?: string, conversationId?: string}) => void}
  */
 export const createEventHandler =
     ({
@@ -119,6 +133,9 @@ export const createEventHandler =
         notifier,
         typingTracker,
         onSession = () => {},
+        onRoomJoined = () => {},
+        onRoomLeft = () => {},
+        onRoomRefused = () => {},
         onLoginRejected = () => {},
         onCommandResult = () => {},
     }) =>
@@ -126,6 +143,15 @@ export const createEventHandler =
         const state = store.getState();
         const meId = state.me?.id ?? null;
         const payload = /** @type {any} */ (event.payload);
+
+        // Eventos de uma conversa trazem `conversationId` no envelope. A
+        // interface mostra uma sala por vez: o que for de outra conversa é
+        // ignorado (as próximas fases trazem a navegação entre várias).
+        const scope = typeof event.conversationId === "string" ? event.conversationId : null;
+        const current = state.room?.conversationId ?? null;
+        if (scope !== null && event.type !== SERVER_EVENTS.ROOM_JOINED && scope !== current) {
+            return;
+        }
 
         switch (event.type) {
             case SERVER_EVENTS.SESSION: {
@@ -146,15 +172,51 @@ export const createEventHandler =
                     },
                     payload.role === "admin" ? "admin" : "member",
                 );
-                // Primeira sessão desta entrada: só agora a pessoa vai para a
-                // sala (numa reconexão já está nela, e nada muda).
-                store.actions.completeJoin();
+                // A sessão não põe ninguém em sala: a conversa aparece com o
+                // `room_joined` (a retomada traz as salas sozinha).
+                onSession(
+                    typeof payload.resumeToken === "string" ? payload.resumeToken : null,
+                    payload.resumed === true,
+                );
+                break;
+            }
+
+            case SERVER_EVENTS.ROOM_JOINED:
+            case SERVER_EVENTS.ROOM_UPDATED: {
+                if (
+                    scope === null ||
+                    typeof payload?.code !== "string" ||
+                    typeof payload?.name !== "string"
+                ) {
+                    break;
+                }
+                // Outra sala chegando com uma já aberta (ex.: retomada de uma
+                // identidade em várias salas): fica para as próximas fases.
+                if (current !== null && scope !== current) break;
+                /** @type {import("./store.js").RoomInfo} */
+                const room = {
+                    conversationId: scope,
+                    code: payload.code,
+                    name: payload.name,
+                    role: payload.role === "host" ? "host" : "member",
+                };
+                store.actions.setRoom(room);
                 if (typeof payload.historyVersion === "number") {
                     // A sala foi limpa enquanto você estava fora: a conversa
                     // local deixa de valer antes do histórico novo chegar.
                     store.actions.syncHistoryVersion(payload.historyVersion);
                 }
-                onSession(typeof payload.resumeToken === "string" ? payload.resumeToken : null);
+                if (event.type === SERVER_EVENTS.ROOM_JOINED) {
+                    // Primeira sala desta entrada: só agora a pessoa sai da
+                    // tela de entrada (numa reconexão já está na sala).
+                    store.actions.completeJoin();
+                    onRoomJoined(room);
+                }
+                break;
+            }
+
+            case SERVER_EVENTS.ROOM_LEFT: {
+                onRoomLeft(typeof payload?.reason === "string" ? payload.reason : "left");
                 break;
             }
 
@@ -191,7 +253,12 @@ export const createEventHandler =
                         name: String(person?.name ?? ""),
                         username: typeof person?.username === "string" ? person.username : "",
                         status: person?.status === "away" ? "away" : "online",
-                        role: person?.role === "admin" ? "admin" : "member",
+                        role:
+                            person?.role === "admin"
+                                ? "admin"
+                                : person?.role === "host"
+                                  ? "host"
+                                  : "member",
                         ...(typeof person?.statusText === "string"
                             ? { statusText: person.statusText }
                             : {}),
@@ -324,6 +391,11 @@ export const createEventHandler =
                 }
                 if (code === ERROR_CODES.USERNAME_TAKEN) {
                     onLoginRejected(strings.errors.usernameTaken, "username");
+                    break;
+                }
+                // Pedido de sala recusado (código, limite, remoção).
+                if (code !== null && ROOM_REFUSALS.has(code)) {
+                    onRoomRefused(code, message);
                     break;
                 }
                 // Recusa de uma mensagem específica: ela fica marcada como não

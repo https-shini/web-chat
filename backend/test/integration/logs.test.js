@@ -15,7 +15,7 @@ describe("logs do servidor", () => {
     test("toda linha de log é um objeto JSON com nível e evento", async () => {
         const { client } = await join(server.url, { userName: "Logado" });
         client.close();
-        await server.waitForLog((entry) => entry.event === "user_left");
+        await server.waitForLog((entry) => entry.event === "session_paused");
         for (const line of server.lines) {
             const entry = JSON.parse(line);
             assert.equal(typeof entry.ts, "string");
@@ -62,18 +62,21 @@ describe("logs do servidor", () => {
     });
 
     test("conteúdo de mensagens, nomes e tokens de sessão não vão para o log", async () => {
-        const { client, session } = await join(server.url, { userName: "NomeSecreto" });
+        const { client, session, room } = await join(server.url, { userName: "NomeSecreto" });
         client.send("chat_message", { content: "conteudo-privado-123" });
         await client.take("chat_message");
         client.close();
         await server.waitForLog(
-            (entry) => entry.event === "user_left" && entry.user === session.id,
+            (entry) => entry.event === "session_paused" && entry.user === session.id,
         );
 
         const all = server.lines.join("\n");
         assert.ok(!all.includes("conteudo-privado-123"));
         assert.ok(!all.includes("NomeSecreto"));
         assert.ok(!all.includes(session.resumeToken));
+        // O código de convite é o segredo da sala: nunca vai para o log.
+        assert.ok(!all.includes(room.code));
+        assert.ok(!all.includes(room.code.replaceAll("-", "")));
     });
 
     test("erros legítimos continuam registrados com contexto útil", async () => {

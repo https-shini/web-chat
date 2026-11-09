@@ -1,6 +1,6 @@
 /**
- * Composição do servidor: HTTP + WebSocket + sala + heartbeat + métricas +
- * desligamento.
+ * Composição do servidor: HTTP + WebSocket + sessões + salas + heartbeat +
+ * métricas + desligamento.
  *
  * `createChatServer` não tem efeito colateral ao ser importado nem ao ser
  * criado: nada escuta porta e nenhum timer começa até `listen()`, e `close()`
@@ -14,6 +14,9 @@ import { createDefaultRegistry } from "../commands/index.js";
 import { createAdminAuth } from "../commands/adminAuth.js";
 import { createCommandExecutor } from "../commands/executor.js";
 import { createMetrics } from "../metrics.js";
+import { createRoomDirectory } from "../room/directory.js";
+import { createHub } from "../room/hub.js";
+import { createJoinGuard } from "../room/joinGuard.js";
 import { createIdentityStore } from "../room/sessions.js";
 import { createRoom } from "../room/room.js";
 import { createConnectionHandler } from "./connection.js";
@@ -35,29 +38,60 @@ export const USER_LIST_COALESCE_MS = 50;
  *   config: import("../config.js").Config,
  *   log: (level: "info" | "warn" | "error", event: string, fields?: Record<string, unknown>) => void,
  *   version?: string,
+ *   joinGuard?: Parameters<typeof createJoinGuard>[0],
  * }} options
  */
-export const createChatServer = ({ config, log, version = "desconhecida" }) => {
+export const createChatServer = ({ config, log, version = "desconhecida", joinGuard = {} }) => {
     const metrics = createMetrics();
-    const identities = createIdentityStore();
 
-    const room = createRoom({
-        identities,
+    /** Agendador com timers reais; cancelável e sem nada pendurado no desligamento. */
+    const timers = {
+        schedule: (callback, ms) => setTimeout(callback, ms),
+        cancel: (handle) => clearTimeout(/** @type {NodeJS.Timeout} */ (handle)),
+    };
+
+    // Identidade que acaba (prazo vencido, saída, teto de retomáveis) sai de
+    // todas as salas. O hub é criado logo abaixo; a referência é tardia.
+    /** @type {ReturnType<typeof createHub> | null} */
+    let hub = null;
+    const identities = createIdentityStore({ onRetire: (identity) => hub?.forget(identity) });
+
+    const directory = createRoomDirectory({
         log,
-        historySize: config.historySize,
-        historyOnJoin: config.historyOnJoin,
-        userListScheduler: {
-            schedule: (callback) => setTimeout(callback, USER_LIST_COALESCE_MS),
-            cancel: (handle) => clearTimeout(/** @type {NodeJS.Timeout} */ (handle)),
-        },
-        onUserList: () => metrics.count("userListBroadcasts"),
-        leaveGraceMs: config.leaveGraceMs,
-        leaveScheduler: {
-            schedule: (callback, ms) => setTimeout(callback, ms),
-            cancel: (handle) => clearTimeout(/** @type {NodeJS.Timeout} */ (handle)),
-        },
-        deliver: (member, data) => deliver(member, data),
+        limits: config.rooms,
+        destroyScheduler: timers,
+        makeRoom: ({ id, code, name }) =>
+            createRoom({
+                id,
+                code,
+                name,
+                log,
+                historySize: config.historySize,
+                historyOnJoin: config.historyOnJoin,
+                userListScheduler: {
+                    schedule: (callback) => setTimeout(callback, USER_LIST_COALESCE_MS),
+                    cancel: timers.cancel,
+                },
+                onUserList: () => metrics.count("userListBroadcasts"),
+                leaveGraceMs: config.leaveGraceMs,
+                leaveScheduler: timers,
+                deliver: (holder, data) => deliver(holder, data),
+                onPresenceChange: (identity) => hub?.refreshEverywhere(identity),
+            }),
     });
+
+    hub = createHub({
+        identities,
+        directory,
+        joinGuard: createJoinGuard(joinGuard),
+        log,
+        deliver: (member, data) => deliver(member, data),
+        // Virou (ou deixou de ser) anfitrião: o catálogo de comandos muda.
+        onCapabilitiesChange: (identity) => {
+            if (identity.holder !== null) commands.sendCatalog(identity.holder);
+        },
+    });
+    const sessions = hub;
 
     /**
      * Entrega um quadro a uma conexão (usado pela sala e pelos comandos).
@@ -73,7 +107,7 @@ export const createChatServer = ({ config, log, version = "desconhecida" }) => {
         // `close` desfaz a participação normalmente.
         if (ws.bufferedAmount > config.maxBufferedBytes) {
             metrics.count("slowConsumerDisconnects");
-            const user = room.userIdOf(ws);
+            const user = sessions.userIdOf(ws);
             log("warn", "slow_consumer", {
                 bufferedBytes: ws.bufferedAmount,
                 ...(user ? { user } : {}),
@@ -86,7 +120,7 @@ export const createChatServer = ({ config, log, version = "desconhecida" }) => {
 
     const commands = createCommandExecutor({
         registry: createDefaultRegistry(),
-        room,
+        hub: sessions,
         log,
         metrics,
         services: {
@@ -94,8 +128,6 @@ export const createChatServer = ({ config, log, version = "desconhecida" }) => {
             adminAuth: createAdminAuth({ adminKey: config.adminKey }),
             version,
             startedAt: Date.now(),
-            disconnect: (member, code, reason) =>
-                /** @type {import("ws").WebSocket} */ (member).close(code, reason),
         },
     });
 
@@ -104,13 +136,14 @@ export const createChatServer = ({ config, log, version = "desconhecida" }) => {
 
     const gauges = () => ({
         connections: wss.clients.size,
-        users: room.memberCount,
+        users: sessions.sessionCount,
         identities: identities.size,
+        rooms: sessions.roomCount,
     });
 
     const httpServer = http.createServer(
         createHttpHandler({
-            stats: () => ({ connections: wss.clients.size, users: room.memberCount }),
+            stats: () => ({ connections: wss.clients.size, users: sessions.sessionCount }),
             readiness: () => {
                 if (closing || !listening) return "draining";
                 return wss.clients.size >= config.maxConnections ? "full" : "ready";
@@ -152,7 +185,7 @@ export const createChatServer = ({ config, log, version = "desconhecida" }) => {
     const markAlive = (ws) => missed.set(ws, 0);
 
     const handleConnection = createConnectionHandler({
-        room,
+        hub: sessions,
         commands,
         log,
         metrics,
@@ -190,7 +223,7 @@ export const createChatServer = ({ config, log, version = "desconhecida" }) => {
             const count = missed.get(client) ?? 0;
             if (count >= config.heartbeatMaxMissed) {
                 metrics.count("heartbeatTimeouts");
-                const user = room.userIdOf(client);
+                const user = sessions.userIdOf(client);
                 log("info", "heartbeat_timeout", { missedPings: count, ...(user ? { user } : {}) });
                 client.terminate();
                 continue;
@@ -243,7 +276,7 @@ export const createChatServer = ({ config, log, version = "desconhecida" }) => {
          */
         close() {
             closing = true;
-            room.silence();
+            sessions.silence();
             if (heartbeat !== null) clearInterval(heartbeat);
             if (metricsLog !== null) clearInterval(metricsLog);
             heartbeat = null;
@@ -251,6 +284,8 @@ export const createChatServer = ({ config, log, version = "desconhecida" }) => {
             metrics.stop();
             for (const client of wss.clients) client.close(1001, "Servidor reiniciando");
             wss.close();
+            // Nada sobrevive ao processo: salas, históricos e timers somem aqui.
+            sessions.closeAll();
             const closed = new Promise((resolve) => httpServer.close(() => resolve()));
             httpServer.closeIdleConnections();
             return /** @type {Promise<void>} */ (closed);
@@ -258,6 +293,11 @@ export const createChatServer = ({ config, log, version = "desconhecida" }) => {
 
         get connections() {
             return wss.clients.size;
+        },
+
+        /** Salas ativas agora (diagnóstico e testes). */
+        get rooms() {
+            return sessions.roomCount;
         },
 
         /** Fotografia das métricas (usada no log de desligamento). */

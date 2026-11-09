@@ -40,13 +40,20 @@ export const DEFAULTS = Object.freeze({
     rateMessagesPerSec: 8,
     rateSignalsCapacity: 40,
     rateSignalsPerSec: 8,
-    historySize: 1000,
+    // Por sala (Fase 2 da evolução: eram 1000 numa sala única). Com até
+    // `maxRooms` salas, 200 mensagens de até 1000 caracteres por sala
+    // limitam o pior caso de memória a cerca de 120 MB.
+    historySize: 200,
     historyOnJoin: 50,
     heartbeatMaxMissed: 2,
     maxBufferedBytes: 1024 * 1024,
     loginTimeoutMs: 30000,
     metricsLogIntervalMs: 60000,
     leaveGraceMs: 10000,
+    maxRooms: 500,
+    maxRoomsPerUser: 10,
+    maxRoomsCreatedPerUser: 5,
+    roomEmptyTtlMs: 60000,
 });
 
 const isBlank = (raw) => raw === undefined || raw === "";
@@ -156,14 +163,15 @@ const readOrigins = (raw) =>
  * @property {number} maxPayloadBytes
  * @property {{capacity: number, refillPerSecond: number}} messageRate
  * @property {{capacity: number, refillPerSecond: number}} signalRate
- * @property {number} historySize
- * @property {number} historyOnJoin
+ * @property {number} historySize   mensagens guardadas por sala
+ * @property {number} historyOnJoin  mensagens entregues a quem entra numa sala
  * @property {number} heartbeatMaxMissed  pings seguidos sem resposta tolerados
  * @property {number} maxBufferedBytes    fila de envio máxima por conexão
- * @property {number} loginTimeoutMs      prazo para a conexão entrar na sala
+ * @property {number} loginTimeoutMs      prazo para a conexão começar a sessão
  * @property {boolean} metricsEnabled     expõe GET /metrics
  * @property {number} metricsLogIntervalMs  0 desliga o log periódico de métricas
  * @property {number} leaveGraceMs   janela em que uma reconexão não gera avisos de saída/entrada
+ * @property {{maxRooms: number, maxRoomsPerIdentity: number, maxCreatedPerIdentity: number, emptyTtlMs: number}} rooms
  * @property {string | null} adminKey chave secreta de administrador (null = administração desativada)
  * @property {boolean} production
  */
@@ -262,6 +270,31 @@ export const loadConfig = (env) => {
             max: 60000,
             unit: " ms",
         }),
+        rooms: {
+            // Salas ativas no servidor inteiro: protege a memória.
+            maxRooms: readInteger("MAX_ROOMS", env.MAX_ROOMS, {
+                fallback: DEFAULTS.maxRooms,
+                min: 1,
+                max: 100000,
+            }),
+            maxRoomsPerIdentity: readInteger("MAX_ROOMS_PER_USER", env.MAX_ROOMS_PER_USER, {
+                fallback: DEFAULTS.maxRoomsPerUser,
+                min: 1,
+                max: 100,
+            }),
+            maxCreatedPerIdentity: readInteger(
+                "MAX_ROOMS_CREATED_PER_USER",
+                env.MAX_ROOMS_CREATED_PER_USER,
+                { fallback: DEFAULTS.maxRoomsCreatedPerUser, min: 1, max: 100 },
+            ),
+            // Sala sem ninguém espera isto antes de ser destruída com o histórico.
+            emptyTtlMs: readInteger("ROOM_EMPTY_TTL_MS", env.ROOM_EMPTY_TTL_MS, {
+                fallback: DEFAULTS.roomEmptyTtlMs,
+                min: 0,
+                max: 30 * 60 * 1000,
+                unit: " ms",
+            }),
+        },
         adminKey: readAdminKey(env.ADMIN_KEY),
         production: env.NODE_ENV === "production",
     };

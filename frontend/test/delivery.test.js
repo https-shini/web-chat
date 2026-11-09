@@ -166,26 +166,24 @@ describe("limpezas", () => {
         assert.equal(store.getState().historyVersion, 1);
     });
 
-    test("sessão com historyVersion diferente descarta a conversa de antes (limpa enquanto você estava fora)", () => {
+    test("sala com historyVersion diferente descarta a conversa de antes (limpa enquanto você estava fora)", () => {
         const { store, handle } = setup();
-        handle({
-            type: "session",
-            payload: { id: "eu", name: "Eu", resumeToken: "t", historyVersion: 0 },
+        const joined = (historyVersion) => ({
+            type: "room_joined",
+            conversationId: "r_sala00000001",
+            payload: { code: "abc-defg-hij", name: "Sala", role: "member", historyVersion },
         });
+        handle({ type: "session", payload: { id: "eu", name: "Eu", resumeToken: "t" } });
+        handle(joined(0));
         handle({
             type: "chat_message",
             id: "m1",
+            conversationId: "r_sala00000001",
             payload: { userId: "x", userName: "X", content: "a" },
         });
-        handle({
-            type: "session",
-            payload: { id: "eu", name: "Eu", resumeToken: "t2", historyVersion: 0 },
-        });
+        handle(joined(0));
         assert.equal(store.getState().messages.length, 1, "mesma versão: conversa mantida");
-        handle({
-            type: "session",
-            payload: { id: "eu", name: "Eu", resumeToken: "t3", historyVersion: 2 },
-        });
+        handle(joined(2));
         assert.equal(store.getState().messages.length, 0);
     });
 });

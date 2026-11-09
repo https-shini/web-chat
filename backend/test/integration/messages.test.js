@@ -3,7 +3,7 @@
 
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { startServer, connect, join } from "./helpers.js";
+import { startServer, connect, enterSharedRoom, join } from "./helpers.js";
 
 describe("mensagens", () => {
     let server;
@@ -60,7 +60,6 @@ describe("mensagens", () => {
             "42",
             JSON.stringify({ payload: {} }),
             JSON.stringify({ type: 7 }),
-            JSON.stringify({ type: "chat_message" }),
             JSON.stringify({ type: "chat_message", payload: "texto" }),
             JSON.stringify({ type: "chat_message", payload: null }),
         ];
@@ -69,6 +68,9 @@ describe("mensagens", () => {
             const error = await user.client.take("error");
             assert.equal(error.payload.code, "invalid_message", `quadro: ${frame}`);
         }
+        // Envelope válido sem conversa: a conversa é conferida antes do conteúdo.
+        user.client.sendRaw(JSON.stringify({ type: "chat_message" }));
+        assert.equal((await user.client.take("error")).payload.code, "conversation_not_found");
         user.client.sendRaw(Buffer.from([1, 2, 3]), { binary: true });
         assert.equal((await user.client.take("error")).payload.code, "invalid_message");
 
@@ -141,6 +143,7 @@ describe("mensagens", () => {
         const newcomer = await connect(server.url);
         newcomer.send("user_login", { userName: "Recém-chegado" });
         await newcomer.take("session");
+        await enterSharedRoom(server.url, newcomer);
         const history = await newcomer.take("message_history");
         const fromHistory = history.payload.find(
             (entry) => entry.payload.content === "mensagem com id estável",

@@ -15,6 +15,7 @@ export const socialCommands = [
         description: "Rola um dado e mostra o resultado para todos. Sem números: 1 a 6.",
         syntax: "/roll [máximo] ou /roll <mínimo> <máximo>",
         examples: ["/roll", "/roll 20", "/roll 1 100"],
+        requiresRoom: true,
         params: [
             { name: "a", type: "int", optional: true, min: -LIMIT, max: LIMIT },
             { name: "b", type: "int", optional: true, min: -LIMIT, max: LIMIT },
@@ -51,6 +52,7 @@ export const socialCommands = [
         description: "Joga uma moeda e mostra o resultado para todos.",
         syntax: "/flip",
         examples: ["/flip"],
+        requiresRoom: true,
         run: (ctx) =>
             publishFor(ctx, {
                 content: `jogou uma moeda: ${crypto.randomInt(2) === 0 ? "cara" : "coroa"}`,

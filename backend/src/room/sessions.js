@@ -40,14 +40,14 @@ export const MAX_RELEASED_IDENTITIES = 2000;
  * @property {unknown} holder        conexão que detém a identidade, ou null
  * @property {number | null} releasedAt
  * @property {string | null} [tokenHash]  hash do token válido (interno; nunca enviado)
- * @property {"member" | "admin"} role   papel na sala (Fase 4)
+ * @property {"member" | "admin"} role   papel global: `admin` vale em todas as salas
  * @property {string | null} away        texto de ausência, ou null se presente
- * @property {number | null} mutedUntil  silenciada até (ms epoch; Infinity = sem prazo)
+ * @property {Set<string>} rooms          conversas (salas) de que participa
  * @property {number} joinedAt
  * @property {number} messageCount
  * @property {number} lastRenameAt
  * @property {Map<string, unknown>} recent  clientMsgId → mensagem (anti-duplicação)
- * @property {unknown} pendingLeave       aviso de saída agendado (janela de retomada)
+ * @property {boolean} retired          identidade encerrada (não volta mais)
  */
 
 const hashToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
@@ -59,6 +59,7 @@ const hashToken = (token) => crypto.createHash("sha256").update(token).digest("h
  *   now?: () => number,
  *   newId?: () => string,
  *   newToken?: () => string,
+ *   onRetire?: (identity: Identity) => void,
  * }} [options]
  */
 export const createIdentityStore = ({
@@ -67,6 +68,7 @@ export const createIdentityStore = ({
     now = Date.now,
     newId = () => crypto.randomUUID(),
     newToken = () => crypto.randomBytes(32).toString("base64url"),
+    onRetire = () => {},
 } = {}) => {
     /** @type {Map<string, Identity>} hash do token → identidade */
     const byTokenHash = new Map();
@@ -89,10 +91,17 @@ export const createIdentityStore = ({
     const expired = (identity, time) =>
         identity.holder === null && time - /** @type {number} */ (identity.releasedAt) > ttlMs;
 
-    /** Fim definitivo da identidade: token inválido e username livre. */
+    /**
+     * Fim definitivo da identidade: token inválido e username livre. Quem
+     * criou o armazenamento é avisado (uma vez) para desfazer o que estava
+     * ligado a ela — as salas de que participava, por exemplo.
+     */
     const retire = (identity) => {
         forget(identity);
         if (usernames.get(identity.username) === identity) usernames.delete(identity.username);
+        if (identity.retired) return;
+        identity.retired = true;
+        onRetire(identity);
     };
 
     return {
@@ -113,12 +122,12 @@ export const createIdentityStore = ({
                 releasedAt: null,
                 role: "member",
                 away: null,
-                mutedUntil: null,
+                rooms: new Set(),
                 joinedAt: now(),
                 messageCount: 0,
-                lastRenameAt: 0,
+                lastRenameAt: -Infinity,
                 recent: new Map(),
-                pendingLeave: null,
+                retired: false,
             };
             usernames.set(username, identity);
             return identity;

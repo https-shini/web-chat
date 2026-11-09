@@ -1,10 +1,11 @@
 /**
- * Administração. Todos exigem `permission: "admin"` (verificado pelo
- * executor) — exceto /admin, que é como alguém PROVA ser administrador.
+ * Moderação. Todos exigem `permission: "moderator"` (anfitrião da sala ou
+ * administrador, verificado pelo executor) e valem só na sala em que rodam
+ * — exceto /admin, que é como alguém PROVA ser administrador global.
  * Hierarquia e alvos: `room/policy.js` via `findModerationTarget`.
  */
 
-import { CLOSE_CODES, MESSAGE_KINDS } from "../../protocol.js";
+import { MESSAGE_KINDS } from "../../protocol.js";
 import { PERMISSIONS } from "../../room/policy.js";
 import { findModerationTarget, publishFor } from "./shared.js";
 
@@ -22,7 +23,7 @@ export const adminCommands = [
             if (ctx.identity.role === "admin") return ctx.reply.info("Você já é administrador.");
             const result = ctx.services.adminAuth.attempt(ctx.identity, ctx.args.chave);
             if (result.ok) {
-                ctx.room.grantAdmin(ctx.member);
+                ctx.hub.grantAdmin(ctx.member);
                 ctx.sendCatalog(ctx.member); // comandos administrativos passam a constar como liberados
                 return ctx.reply.admin(
                     "Você agora é administrador. Digite /help para ver os comandos.",
@@ -47,7 +48,8 @@ export const adminCommands = [
         name: "clearall",
         aliases: [],
         category: "admin",
-        permission: PERMISSIONS.ADMIN,
+        permission: PERMISSIONS.MODERATOR,
+        requiresRoom: true,
         description: "Apaga o histórico da sala para todos. Pede confirmação.",
         syntax: "/clearall confirmar",
         examples: ["/clearall", "/clearall confirmar"],
@@ -73,7 +75,7 @@ export const adminCommands = [
                     },
                 );
             }
-            ctx.room.clearHistory(ctx.member);
+            ctx.room.clearHistory(ctx.identity);
             return null; // todos recebem chat_cleared
         },
     },
@@ -81,7 +83,8 @@ export const adminCommands = [
         name: "announce",
         aliases: ["anuncio"],
         category: "admin",
-        permission: PERMISSIONS.ADMIN,
+        permission: PERMISSIONS.MODERATOR,
+        requiresRoom: true,
         description: "Publica um aviso destacado para a sala.",
         syntax: "/announce <texto>",
         examples: ["/announce Reunião começando agora!"],
@@ -93,8 +96,10 @@ export const adminCommands = [
         name: "mute",
         aliases: ["silenciar"],
         category: "admin",
-        permission: PERMISSIONS.ADMIN,
-        description: "Impede alguém de enviar mensagens, por um tempo (minutos) ou até /unmute.",
+        permission: PERMISSIONS.MODERATOR,
+        requiresRoom: true,
+        description:
+            "Impede alguém de enviar mensagens nesta sala, por um tempo (minutos) ou até /unmute.",
         syntax: "/mute <nome ou id> [minutos]",
         examples: ["/mute @ana 10", "/mute Ana", '/mute "João Silva" 5'],
         params: [
@@ -105,10 +110,9 @@ export const adminCommands = [
             const found = findModerationTarget(ctx, ctx.args["nome ou id"]);
             if (!found.ok) return found.response;
             const minutes = ctx.args.minutos;
-            const actor = { identity: ctx.identity };
             ctx.room.setMuted(
-                actor,
-                found.target,
+                ctx.identity,
+                found.target.identity,
                 minutes ? ctx.now() + minutes * 60000 : Infinity,
             );
             return null; // a sala recebe o aviso
@@ -118,19 +122,20 @@ export const adminCommands = [
         name: "unmute",
         aliases: ["liberar"],
         category: "admin",
-        permission: PERMISSIONS.ADMIN,
-        description: "Libera alguém silenciado.",
+        permission: PERMISSIONS.MODERATOR,
+        requiresRoom: true,
+        description: "Libera alguém silenciado nesta sala.",
         syntax: "/unmute <nome ou id>",
         examples: ["/unmute @ana", "/unmute Ana"],
         params: [{ name: "nome ou id", type: "word" }],
         run: (ctx) => {
             const found = findModerationTarget(ctx, ctx.args["nome ou id"]);
             if (!found.ok) return found.response;
-            const { identity } = found.target;
-            if (identity.mutedUntil === null || identity.mutedUntil <= ctx.now()) {
+            const { identity, membership } = found.target;
+            if (membership.mutedUntil === null || membership.mutedUntil <= ctx.now()) {
                 return ctx.reply.info(`${identity.name} não está silenciado.`);
             }
-            ctx.room.setMuted({ identity: ctx.identity }, found.target, null);
+            ctx.room.setMuted(ctx.identity, identity, null);
             return null;
         },
     },
@@ -138,20 +143,17 @@ export const adminCommands = [
         name: "kick",
         aliases: ["remover"],
         category: "admin",
-        permission: PERMISSIONS.ADMIN,
-        description: "Remove alguém da sala agora. A pessoa pode voltar, mas como identidade nova.",
+        permission: PERMISSIONS.MODERATOR,
+        requiresRoom: true,
+        description:
+            "Remove alguém desta sala agora. A pessoa continua nas outras salas, mas não volta a esta.",
         syntax: "/kick <nome ou id>",
         examples: ["/kick @ana", "/kick Ana", '/kick "João Silva"'],
         params: [{ name: "nome ou id", type: "word" }],
         run: (ctx) => {
             const found = findModerationTarget(ctx, ctx.args["nome ou id"]);
             if (!found.ok) return found.response;
-            ctx.room.remove({ identity: ctx.identity }, found.target);
-            ctx.services.disconnect(
-                found.target.member,
-                CLOSE_CODES.REMOVED,
-                "Removido por um administrador",
-            );
+            ctx.room.kick(ctx.identity, found.target.identity);
             return null;
         },
     },

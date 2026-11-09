@@ -1,35 +1,42 @@
 /**
- * A sala: quem está nela, o que foi dito e quem está digitando — e, desde a
- * Fase 4, presença, nomes, papéis e moderação.
+ * Uma sala: quem participa dela, o que foi dito e quem está digitando — com
+ * presença, papéis e moderação próprios.
+ *
+ * Desde a Fase 2 da evolução existem várias salas, e uma mesma identidade
+ * participa de várias ao mesmo tempo. Por isso a participação é da
+ * IDENTIDADE, não da conexão: se a conexão cai e volta dentro da janela de
+ * retomada, a pessoa continua nas mesmas salas, com o mesmo papel.
  *
  * Regras de negócio puras. Não conhece WebSocket, HTTP, rate limit nem
- * comandos: recebe a conexão como um valor opaco ("member") e entrega quadros
- * por uma função `deliver(member, data)` injetada. Por isso pode ser testada
- * com objetos simples no lugar de conexões.
+ * comandos, e não faz login: quem chama (`room/hub.js`) já resolveu a
+ * identidade. Entrega quadros pela função `deliver(holder, data)` injetada,
+ * sempre à conexão atual da identidade (`identity.holder`); identidade
+ * momentaneamente desconectada não recebe nada e, ao voltar, recebe o
+ * estado da sala de novo.
  *
  * Invariantes:
- *  - uma conexão entra uma única vez (segundo login é recusado);
- *  - a identidade de uma mensagem é sempre a da conexão, nunca a do payload;
- *  - só quem entrou recebe eventos da sala (Fase 1, P37);
- *  - uma identidade tem no máximo uma conexão: retomar com a antiga ainda
- *    presente substitui a antiga, sem avisos e sem duplicar a lista;
+ *  - todo quadro que sai daqui leva o `conversationId` da sala: nada de uma
+ *    sala é entregue a quem não participa dela;
+ *  - a identidade de uma mensagem é sempre a da participação, nunca a do
+ *    payload;
  *  - toda mensagem — digitada ou produzida por comando — passa por
  *    `publish`: silêncio, anti-duplicação e histórico valem para todas;
+ *  - silêncio, papel de anfitrião e remoção valem só nesta sala;
  *  - autorização (quem pode moderar quem) é decidida em `policy.js`, por
- *    quem chama as operações administrativas.
+ *    quem chama as operações de moderação.
  */
 
 import crypto from "node:crypto";
 import { ERROR_CODES } from "../errors.js";
-import { LIMITS, MESSAGE_KINDS, ROLES, TONES, serverMessage } from "../protocol.js";
 import {
-    normalizeText,
-    readClientId,
-    readContent,
-    readName,
-    readResumeToken,
-    readUsername,
-} from "../validation.js";
+    MESSAGE_KINDS,
+    ROLES,
+    ROOM_LEFT_REASONS,
+    TONES,
+    scoped,
+    serverMessage,
+} from "../protocol.js";
+import { readClientId, readContent } from "../validation.js";
 import { isMuted } from "./policy.js";
 
 /** Intervalo mínimo entre duas trocas de nome da mesma pessoa. */
@@ -39,15 +46,36 @@ export const RENAME_COOLDOWN_MS = 10_000;
 export const RECENT_MESSAGES_PER_IDENTITY = 20;
 
 /**
+ * Por que uma participação termina.
+ *  - left: a pessoa saiu da sala (`room_left` para ela);
+ *  - removed: removida por quem modera (`room_left` para ela, e não volta);
+ *  - ended: a identidade acabou (saiu da sessão ou não voltou a tempo).
+ */
+export const REMOVAL_REASONS = Object.freeze({
+    LEFT: "left",
+    REMOVED: "removed",
+    ENDED: "ended",
+});
+
+/**
  * @typedef {import("./sessions.js").Identity} Identity
+ * @typedef {{
+ *   role: "host" | "member",
+ *   mutedUntil: number | null,
+ *   joinedAt: number,
+ *   connected: boolean,
+ *   pendingLeave: unknown,
+ * }} Membership
  * @typedef {{ok: true} | {ok: false, code: string}} Result
  * @typedef {{schedule: (callback: () => void, ms?: number) => unknown, cancel: (handle: unknown) => void}} Scheduler
  */
 
 /**
  * @param {{
- *   identities: ReturnType<typeof import("./sessions.js").createIdentityStore>,
- *   deliver: (member: unknown, data: string) => void,
+ *   id: string,
+ *   code: string,
+ *   name: string,
+ *   deliver: (holder: unknown, data: string) => void,
  *   log: (level: "info" | "warn" | "error", event: string, fields?: Record<string, unknown>) => void,
  *   historySize: number,
  *   historyOnJoin: number,
@@ -57,10 +85,13 @@ export const RECENT_MESSAGES_PER_IDENTITY = 20;
  *   onUserList?: () => void,
  *   leaveGraceMs?: number,
  *   leaveScheduler?: Scheduler | null,
+ *   onPresenceChange?: (identity: Identity) => void,
  * }} options
  */
 export const createRoom = ({
-    identities,
+    id,
+    code,
+    name,
     deliver,
     log,
     historySize,
@@ -71,8 +102,13 @@ export const createRoom = ({
     onUserList = () => {},
     leaveGraceMs = 0,
     leaveScheduler = null,
+    onPresenceChange = () => {},
 }) => {
-    /** @type {Map<unknown, {identity: Identity, label: string}>} */
+    /**
+     * Participações, na ordem de entrada (o Map preserva a ordem): a mais
+     * antiga é a primeira — é ela quem herda o papel de anfitrião.
+     * @type {Map<Identity, Membership>}
+     */
     const members = new Map();
     /** Mensagens de chat já no formato de envio, da mais antiga à mais nova. */
     const history = [];
@@ -80,27 +116,48 @@ export const createRoom = ({
     let historyVersion = 0;
     /** Em desligamento: saídas não são anunciadas. */
     let quiet = false;
-    /** Identidades com aviso de saída agendado (janela de retomada). */
-    const pendingLeaves = new Set();
+    /** Ids removidos por moderação: não voltam enquanto a sala existir. */
+    const banned = new Set();
+    /** @type {string | null} */
+    let hostId = null;
 
     const timestamp = () => now().toISOString();
     const nowMs = () => now().getTime();
 
-    const sendTo = (member, message) => deliver(member, JSON.stringify(message));
+    /** @param {Identity} identity @param {Record<string, unknown>} message */
+    const sendTo = (identity, message) => {
+        if (identity.holder !== null) deliver(identity.holder, JSON.stringify(scoped(id, message)));
+    };
 
+    /** Para quem está conectado agora, menos `except`. */
     const broadcast = (message, except = null) => {
-        const data = JSON.stringify(message);
-        for (const member of members.keys()) {
-            if (member !== except) deliver(member, data);
+        const data = JSON.stringify(scoped(id, message));
+        for (const [identity, membership] of members) {
+            if (identity !== except && membership.connected && identity.holder !== null) {
+                deliver(identity.holder, data);
+            }
         }
     };
 
     const notice = (tone, text) =>
         broadcast(serverMessage.notice({ id: newMessageId(), tone, text, timestamp: timestamp() }));
 
+    /** Quem aparece na lista: conectados, com o papel que têm NESTA sala. */
+    const present = () => [...members].filter(([, membership]) => membership.connected);
+
     const sendUserList = () => {
         onUserList();
-        broadcast(serverMessage.userList([...members.values()].map((entry) => entry.identity)));
+        broadcast(
+            serverMessage.userList(
+                present().map(([identity, membership]) => ({
+                    id: identity.id,
+                    name: identity.name,
+                    username: identity.username,
+                    away: identity.away,
+                    role: identity.role === ROLES.ADMIN ? ROLES.ADMIN : membership.role,
+                })),
+            ),
+        );
     };
 
     // Lista de pessoas agrupada (Fase 3): várias mudanças próximas viram um
@@ -116,81 +173,117 @@ export const createRoom = ({
         });
     };
 
-    const cancelPendingLeave = (identity) => {
-        if (identity.pendingLeave === null || !leaveScheduler) return false;
-        leaveScheduler.cancel(identity.pendingLeave);
-        identity.pendingLeave = null;
-        pendingLeaves.delete(identity);
+    /** @param {Membership} membership */
+    const cancelPendingLeave = (membership) => {
+        if (membership.pendingLeave === null || !leaveScheduler) return false;
+        leaveScheduler.cancel(membership.pendingLeave);
+        membership.pendingLeave = null;
         return true;
     };
 
+    /** @param {Identity} identity @param {string} reason */
+    const announceLeft = (identity, reason) => {
+        if (quiet) return;
+        broadcast(
+            serverMessage.left(
+                identity,
+                timestamp(),
+                reason === REMOVAL_REASONS.REMOVED ? "removed" : "left",
+            ),
+        );
+    };
+
     /**
-     * Tira a conexão da sala. Devolve `false` se ela não estava.
-     *
-     * Saída comum (`reason: "closed"`) com janela de retomada: a lista é
-     * atualizada na hora, mas o aviso "saiu da sala" espera `leaveGraceMs`.
-     * Se a pessoa voltar com o token dentro da janela, nem "saiu" nem
-     * "entrou" são anunciados (F4-01) — uma rede instável deixa de gerar
-     * pares de avisos para todos.
-     * @param {unknown} member
-     * @param {{announce?: boolean, reason?: string}} [options]
+     * Resumo da sala do ponto de vista de quem recebe.
+     * @param {Identity} identity
+     * @returns {import("../protocol.js").RoomSummary}
      */
-    const leave = (member, { announce = true, reason = "closed" } = {}) => {
-        const entry = members.get(member);
-        if (!entry) return false;
-        const { identity } = entry;
-        members.delete(member);
-        identities.release(identity, member);
-        identity.recent.clear();
-        log("info", "user_left", { connection: entry.label, user: identity.id, reason });
-        if (!announce || quiet) return true;
+    const summaryFor = (identity) => ({
+        conversationId: id,
+        kind: "room",
+        code,
+        name,
+        role: members.get(identity)?.role ?? ROLES.MEMBER,
+        hostId,
+        memberCount: members.size,
+        historyVersion,
+    });
 
-        const announceLeft = () =>
-            broadcast(
-                serverMessage.left(
-                    identity,
-                    timestamp(),
-                    reason === "removed" ? "removed" : "left",
-                ),
-            );
-
-        if (reason === "closed" && leaveGraceMs > 0 && leaveScheduler) {
-            identity.pendingLeave = leaveScheduler.schedule(() => {
-                identity.pendingLeave = null;
-                pendingLeaves.delete(identity);
-                if (identity.holder === null && !quiet) announceLeft();
-            }, leaveGraceMs);
-            pendingLeaves.add(identity);
-        } else {
-            announceLeft();
+    /**
+     * Estado completo para quem acabou de entrar ou voltou: resumo, depois
+     * histórico recente. A lista vem pelo envio agrupado.
+     * @param {Identity} identity
+     * @param {{created?: boolean, resumed?: boolean}} how
+     */
+    const sendState = (identity, how) => {
+        if (identity.holder === null) return;
+        deliver(
+            identity.holder,
+            JSON.stringify(serverMessage.roomJoined(summaryFor(identity), how)),
+        );
+        if (history.length > 0 && historyOnJoin > 0) {
+            sendTo(identity, serverMessage.history(history.slice(-historyOnJoin)));
         }
-        broadcastUserList();
-        return true;
+    };
+
+    /** Cada participante recebe o resumo atualizado (o papel difere por pessoa). */
+    const broadcastSummary = () => {
+        for (const [identity, membership] of members) {
+            if (membership.connected && identity.holder !== null) {
+                deliver(
+                    identity.holder,
+                    JSON.stringify(serverMessage.roomUpdated(summaryFor(identity))),
+                );
+            }
+        }
+    };
+
+    /**
+     * O anfitrião deixou a sala de vez: o papel passa para quem está nela há
+     * mais tempo, preferindo quem está conectado. Sala sem ninguém fica sem
+     * anfitrião (e é destruída por quem a guarda).
+     */
+    const transferHost = () => {
+        const candidates = [...members];
+        const next =
+            candidates.find(([, membership]) => membership.connected) ?? candidates[0] ?? null;
+        if (!next) {
+            hostId = null;
+            return;
+        }
+        const [identity, membership] = next;
+        membership.role = ROLES.HOST;
+        hostId = identity.id;
+        log("info", "room_host_transferred", { conversation: id, user: identity.id });
+        notice(TONES.INFO, `${identity.name} agora é anfitrião da sala`);
+        broadcastSummary();
+        onPresenceChange(identity);
     };
 
     /**
      * Publica uma mensagem na sala. Único caminho de escrita no histórico —
      * mensagem digitada e mensagem produzida por comando seguem as mesmas
      * regras.
-     * @param {unknown} member
+     * @param {Identity} identity
      * @param {{content: string, kind?: string, format?: string | null, clientMsgId?: string | null}} message
      * @returns {Result & {duplicate?: boolean}}
      */
     const publish = (
-        member,
+        identity,
         { content, kind = MESSAGE_KINDS.TEXT, format = null, clientMsgId = null },
     ) => {
-        const entry = members.get(member);
-        if (!entry) return { ok: false, code: ERROR_CODES.NOT_LOGGED_IN };
-        const { identity } = entry;
-        if (isMuted(identity, nowMs())) return { ok: false, code: ERROR_CODES.MUTED };
+        const membership = members.get(identity);
+        if (!membership) return { ok: false, code: ERROR_CODES.CONVERSATION_NOT_FOUND };
+        if (isMuted(membership, nowMs())) return { ok: false, code: ERROR_CODES.MUTED };
 
         // Reenvio da mesma mensagem (retentativa do cliente): devolve a
-        // original só para quem enviou, sem duplicar na sala.
-        if (clientMsgId) {
-            const original = identity.recent.get(clientMsgId);
+        // original só para quem enviou, sem duplicar na sala. A chave inclui
+        // a sala: o mesmo id de correlação em outra sala é outra mensagem.
+        const recentKey = clientMsgId ? `${id}:${clientMsgId}` : null;
+        if (recentKey) {
+            const original = identity.recent.get(recentKey);
             if (original) {
-                sendTo(member, original);
+                sendTo(identity, /** @type {Record<string, unknown>} */ (original));
                 return { ok: true, duplicate: true };
             }
         }
@@ -207,126 +300,145 @@ export const createRoom = ({
         history.push(message);
         if (history.length > historySize) history.shift();
         identity.messageCount += 1;
-        if (clientMsgId) {
-            identity.recent.set(clientMsgId, message);
+        if (recentKey) {
+            identity.recent.set(recentKey, message);
             if (identity.recent.size > RECENT_MESSAGES_PER_IDENTITY) {
                 identity.recent.delete(identity.recent.keys().next().value);
             }
         }
         broadcast(message);
 
-        // Falar encerra a ausência.
+        // Falar encerra a ausência — em todas as salas da pessoa.
         if (identity.away !== null) {
             identity.away = null;
-            broadcastUserList();
+            onPresenceChange(identity);
         }
         return { ok: true };
     };
 
-    const entryOf = (member) => members.get(member) ?? null;
+    /**
+     * Encerra uma participação.
+     * @param {Identity} identity
+     * @param {string} reason um dos `REMOVAL_REASONS`
+     * @returns {boolean} se a identidade participava
+     */
+    const remove = (identity, reason) => {
+        const membership = members.get(identity);
+        if (!membership) return false;
+        const wasHost = membership.role === ROLES.HOST;
+        const pending = cancelPendingLeave(membership);
+        members.delete(identity);
+        identity.rooms.delete(id);
+        log("info", "room_member_left", { conversation: id, user: identity.id, reason });
+
+        // Quem estava conectado (ou desconectado com o aviso ainda pendente)
+        // é anunciado agora; quem já teve o aviso dado não é anunciado de novo.
+        if (membership.connected || pending) announceLeft(identity, reason);
+        if (reason !== REMOVAL_REASONS.ENDED) {
+            const why =
+                reason === REMOVAL_REASONS.REMOVED
+                    ? ROOM_LEFT_REASONS.REMOVED
+                    : ROOM_LEFT_REASONS.LEFT;
+            if (identity.holder !== null) {
+                deliver(identity.holder, JSON.stringify(serverMessage.roomLeft(id, why)));
+            }
+        }
+        if (wasHost) transferHost();
+        broadcastUserList();
+        return true;
+    };
 
     return {
+        id,
+        code,
+        name,
+
         /**
-         * Entrada na sala. Com `resumeToken` válido, a identidade anterior é
-         * retomada; sem ele, uma identidade nova é criada — `userId` do
-         * payload nunca é lido.
-         * @param {unknown} member
-         * @param {Record<string, unknown>} payload
-         * @param {string} label  id curto da conexão, só para log
-         * @returns {{ok: true, user: {id: string, name: string}, replaced: unknown}
-         *   | {ok: false, code: string}}
+         * Entrada na sala. Quem já participa recebe o estado de novo, sem
+         * avisos para os outros (pedido repetido não duplica nada).
+         * @param {Identity} identity
+         * @param {{host?: boolean, created?: boolean}} [options]
+         * @returns {{ok: true, already: boolean} | {ok: false, code: string}}
          */
-        join(member, payload, label) {
-            if (members.has(member)) return { ok: false, code: ERROR_CODES.ALREADY_LOGGED_IN };
-
-            const requested = readName(payload.userName);
-            if (!requested.ok) return requested;
-            const requestedUsername = readUsername(payload.username);
-            if (!requestedUsername.ok) return requestedUsername;
-
-            // Entrada nova (sem token válido): nome e username obrigatórios,
-            // e o username não pode estar com outra identidade viva.
-            const token = readResumeToken(payload.resumeToken);
-            const fresh = () => {
-                if (!requested.name) return { ok: false, code: ERROR_CODES.INVALID_NAME };
-                if (!requestedUsername.username) {
-                    return { ok: false, code: ERROR_CODES.INVALID_USERNAME };
-                }
-                if (identities.isUsernameTaken(requestedUsername.username)) {
-                    return { ok: false, code: ERROR_CODES.USERNAME_TAKEN };
-                }
-                return null;
-            };
-
-            let identity = identities.claim(token);
-            const resumed = identity !== null;
-            let replaced = null;
-            let returningInGrace = false;
-
-            if (identity === null) {
-                // Retomada com o mesmo id: o username é o guardado; o do
-                // payload só vale para uma identidade nova.
-                const refused = fresh();
-                if (refused) return refused;
-                identity = identities.create(requested.name, requestedUsername.username);
-            } else if (identity.holder !== null && identity.holder !== member) {
-                // A conexão antiga ainda consta (queda não detectada): a pessoa
-                // é a mesma, então ela sai em silêncio e a nova assume.
-                replaced = identity.holder;
-                leave(replaced, { announce: false, reason: "replaced" });
-            } else {
-                returningInGrace = cancelPendingLeave(identity);
+        add(identity, { host = false, created = false } = {}) {
+            if (banned.has(identity.id)) return { ok: false, code: ERROR_CODES.REMOVED_FROM_ROOM };
+            if (members.has(identity)) {
+                sendState(identity, { resumed: true });
+                return { ok: true, already: true };
             }
+            members.set(identity, {
+                role: host ? ROLES.HOST : ROLES.MEMBER,
+                mutedUntil: null,
+                joinedAt: nowMs(),
+                connected: identity.holder !== null,
+                pendingLeave: null,
+            });
+            identity.rooms.add(id);
+            if (host) hostId = identity.id;
+            log("info", "room_member_joined", { conversation: id, user: identity.id, host });
+            sendState(identity, { created });
+            broadcast(serverMessage.joined(identity.name, timestamp()), identity);
+            broadcastUserList();
+            return { ok: true, already: false };
+        },
 
-            const resumeToken = identities.attach(identity, member);
-            members.set(member, { identity, label });
-            log("info", "user_joined", { connection: label, user: identity.id, resumed });
-
-            // A sessão chega antes de tudo: o cliente precisa do próprio id
-            // para reconhecer as próprias mensagens no histórico.
-            sendTo(member, serverMessage.session(identity, resumeToken, historyVersion));
-            if (history.length > 0 && historyOnJoin > 0) {
-                sendTo(member, serverMessage.history(history.slice(-historyOnJoin)));
-            }
-            // Na substituição ou na volta dentro da janela, para os outros a
-            // pessoa nunca saiu.
-            if (replaced === null && !returningInGrace) {
-                broadcast(serverMessage.joined(identity.name, timestamp()), member);
+        /**
+         * A conexão da identidade caiu: ela continua participando (janela de
+         * retomada), mas sai da lista. O aviso "saiu" espera `leaveGraceMs`:
+         * se a pessoa voltar antes, ninguém vê nem "saiu" nem "entrou".
+         * @param {Identity} identity
+         */
+        disconnect(identity) {
+            const membership = members.get(identity);
+            if (!membership || !membership.connected) return;
+            membership.connected = false;
+            if (!quiet) {
+                if (leaveGraceMs > 0 && leaveScheduler) {
+                    membership.pendingLeave = leaveScheduler.schedule(() => {
+                        membership.pendingLeave = null;
+                        if (!membership.connected && members.get(identity) === membership) {
+                            announceLeft(identity, REMOVAL_REASONS.LEFT);
+                        }
+                    }, leaveGraceMs);
+                } else {
+                    announceLeft(identity, REMOVAL_REASONS.LEFT);
+                }
             }
             broadcastUserList();
-            return { ok: true, user: { id: identity.id, name: identity.name }, replaced };
         },
 
-        leave,
-
         /**
-         * A própria pessoa sai (`user_logout`): sai na hora, sem janela de
-         * retomada, e a identidade é encerrada — token inválido e username
-         * livre. Voltar é sempre como identidade nova. Quem chama fecha a
-         * conexão.
-         * @param {unknown} member
-         * @returns {boolean} se a conexão estava na sala
+         * A identidade voltou numa conexão nova: recebe o estado da sala de
+         * novo. Dentro da janela, para os outros ela nunca saiu.
+         * @param {Identity} identity
          */
-        logout(member) {
-            const entry = members.get(member);
-            if (!entry) return false;
-            leave(member, { reason: "logout" });
-            identities.revoke(entry.identity);
-            return true;
+        reconnect(identity) {
+            const membership = members.get(identity);
+            if (!membership) return;
+            const wasConnected = membership.connected;
+            membership.connected = true;
+            const silentReturn = wasConnected || cancelPendingLeave(membership);
+            sendState(identity, { resumed: true });
+            if (!silentReturn)
+                broadcast(serverMessage.joined(identity.name, timestamp()), identity);
+            broadcastUserList();
         },
 
+        remove,
+
         /**
-         * Mensagem digitada. O autor é a identidade da conexão; `kind` e
-         * `format` do payload são ignorados (só comandos os produzem).
-         * @param {unknown} member
+         * Mensagem digitada. O autor é a identidade; `kind` e `format` do
+         * payload são ignorados (só comandos os produzem).
+         * @param {Identity} identity
          * @param {Record<string, unknown>} payload
          * @returns {Result & {duplicate?: boolean}}
          */
-        post(member, payload) {
-            if (!members.has(member)) return { ok: false, code: ERROR_CODES.NOT_LOGGED_IN };
+        post(identity, payload) {
+            if (!members.has(identity))
+                return { ok: false, code: ERROR_CODES.CONVERSATION_NOT_FOUND };
             const content = readContent(payload.content);
             if (!content.ok) return content;
-            return publish(member, {
+            return publish(identity, {
                 content: content.content,
                 clientMsgId: readClientId(payload.clientMsgId),
             });
@@ -335,169 +447,138 @@ export const createRoom = ({
         publish,
 
         /**
-         * Sinal de digitação. Conexão fora da sala é ignorada em silêncio.
-         * @param {unknown} member
+         * Sinal de digitação, só para os outros participantes desta sala.
+         * @param {Identity} identity
          * @param {boolean} isTyping
          */
-        typing(member, isTyping) {
-            const entry = members.get(member);
-            if (!entry) return;
-            broadcast(serverMessage.typing(entry.identity, isTyping), member);
+        typing(identity, isTyping) {
+            if (!members.get(identity)?.connected) return;
+            broadcast(serverMessage.typing(identity, isTyping), identity);
         },
 
         /**
-         * Troca o nome de exibição. O id não muda.
-         * @param {unknown} member
-         * @param {unknown} rawName
-         * @returns {{ok: true, changed: boolean, name: string}
-         *   | {ok: false, code: "invalid_name" | "cooldown" | "not_logged_in", retryInMs?: number}}
+         * O nome da identidade mudou (a troca em si é feita pelo hub).
+         * @param {Identity} identity
+         * @param {string} previous
          */
-        rename(member, rawName) {
-            const entry = entryOf(member);
-            if (!entry) return { ok: false, code: ERROR_CODES.NOT_LOGGED_IN };
-            const read = readName(rawName);
-            if (!read.ok || !read.name) return { ok: false, code: ERROR_CODES.INVALID_NAME };
-            const { identity } = entry;
-            if (read.name === identity.name)
-                return { ok: true, changed: false, name: identity.name };
-            const wait = identity.lastRenameAt + RENAME_COOLDOWN_MS - nowMs();
-            if (wait > 0) return { ok: false, code: "cooldown", retryInMs: wait };
-
-            const previous = identity.name;
-            identity.name = read.name;
-            identity.lastRenameAt = nowMs();
-            log("info", "user_renamed", { user: identity.id });
+        announceRename(identity, previous) {
+            if (!members.has(identity)) return;
             notice(TONES.INFO, `${previous} agora se chama ${identity.name}`);
             broadcastUserList();
-            return { ok: true, changed: true, name: identity.name };
         },
 
-        /**
-         * Marca ausência (com motivo opcional) ou volta a ficar presente.
-         * @param {unknown} member
-         * @param {unknown} rawText  texto, ou null para voltar
-         * @returns {{ok: true, away: string | null} | {ok: false, code: string}}
-         */
-        setAway(member, rawText) {
-            const entry = entryOf(member);
-            if (!entry) return { ok: false, code: ERROR_CODES.NOT_LOGGED_IN };
-            const text = rawText === null ? null : normalizeText(rawText, LIMITS.awayTextMaxLength);
-            entry.identity.away = rawText === null ? null : text || "ausente";
+        /** @param {Identity} identity */
+        announceAdmin(identity) {
+            if (!members.has(identity)) return;
+            notice(TONES.ADMIN, `${identity.name} agora é administrador`);
             broadcastUserList();
-            return { ok: true, away: entry.identity.away };
         },
 
-        /**
-         * Concede o papel de administrador (quem chama já verificou a chave).
-         * @param {unknown} member
-         */
-        grantAdmin(member) {
-            const entry = entryOf(member);
-            if (!entry) return false;
-            entry.identity.role = ROLES.ADMIN;
-            log("info", "admin_granted", { user: entry.identity.id });
-            notice(TONES.ADMIN, `${entry.identity.name} agora é administrador da sala`);
-            broadcastUserList();
-            return true;
-        },
+        /** Presença ou papel de alguém mudou: a lista é reenviada (agrupada). */
+        refreshUserList: broadcastUserList,
 
         /**
          * Apaga o histórico da sala para todos (quem chama já autorizou).
-         * Clientes conectados recebem `chat_cleared`; quem estiver fora
-         * descobre pela `historyVersion` da próxima `session`.
-         * @param {unknown} actorMember
+         * Quem está conectado recebe `chat_cleared`; quem estiver fora
+         * descobre pela `historyVersion` do próximo `room_joined`.
+         * @param {Identity} actor
          */
-        clearHistory(actorMember) {
-            const actor = entryOf(actorMember);
-            if (!actor) return false;
+        clearHistory(actor) {
             const removed = history.length;
             history.length = 0;
             historyVersion += 1;
-            for (const entry of members.values()) entry.identity.recent.clear();
-            log("warn", "admin_action", {
+            const prefix = `${id}:`;
+            for (const identity of members.keys()) {
+                for (const key of identity.recent.keys()) {
+                    if (key.startsWith(prefix)) identity.recent.delete(key);
+                }
+            }
+            log("warn", "moderation_action", {
                 action: "clear_history",
-                actor: actor.identity.id,
+                conversation: id,
+                actor: actor.id,
                 removed,
                 historyVersion,
             });
-            broadcast(serverMessage.chatCleared(actor.identity.name, timestamp(), historyVersion));
+            broadcast(serverMessage.chatCleared(actor.name, timestamp(), historyVersion));
             return true;
         },
 
         /**
-         * Silencia (até `untilMs`, Infinity = sem prazo) ou libera (null).
-         * @param {{identity: Identity}} actor
-         * @param {{identity: Identity}} target
+         * Silencia nesta sala (até `untilMs`, Infinity = sem prazo) ou libera (null).
+         * @param {Identity} actor
+         * @param {Identity} target
          * @param {number | null} untilMs
          */
         setMuted(actor, target, untilMs) {
-            target.identity.mutedUntil = untilMs;
-            log("warn", "admin_action", {
+            const membership = members.get(target);
+            if (!membership) return false;
+            membership.mutedUntil = untilMs;
+            log("warn", "moderation_action", {
                 action: untilMs === null ? "unmute" : "mute",
-                actor: actor.identity.id,
-                target: target.identity.id,
+                conversation: id,
+                actor: actor.id,
+                target: target.id,
             });
             if (untilMs === null) {
-                notice(TONES.ADMIN, `${target.identity.name} pode voltar a enviar mensagens`);
+                notice(TONES.ADMIN, `${target.name} pode voltar a enviar mensagens`);
             } else {
                 const minutes =
                     untilMs === Infinity ? null : Math.round((untilMs - nowMs()) / 60_000);
                 notice(
                     TONES.ADMIN,
                     minutes === null
-                        ? `${target.identity.name} foi silenciado por ${actor.identity.name}`
-                        : `${target.identity.name} foi silenciado por ${actor.identity.name} por ${minutes} min`,
+                        ? `${target.name} foi silenciado por ${actor.name}`
+                        : `${target.name} foi silenciado por ${actor.name} por ${minutes} min`,
                 );
             }
+            return true;
         },
 
         /**
-         * Remove alguém da sala: sai na hora (sem janela de retomada) e o
-         * token é invalidado — a pessoa pode voltar, mas como identidade
-         * nova. Quem chama fecha a conexão.
-         * @param {{identity: Identity}} actor
-         * @param {{member: unknown, identity: Identity}} target
+         * Remove alguém desta sala. A pessoa continua conectada e nas outras
+         * salas, mas não volta a esta enquanto ela existir.
+         * @param {Identity} actor
+         * @param {Identity} target
          */
-        remove(actor, target) {
-            log("warn", "admin_action", {
+        kick(actor, target) {
+            if (!members.has(target)) return false;
+            log("warn", "moderation_action", {
                 action: "remove",
-                actor: actor.identity.id,
-                target: target.identity.id,
+                conversation: id,
+                actor: actor.id,
+                target: target.id,
             });
-            leave(target.member, { reason: "removed" });
-            identities.revoke(target.identity);
-            notice(
-                TONES.ADMIN,
-                `${target.identity.name} foi removido da sala por ${actor.identity.name}`,
-            );
+            banned.add(target.id);
+            remove(target, REMOVAL_REASONS.REMOVED);
+            notice(TONES.ADMIN, `${target.name} foi removido da sala por ${actor.name}`);
+            return true;
         },
 
-        /** @param {unknown} member */
-        isMember: (member) => members.has(member),
+        /** @param {Identity} identity */
+        has: (identity) => members.has(identity),
 
-        /** @param {unknown} member @returns {string | null} */
-        userIdOf: (member) => members.get(member)?.identity.id ?? null,
+        /** @param {Identity} identity @returns {Membership | null} */
+        membershipOf: (identity) => members.get(identity) ?? null,
 
-        /** @param {unknown} member */
-        entryOf,
+        /** @param {Identity} identity */
+        isBanned: (identity) => banned.has(identity.id),
 
-        /** Quem está na sala agora, na ordem de entrada. */
-        listMembers: () =>
-            [...members.entries()].map(([member, entry]) => ({ member, identity: entry.identity })),
+        summaryFor,
+
+        /** Quem está conectado na sala agora, na ordem de entrada. */
+        listMembers: () => present().map(([identity, membership]) => ({ identity, membership })),
 
         /**
-         * Localiza pessoas na sala por `@username` (exato e único), por id
-         * (ou prefixo de id com 6+ caracteres) ou por nome (sem diferenciar
-         * maiúsculas; pode haver mais de uma pessoa com o mesmo nome).
+         * Localiza pessoas conectadas na sala por `@username` (exato e
+         * único), por id (ou prefixo de id com 6+ caracteres) ou por nome
+         * (sem diferenciar maiúsculas; pode haver mais de uma pessoa).
          * @param {string} query
          */
         findMembers(query) {
             const wanted = query.trim().toLowerCase();
             if (!wanted) return [];
-            const all = [...members.entries()].map(([member, entry]) => ({
-                member,
-                identity: entry.identity,
-            }));
+            const all = present().map(([identity, membership]) => ({ identity, membership }));
             if (wanted.startsWith("@")) {
                 return all.filter(({ identity }) => identity.username === wanted.slice(1));
             }
@@ -511,18 +592,30 @@ export const createRoom = ({
             return all.filter(({ identity }) => identity.username === wanted);
         },
 
+        /** Participações (inclusive de quem está na janela de retomada). */
         get memberCount() {
             return members.size;
+        },
+
+        get connectedCount() {
+            return present().length;
         },
 
         get historyVersion() {
             return historyVersion;
         },
 
+        get historyLength() {
+            return history.length;
+        },
+
+        get hostId() {
+            return hostId;
+        },
+
         /**
          * Desligamento: daqui em diante, saídas não são anunciadas, e envios
-         * pendentes (lista, avisos de saída) são cancelados — nenhum timer
-         * sobra.
+         * pendentes (lista, avisos de saída) são cancelados.
          */
         silence() {
             quiet = true;
@@ -530,7 +623,21 @@ export const createRoom = ({
                 userListScheduler.cancel(pendingList);
                 pendingList = null;
             }
-            for (const identity of pendingLeaves) cancelPendingLeave(identity);
+            for (const membership of members.values()) cancelPendingLeave(membership);
+        },
+
+        /**
+         * Fim da sala: nenhum timer sobra, o histórico é descartado e
+         * ninguém continua ligado a ela.
+         */
+        destroy() {
+            this.silence();
+            for (const identity of members.keys()) identity.rooms.delete(id);
+            members.clear();
+            history.length = 0;
+            banned.clear();
+            hostId = null;
+            log("info", "room_destroyed", { conversation: id });
         },
     };
 };

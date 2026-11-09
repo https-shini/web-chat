@@ -1,4 +1,4 @@
-/** Comandos básicos: ajuda, sala, conexão e informações do servidor. */
+/** Comandos básicos: ajuda, salas, conexão e informações do servidor. */
 
 import { isMuted } from "../../room/policy.js";
 
@@ -8,7 +8,7 @@ export const ROOM_RULES = [
     "Nada de spam ou flood: o servidor limita a velocidade de envio.",
     "Não compartilhe dados pessoais seus ou de outras pessoas.",
     "A sala é efêmera: nada é salvo de forma permanente — nem as mensagens, nem quem esteve aqui.",
-    "Administradores podem silenciar ou remover quem descumprir as regras.",
+    "O anfitrião da sala (e administradores) podem silenciar ou remover quem descumprir as regras.",
 ];
 
 /** @type {import("../registry.js").CommandDefinition[]} */
@@ -48,15 +48,17 @@ export const basicCommands = [
         description: "Lista quem está na sala agora, com o @username e o id curto de cada pessoa.",
         syntax: "/users",
         examples: ["/users"],
+        requiresRoom: true,
         run: (ctx) => {
             const time = ctx.now();
             const people = ctx.room.listMembers();
-            const lines = people.map(({ identity }) => {
+            const lines = people.map(({ identity, membership }) => {
                 const tags = [
                     identity.id === ctx.identity.id ? "você" : null,
                     identity.role === "admin" ? "admin" : null,
+                    membership.role === "host" ? "anfitrião" : null,
                     identity.away !== null ? `ausente: ${identity.away}` : null,
-                    isMuted(identity, time) ? "silenciado" : null,
+                    isMuted(membership, time) ? "silenciado" : null,
                 ].filter(Boolean);
                 return `${identity.name} (@${identity.username}) · ${identity.id.slice(0, 8)}${tags.length ? ` · ${tags.join(" · ")}` : ""}`;
             });
@@ -79,17 +81,55 @@ export const basicCommands = [
         name: "about",
         aliases: ["sobre"],
         category: "basic",
-        description: "O que é esta sala.",
+        description: "O que é este chat.",
         syntax: "/about",
         examples: ["/about"],
         run: (ctx) =>
-            ctx.reply.info("web-chat: uma sala única, efêmera e anônima.", {
+            ctx.reply.info("web-chat: salas de conversa efêmeras e anônimas.", {
                 lines: [
-                    "Ninguém precisa de conta; você entra só com um nome.",
-                    "As mensagens ficam em memória e somem quando o servidor reinicia.",
+                    "Ninguém precisa de conta; você entra só com um nome e um @.",
+                    "Cada sala tem um código de convite; só entra quem tem o código.",
+                    "As mensagens ficam em memória e somem quando a sala acaba ou o servidor reinicia.",
                     "Digite / para ver os comandos.",
                 ],
             }),
+    },
+    {
+        name: "invite",
+        aliases: ["convite", "codigo"],
+        category: "room",
+        description: "Mostra o código de convite desta sala, para chamar outras pessoas.",
+        syntax: "/invite",
+        examples: ["/invite"],
+        requiresRoom: true,
+        run: (ctx) =>
+            ctx.reply.result(`Código da sala: ${ctx.room.code}`, {
+                lines: [
+                    "Quem tiver o código entra na sala. Compartilhe só com quem você quer aqui.",
+                ],
+                data: { code: ctx.room.code },
+            }),
+    },
+    {
+        name: "rooms",
+        aliases: ["salas"],
+        category: "room",
+        description: "Lista as salas de que você participa agora.",
+        syntax: "/rooms",
+        examples: ["/rooms"],
+        run: (ctx) => {
+            const rooms = ctx.hub.roomsOf(ctx.member) ?? [];
+            if (rooms.length === 0) return ctx.reply.info("Você não está em nenhuma sala.");
+            return ctx.reply.result(
+                rooms.length === 1 ? "Você está em 1 sala" : `Você está em ${rooms.length} salas`,
+                {
+                    lines: rooms.map(
+                        (room) =>
+                            `${room.name} · ${room.code}${room.role === "host" ? " · anfitrião" : ""}`,
+                    ),
+                },
+            );
+        },
     },
     {
         name: "version",

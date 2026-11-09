@@ -1,5 +1,5 @@
 // Camada de entrada do protocolo com um WebSocket falso: limites, envelope,
-// encaminhamento à sala e tratamento de erro inesperado.
+// encaminhamento ao hub (sessões e salas) e tratamento de erro inesperado.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -26,21 +26,28 @@ class FakeSocket extends EventEmitter {
     }
 }
 
-const setup = (roomOverrides = {}) => {
+const setup = (hubOverrides = {}) => {
     let time = 0;
     const calls = [];
     const logs = [];
-    const room = {
-        join: (ws, payload) => (calls.push(["join", payload]), { ok: true, replaced: null }),
+    const hub = {
+        login: (ws, payload) => (calls.push(["login", payload]), { ok: true, replaced: null }),
         post: (ws, payload) => (calls.push(["post", payload]), { ok: true }),
-        typing: (ws, isTyping) => calls.push(["typing", isTyping]),
-        leave: () => calls.push(["leave"]),
-        isMember: () => false,
+        typing: (ws, payload, isTyping) => calls.push(["typing", payload, isTyping]),
+        disconnect: () => calls.push(["disconnect"]),
+        createRoom: (ws, payload) => (calls.push(["createRoom", payload]), { ok: true }),
+        joinRoom: (ws, payload) => (
+            calls.push(["joinRoom", payload]),
+            { ok: true, already: false }
+        ),
+        leaveRoom: (ws, payload) => (calls.push(["leaveRoom", payload]), { ok: true }),
+        roomsOf: () => [],
+        isLoggedIn: () => false,
         userIdOf: () => null,
-        ...roomOverrides,
+        ...hubOverrides,
     };
     const handle = createConnectionHandler({
-        room,
+        hub,
         log: (level, event, fields) => logs.push({ level, event, ...fields }),
         messageRate: { capacity: 3, refillPerSecond: 1 },
         signalRate: { capacity: 2, refillPerSecond: 1 },
@@ -51,36 +58,71 @@ const setup = (roomOverrides = {}) => {
     return { ws, calls, logs, tick: (ms) => (time += ms) };
 };
 
-test("encaminha cada evento ao método certo da sala", () => {
+test("encaminha cada evento ao método certo do hub", () => {
     const { ws, calls } = setup();
+    const conversationId = "r_abcdefghijkl";
     ws.frame({ type: "user_login", payload: { userName: "Ana", username: "ana" } });
-    ws.frame({ type: "chat_message", payload: { content: "oi" } });
-    ws.frame({ type: "typing_start" });
-    ws.frame({ type: "typing_stop" });
+    ws.frame({ type: "chat_message", payload: { conversationId, content: "oi" } });
+    ws.frame({ type: "typing_start", payload: { conversationId } });
+    ws.frame({ type: "typing_stop", payload: { conversationId } });
     ws.emit("close");
     assert.deepEqual(calls, [
-        ["join", { userName: "Ana", username: "ana" }],
-        ["post", { content: "oi" }],
-        ["typing", true],
-        ["typing", false],
-        ["leave"],
+        ["login", { userName: "Ana", username: "ana" }],
+        ["post", { conversationId, content: "oi" }],
+        ["typing", { conversationId }, true],
+        ["typing", { conversationId }, false],
+        ["disconnect"],
     ]);
 });
 
-test("user_logout: encerra a identidade na sala e fecha a conexão com 4004", () => {
+test("pedidos de sala chegam ao hub; room_list responde com as salas e o requestId", () => {
+    const summary = { conversationId: "r_abcdefghijkl", code: "abc-defg-hij" };
+    const { ws, calls, tick } = setup({ roomsOf: () => [summary] });
+    ws.frame({ type: "room_create", payload: { name: "Estudos" } });
+    ws.frame({ type: "room_join", payload: { code: "abc-defg-hij" } });
+    ws.frame({ type: "room_leave", payload: { conversationId: "r_abcdefghijkl" } });
+    tick(1000); // o balde do teste tem 3 fichas
+    ws.frame({ type: "room_list", payload: { requestId: "lista-1" } });
+    assert.deepEqual(calls, [
+        ["createRoom", { name: "Estudos" }],
+        ["joinRoom", { code: "abc-defg-hij" }],
+        ["leaveRoom", { conversationId: "r_abcdefghijkl" }],
+    ]);
+    assert.deepEqual(ws.sent, [
+        { type: "room_list", payload: { rooms: [summary], requestId: "lista-1" } },
+    ]);
+});
+
+test("recusa de sala vira erro com o requestId e, quando houver, a conversa", () => {
+    const { ws } = setup({
+        joinRoom: () => ({ ok: false, code: "room_not_found" }),
+        leaveRoom: () => ({ ok: false, code: "conversation_not_found" }),
+    });
+    ws.frame({ type: "room_join", payload: { code: "xxx-xxxx-xxx", requestId: "j1" } });
+    ws.frame({
+        type: "room_leave",
+        payload: { conversationId: "r_naoparticipo1", requestId: "l1" },
+    });
+    assert.equal(ws.sent[0].payload.code, "room_not_found");
+    assert.equal(ws.sent[0].payload.ref, "j1");
+    assert.equal(ws.sent[1].payload.code, "conversation_not_found");
+    assert.equal(ws.sent[1].conversationId, "r_naoparticipo1");
+});
+
+test("user_logout: encerra a identidade e fecha a conexão com 4004", () => {
     const { ws, calls } = setup({ logout: () => (calls.push(["logout"]), true) });
     ws.frame({ type: "user_logout" });
     assert.deepEqual(calls, [["logout"]]);
-    assert.deepEqual(ws.closed, { code: 4004, reason: "Você saiu da sala" });
+    assert.deepEqual(ws.closed, { code: 4004, reason: "Você saiu" });
 });
 
-test("user_logout fora da sala também fecha a conexão (sem efeito na sala)", () => {
+test("user_logout sem sessão também fecha a conexão (sem efeito)", () => {
     const { ws } = setup({ logout: () => false });
     ws.frame({ type: "user_logout" });
     assert.equal(ws.closed?.code, 4004);
 });
 
-test("recusa da sala vira erro com código e log com contexto", () => {
+test("recusa do hub vira erro com código e log com contexto", () => {
     const { ws, logs } = setup({ post: () => ({ ok: false, code: "not_logged_in" }) });
     ws.frame({ type: "chat_message", payload: { content: "oi" } });
     assert.deepEqual(ws.sent, [
@@ -149,26 +191,26 @@ test("defeito do servidor: cliente recebe só internal_error; log tem stack", ()
 
 test("retomada que substitui conexão antiga encerra a antiga", () => {
     const old = new FakeSocket();
-    const { ws } = setup({ join: () => ({ ok: true, replaced: old }) });
+    const { ws } = setup({ login: () => ({ ok: true, replaced: old }) });
     ws.frame({ type: "user_login", payload: { userName: "Ana", username: "ana" } });
     assert.equal(old.terminated, true);
 });
 
 test("falha em uma conexão não afeta outra", () => {
     let fail = true;
-    const room = {
-        join: () => ({ ok: true, replaced: null }),
+    const hub = {
+        login: () => ({ ok: true, replaced: null }),
         post: () => {
             if (fail) throw new Error("x");
             return { ok: true };
         },
         typing() {},
-        leave() {},
-        isMember: () => false,
+        disconnect() {},
+        isLoggedIn: () => false,
         userIdOf: () => null,
     };
     const handle = createConnectionHandler({
-        room,
+        hub: /** @type {any} */ (hub),
         log: () => {},
         messageRate: { capacity: 5, refillPerSecond: 1 },
         signalRate: { capacity: 5, refillPerSecond: 1 },

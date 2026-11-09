@@ -18,6 +18,7 @@ export const LIMITS = Object.freeze({
     usernameMaxLength: 20,
     messageMaxLength: 1000,
     commandMaxLength: 1000,
+    roomNameMaxLength: 40,
 });
 
 /** Eventos que o cliente envia. */
@@ -28,6 +29,10 @@ export const CLIENT_EVENTS = Object.freeze({
     TYPING_STOP: "typing_stop",
     COMMAND: "command",
     LOGOUT: "user_logout",
+    ROOM_CREATE: "room_create",
+    ROOM_JOIN: "room_join",
+    ROOM_LEAVE: "room_leave",
+    ROOM_LIST: "room_list",
 });
 
 /** Eventos que o servidor envia. */
@@ -44,6 +49,23 @@ export const SERVER_EVENTS = Object.freeze({
     COMMAND_RESULT: "command_result",
     NOTICE: "notice",
     CHAT_CLEARED: "chat_cleared",
+    ROOM_JOINED: "room_joined",
+    ROOM_LEFT: "room_left",
+    ROOM_LIST: "room_list",
+    ROOM_UPDATED: "room_updated",
+});
+
+/**
+ * Papéis: `admin` é global; `host` (anfitrião) vale só na sala em que a
+ * pessoa o tem.
+ */
+export const ROLES = Object.freeze({ MEMBER: "member", ADMIN: "admin", HOST: "host" });
+
+/** Por que você deixou de estar numa sala (`room_left`). */
+export const ROOM_LEFT_REASONS = Object.freeze({
+    LEFT: "left",
+    REMOVED: "removed",
+    CLOSED: "closed",
 });
 
 /** Variedades de mensagem de chat (`payload.kind`; ausente = "text"). */
@@ -86,4 +108,12 @@ export const ERROR_CODES = Object.freeze({
     USERNAME_TAKEN: "username_taken",
     RATE_LIMITED: "rate_limited",
     MUTED: "muted",
+    INVALID_ROOM_CODE: "invalid_room_code",
+    ROOM_NOT_FOUND: "room_not_found",
+    CONVERSATION_NOT_FOUND: "conversation_not_found",
+    REMOVED_FROM_ROOM: "removed_from_room",
+    ROOM_JOIN_LIMIT: "room_join_limit",
+    ROOM_CREATE_LIMIT: "room_create_limit",
+    ROOMS_FULL: "rooms_full",
+    ROOM_JOIN_LOCKED: "room_join_locked",
 });

@@ -52,4 +52,6 @@ export const COMMAND_ERRORS = Object.freeze({
     ADMIN_WRONG_KEY: "admin_wrong_key",
     CLIENT_COMMAND: "client_command",
     INVALID_COMMAND: "invalid_command",
+    /** Comando de sala sem conversa válida. */
+    NO_CONVERSATION: "no_conversation",
 });

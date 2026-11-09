@@ -13,7 +13,9 @@
  *   rateLimiter.js       balde de fichas
  *   metrics.js           métricas operacionais em memória
  *   room/sessions.js     identidades emitidas pelo servidor
- *   room/room.js         regras da sala (entrada, saída, mensagens, digitação)
+ *   room/hub.js          sessões: login, retomada, saída e conversas da conexão
+ *   room/directory.js    salas ativas em memória: códigos, limites, fim das vazias
+ *   room/room.js         regras de uma sala (participantes, mensagens, moderação)
  *   transport/           HTTP, WebSocket, conexão, heartbeat, desligamento
  */
 

@@ -17,7 +17,17 @@
  * @property {string} [username]  sem o arroba, minúsculo; único na sala
  * @property {"online" | "away"} [status]
  * @property {string} [statusText]
- * @property {"member" | "admin"} [role]
+ * @property {"member" | "admin" | "host"} [role]  papel NA SALA (admin é global)
+ */
+
+/**
+ * Sala aberta agora (Fase 2 da evolução: a interface mostra uma sala por
+ * vez; a navegação entre várias chega nas próximas fases).
+ * @typedef {object} RoomInfo
+ * @property {string} conversationId
+ * @property {string} code      código de convite
+ * @property {string} name
+ * @property {"member" | "host"} role  seu papel nesta sala
  */
 
 /**
@@ -83,6 +93,7 @@
  * @property {number | null} closeCode  Fechamento definitivo (ex.: 4003 removido).
  * @property {CommandInfo[]} catalog
  * @property {number | null} historyVersion
+ * @property {RoomInfo | null} room
  */
 
 /** @typedef {(state: State) => void} Listener */
@@ -106,6 +117,7 @@ const initialState = () => ({
     closeCode: null,
     catalog: [],
     historyVersion: null,
+    room: null,
 });
 
 export const createStore = () => {
@@ -191,7 +203,39 @@ export const createStore = () => {
                 patch({ screen: "entry", joining: true, me, closeCode: null });
             },
 
-            /** Sessão aceita pelo servidor: agora sim, a sala. */
+            /**
+             * A sala aberta (resumo do servidor). Trocar de sala descarta a
+             * conversa da anterior.
+             * @param {RoomInfo} room
+             */
+            setRoom(room) {
+                const current = state.room;
+                if (
+                    current &&
+                    current.conversationId === room.conversationId &&
+                    current.code === room.code &&
+                    current.name === room.name &&
+                    current.role === room.role
+                )
+                    return;
+                const switched = current !== null && current.conversationId !== room.conversationId;
+                patch(
+                    switched
+                        ? { room, messages: [], people: [], typing: [], historyVersion: null }
+                        : { room },
+                );
+            },
+
+            /**
+             * A sala aberta deixou de valer (identidade nova depois de o
+             * servidor reiniciar): conversa e lista dela são descartadas.
+             */
+            forgetRoom() {
+                if (state.room === null) return;
+                patch({ room: null, messages: [], people: [], typing: [], historyVersion: null });
+            },
+
+            /** Sala e sessão aceitas pelo servidor: agora sim, a conversa. */
             completeJoin() {
                 if (!state.joining) return;
                 patch({ screen: "room", joining: false });
