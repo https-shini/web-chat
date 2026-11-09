@@ -175,6 +175,7 @@ describe("limpezas", () => {
         });
         handle({ type: "session", payload: { id: "eu", name: "Eu", resumeToken: "t" } });
         handle(joined(0));
+        store.actions.openConversation("r_sala00000001");
         handle({
             type: "chat_message",
             id: "m1",
