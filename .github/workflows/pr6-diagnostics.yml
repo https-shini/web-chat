@@ -1,0 +1,30 @@
+name: PR6 diagnostics
+
+on:
+    push:
+        branches: ["feat/home-meet-discord-flow"]
+
+permissions:
+    contents: read
+
+jobs:
+    validate:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+                  cache: npm
+            - run: npm ci
+            - run: npm --prefix backend ci
+            - name: Run all independent quality checks without skipping failures
+              shell: bash
+              run: |
+                  rc=0
+                  npm run check:types || rc=1
+                  npm run lint:js || rc=1
+                  npm run lint:css || rc=1
+                  npm run build || rc=1
+                  npm test || rc=1
+                  exit "$rc"
