@@ -6,7 +6,8 @@
  */
 import { normalizeRoomCode } from "../state/invite.js";
 
-export const createHome = ({ onCreate, onJoin, onDirect }) => {
+/** @param {{onCreate: () => void, onJoin: (code: string) => void, onDirect: () => void, onOpen: (id: string) => void, onLeave: (id: string) => void}} actions */
+export const createHome = ({ onCreate, onJoin, onDirect, onOpen, onLeave }) => {
     const section = document.createElement("section");
     section.className = "c-home";
     section.hidden = true;
@@ -29,12 +30,21 @@ export const createHome = ({ onCreate, onJoin, onDirect }) => {
                 <button type="button" data-home-action="cancel">Cancelar</button>
             </form>
             <p class="c-home__notice" role="status" aria-live="polite"></p>
+            <div class="c-home__connection" role="status"></div>
+            <section aria-label="Conversas ativas" class="c-home__conversations">
+                <h2>Suas salas</h2>
+                <p class="c-home__empty">Nenhuma sala ativa. Crie uma ou entre com um convite.</p>
+                <ul class="c-home__conversation-list"></ul>
+            </section>
         </div>`;
     document.querySelector(".c-app")?.append(section);
     const identity = section.querySelector(".c-home__identity");
     const form = /** @type {HTMLFormElement} */ (section.querySelector("form"));
     const input = /** @type {HTMLInputElement} */ (section.querySelector("input"));
     const notice = section.querySelector(".c-home__notice");
+    const connection = section.querySelector(".c-home__connection");
+    const list = /** @type {HTMLUListElement} */ (section.querySelector(".c-home__conversation-list"));
+    const empty = section.querySelector(".c-home__empty");
     section.querySelector('[data-home-action="create"]')?.addEventListener("click", onCreate);
     section.querySelector('[data-home-action="join"]')?.addEventListener("click", () => {
         form.hidden = false;
@@ -44,6 +54,16 @@ export const createHome = ({ onCreate, onJoin, onDirect }) => {
         form.hidden = true;
     });
     section.querySelector('[data-home-action="direct"]')?.addEventListener("click", onDirect);
+    list.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const button = target.closest("button[data-conversation-id]");
+        if (!(button instanceof HTMLButtonElement)) return;
+        const id = button.dataset.conversationId;
+        if (!id) return;
+        if (button.dataset.action === "leave") onLeave(id);
+        else onOpen(id);
+    });
     form.addEventListener("submit", (event) => {
         event.preventDefault();
         const raw = input.value.trim();
@@ -71,6 +91,41 @@ export const createHome = ({ onCreate, onJoin, onDirect }) => {
             showNotice("Convite encontrado. Confirme para entrar na sala.");
         },
         showNotice,
+        /** @param {import("../state/store.js").State["conversations"]} conversations */
+        renderConversations(conversations) {
+            list.replaceChildren();
+            if (empty) empty.hidden = conversations.length > 0;
+            for (const room of conversations) {
+                const item = document.createElement("li");
+                item.className = "c-home__conversation";
+                const open = document.createElement("button");
+                open.type = "button";
+                open.dataset.conversationId = room.conversationId;
+                open.dataset.action = "open";
+                const title = document.createElement("strong");
+                title.textContent = room.name;
+                const detail = document.createElement("span");
+                detail.textContent = room.unread
+                    ? " · " + room.unread + " não lida(s)"
+                    : room.lastMessage ? " · " + room.lastMessage.slice(0, 80) : " · Sem mensagens recentes";
+                open.append(title, detail);
+                const leave = document.createElement("button");
+                leave.type = "button";
+                leave.dataset.conversationId = room.conversationId;
+                leave.dataset.action = "leave";
+                leave.textContent = "Sair da sala";
+                leave.setAttribute("aria-label", "Sair da sala " + room.name);
+                item.append(open, leave);
+                list.append(item);
+            }
+        },
+        /** @param {import("../state/store.js").LinkState} link */
+        setConnection(link) {
+            if (connection) connection.textContent =
+                link === "online" ? "Conectado" :
+                link === "retrying" || link === "connecting" ? "Reconectando…" :
+                link === "offline" ? "Sem conexão" : "Aguardando conexão";
+        },
         focus() {
             section.querySelector("h1")?.setAttribute("tabindex", "-1");
             /** @type {HTMLElement | null} */ (section.querySelector("h1"))?.focus();
