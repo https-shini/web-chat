@@ -210,6 +210,7 @@ export const createEventHandler =
                     code: payload.code,
                     name: payload.name,
                     role: payload.role === "host" ? "host" : "member",
+                    kind: payload.kind === "dm" ? "dm" : "room",
                 };
                 store.actions.registerRoom(room);
                 if (typeof payload.historyVersion === "number") {
@@ -386,7 +387,7 @@ export const createEventHandler =
                         )
                         .map((room) => ({
                             conversationId: room.conversationId,
-                            kind: "room",
+                            kind: room.kind === "dm" ? "dm" : "room",
                             code: room.code,
                             name: room.name,
                             role: room.role === "host" ? "host" : "member",
