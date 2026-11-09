@@ -236,9 +236,10 @@ export const createEntry = ({ onSubmit, onCancel, onRetry }) => {
             showStatus({ title: strings.entry.longWaitTitle, body: strings.entry.longWaitBody });
         } else if (elapsed >= WAKE_AFTER_MS) {
             showStatus({
-                title: link === "retrying" && attempt > 0
-                    ? format(strings.conn.retryingNth, { n: attempt })
-                    : strings.entry.wakingTitle,
+                title:
+                    link === "retrying" && attempt > 0
+                        ? format(strings.conn.retryingNth, { n: attempt })
+                        : strings.entry.wakingTitle,
                 body: strings.entry.wakingBody,
             });
         } else if (elapsed >= SLOW_AFTER_MS) {
