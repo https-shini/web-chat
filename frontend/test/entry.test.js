@@ -90,22 +90,23 @@ describe("entrar só depois que o servidor aceita", () => {
         assert.equal(store.getState().joining, true);
     });
 
-    test("a sessão sozinha não abre a conversa; a sala confirmada, sim", () => {
+    test("a sessão chega à Home e a sala só abre após escolha explícita", () => {
         const { store, handle } = setup();
         store.actions.startJoin({ id: "provisorio", name: "Ana", username: "ana" });
         handle({
             type: "session",
             payload: { id: "srv-1", name: "Ana", username: "ana", resumeToken: "t" },
         });
-        assert.equal(store.getState().screen, "entry", "ainda esperando a sala");
-        assert.equal(store.getState().joining, true);
+        assert.equal(store.getState().screen, "home", "identificação concluída");
+        assert.equal(store.getState().joining, false);
         handle({
             type: "room_joined",
             conversationId: "r_sala00000001",
             payload: { code: "abc-defg-hij", name: "Sala de Ana", role: "host", historyVersion: 0 },
         });
+        assert.equal(store.getState().screen, "home");
+        assert.equal(store.actions.openConversation("r_sala00000001"), true);
         assert.equal(store.getState().screen, "room");
-        assert.equal(store.getState().joining, false);
         assert.deepEqual(store.getState().room, {
             conversationId: "r_sala00000001",
             code: "abc-defg-hij",
