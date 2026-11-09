@@ -17,3 +17,55 @@
 .c-room-navigation { display: flex; align-items: center; gap: .5rem; padding: .5rem 1rem; }
 .c-room-navigation button { border: 1px solid currentColor; border-radius: .5rem; padding: .45rem .7rem; font: inherit; cursor: pointer; }
 .c-room-navigation button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+.c-home__conversations {
+    margin-top: 3rem;
+}
+
+.c-home__conversation-list {
+    display: grid;
+    gap: .75rem;
+    list-style: none;
+    padding: 0;
+}
+
+.c-home__conversation {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: .75rem;
+    border: 1px solid currentColor;
+    border-radius: .75rem;
+    padding: .75rem;
+}
+
+.c-home__conversation button {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    padding: .5rem;
+}
+
+.c-home__conversation button:first-child {
+    display: grid;
+    flex: 1;
+    gap: .35rem;
+    text-align: left;
+}
+
+.c-home__conversation span {
+    opacity: .7;
+    overflow-wrap: anywhere;
+}
+
+.c-home__connection {
+    font-size: .875rem;
+    opacity: .8;
+}
+
+@media (max-width: 480px) {
+    .c-home__conversation {
+        flex-direction: column;
+    }
+}
