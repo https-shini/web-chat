@@ -18,11 +18,14 @@ export const strings = {
         usernameTooShort: "Use pelo menos 3 caracteres.",
         usernameTooLong: "Use no máximo 20 caracteres.",
         slowTitle: "Verificando a conexão…",
-        slowBody: "Estamos aguardando a resposta do servidor. Você entrará automaticamente quando ele estiver disponível.",
+        slowBody:
+            "Estamos aguardando a resposta do servidor. Você entrará automaticamente quando ele estiver disponível.",
         wakingTitle: "Preparando sua conexão…",
-        wakingBody: "O servidor pode estar iniciando após um período de inatividade. Isso pode levar alguns instantes.",
+        wakingBody:
+            "O servidor pode estar iniciando após um período de inatividade. Isso pode levar alguns instantes.",
         longWaitTitle: "A conexão está demorando mais que o normal",
-        longWaitBody: "Ainda estamos tentando conectar. Confira sua internet; você pode cancelar e tentar novamente.",
+        longWaitBody:
+            "Ainda estamos tentando conectar. Confira sua internet; você pode cancelar e tentar novamente.",
         failedTitle: "Não foi possível conectar.",
         failedBody: "Verifique sua internet ou tente de novo em instantes.",
     },
