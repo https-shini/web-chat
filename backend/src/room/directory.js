@@ -4,7 +4,7 @@
  * Guarda as salas ativas por `conversationId` e por código de convite, gera
  * códigos únicos e aplica os limites de criação e participação. É também
  * quem decide quando uma sala acaba: sem nenhuma participação (nem de quem
- * está na janela de retomada), ela espera `emptyTtlMs` e é destruída junto
+ * está na janela de retomada), ela espera `emptyTtlMs` (zero por padrão) e é destruída junto
  * com o histórico. Entrar de novo durante a espera a mantém viva.
  *
  * Nada aqui sobrevive ao processo: reiniciar o servidor apaga todas as
@@ -27,7 +27,7 @@ export const ROOM_DEFAULTS = Object.freeze({
     /** Salas ativas criadas por uma mesma identidade. */
     maxCreatedPerIdentity: 5,
     /** Tolerância de uma sala vazia antes de ser destruída. */
-    emptyTtlMs: 60_000,
+    emptyTtlMs: 0,
 });
 
 /** Código novo `abc-defg-hij`, com sorteio criptograficamente seguro. */
