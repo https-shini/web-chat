@@ -24,6 +24,7 @@
  */
 
 import { ERROR_CODES } from "../errors.js";
+import { createRateLimiter } from "../rateLimiter.js";
 import { LIMITS, ROLES, serverMessage } from "../protocol.js";
 import {
     normalizeText,
@@ -65,6 +66,26 @@ export const createHub = ({
 }) => {
     /** Conexões com sessão. @type {Map<unknown, {identity: Identity, label: string}>} */
     const connections = new Map();
+
+    // Consultas parciais não podem se transformar em enumeração ilimitada.
+    // Balde global impede que trocar repetidamente de identidade reinicie
+    // a cota do servidor; o balde individual limita o abuso por conta.
+    const globalSearchLimit = createRateLimiter({
+        capacity: 100,
+        refillPerSecond: 20,
+        now,
+    });
+    /** @type {WeakMap<Identity, () => boolean>} */
+    const searchLimiters = new WeakMap();
+    /** @param {Identity} identity */
+    const searchAllowed = (identity) => {
+        let allowed = searchLimiters.get(identity);
+        if (!allowed) {
+            allowed = createRateLimiter({ capacity: 5, refillPerSecond: 2, now });
+            searchLimiters.set(identity, allowed);
+        }
+        return allowed() && globalSearchLimit();
+    };
 
     /** @param {unknown} member @param {Record<string, unknown>} message */
     const sendTo = (member, message) => deliver(member, JSON.stringify(message));
@@ -269,6 +290,37 @@ export const createHub = ({
         },
 
         resolve,
+
+        /**
+         * Pesquisa limitada por identificador público @username.
+         * Só retorna pessoas online; dados da sessão nunca são enviados.
+         * @param {unknown} member
+         * @param {Record<string, unknown>} payload
+         * @returns {{ok: true, users: {id: string, name: string, username: string}[], query: string} | Refusal}
+         */
+        searchUsers(member, payload) {
+            const entry = connections.get(member);
+            if (!entry) return { ok: false, code: ERROR_CODES.NOT_LOGGED_IN };
+            if (!searchAllowed(entry.identity)) {
+                return { ok: false, code: ERROR_CODES.RATE_LIMITED };
+            }
+            if (typeof payload.query !== "string" || payload.query.length > 40) {
+                return { ok: false, code: ERROR_CODES.INVALID_USERNAME };
+            }
+            const query = payload.query.trim().replace(/^@/, "").toLowerCase();
+            if (
+                query.length < LIMITS.usernameMinLength ||
+                query.length > LIMITS.usernameMaxLength ||
+                !/^[a-z0-9_.]+$/.test(query)
+            ) {
+                return { ok: false, code: ERROR_CODES.INVALID_USERNAME };
+            }
+            return {
+                ok: true,
+                query,
+                users: identities.searchOnline(query, entry.identity.id, 10),
+            };
+        },
 
         /**
          * @param {unknown} member
