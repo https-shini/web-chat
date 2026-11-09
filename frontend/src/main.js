@@ -318,6 +318,23 @@ const userPanel = createUserPanel({ onToggleAway: () => submit("/afk") });
  * @type {Record<string, () => void | Promise<void>>}
  */
 const shortcuts = {
+    "go-home": () => {
+        if (store.getState().screen !== "room") return;
+        // Navegação não significa abandono: a participação permanece no servidor.
+        store.actions.goHome();
+        history.replaceState(null, "", location.pathname + location.search);
+    },
+    "leave-room": async () => {
+        const active = store.getState().room;
+        if (!active) return;
+        const confirmed = await dialog.confirm({
+            title: "Sair da sala?",
+            body: "Você deixará esta sala. Se não houver outros participantes, ela será encerrada e o histórico apagado.",
+            confirmLabel: "Sair da sala",
+        });
+        if (!confirmed) return;
+        transport.send(CLIENT_EVENTS.ROOM_LEAVE, { conversationId: active.conversationId });
+    },
     help: () => submit("/help"),
     "clear-local": () => submit("/clear"),
     "clear-room": async () => {
@@ -395,8 +412,11 @@ const enterRoom = (requestedCode = null) => {
         home.showNotice("Código de convite inválido.");
         return;
     }
-    // Identidade nova: a participação anterior não existe mais no servidor.
-    store.actions.forgetRoom();
+    // A navegação não remove participações anteriores do servidor.
+    if (store.getState().screen === "room") {
+        home.showNotice("Volte à Home antes de abrir outra sala.");
+        return;
+    }
     roomRequest = code ? "join" : "create";
     transport.send(
         code ? CLIENT_EVENTS.ROOM_JOIN : CLIENT_EVENTS.ROOM_CREATE,
