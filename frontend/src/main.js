@@ -473,7 +473,8 @@ const home = createHome({
     onOpen: (id) => {
         if (!store.actions.openConversation(id)) return;
         const selected = store.getState().room;
-        if (selected?.kind !== "dm" && selected) history.replaceState(null, "", inviteHash(selected.code));
+        if (selected?.kind !== "dm" && selected)
+            history.replaceState(null, "", inviteHash(selected.code));
     },
     onLeave: (id) => {
         const selected = store.getState().conversations.find((item) => item.conversationId === id);
@@ -573,7 +574,10 @@ handleEvent = createEventHandler({
             home.showNotice(message);
             return;
         }
-        if ((roomRequest === "create" || roomRequest === "direct") && store.getState().room === null) {
+        if (
+            (roomRequest === "create" || roomRequest === "direct") &&
+            store.getState().room === null
+        ) {
             // Não encerra a identidade por falha ao criar uma sala.
             roomRequest = null;
             home.showNotice(message);
