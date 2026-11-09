@@ -4,6 +4,8 @@
  * Página inicial após a identificação. Nenhuma sala é criada implicitamente.
  * Os botões delegam operações ao compositor; permissões ficam no servidor.
  */
+import { normalizeRoomCode } from "../state/invite.js";
+
 export const createHome = ({ onCreate, onJoin, onDirect }) => {
     const section = document.createElement("section");
     section.className = "c-home";
@@ -45,15 +47,7 @@ export const createHome = ({ onCreate, onJoin, onDirect }) => {
     form.addEventListener("submit", (event) => {
         event.preventDefault();
         const raw = input.value.trim();
-        let code = raw;
-        if (raw.includes("/")) {
-            try {
-                const url = new URL(raw, location.href);
-                code = url.hash.match(/^#\/s\/([^/?#]+)/)?.[1] ?? "";
-            } catch {
-                code = "";
-            }
-        }
+        const code = normalizeRoomCode(raw);
         if (!code) {
             showNotice("Informe um código ou link de convite válido.");
             return;
