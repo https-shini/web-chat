@@ -26,11 +26,12 @@ export const createRoomHeader = () => {
                 node.title = name;
             }
             if (topic) {
-                topic.textContent = room?.kind === "dm"
-                    ? "Conversa privada temporária"
-                    : room
-                      ? format(strings.room.topic, { code: room.code })
-                      : strings.room.topicPending;
+                topic.textContent =
+                    room?.kind === "dm"
+                        ? "Conversa privada temporária"
+                        : room
+                          ? format(strings.room.topic, { code: room.code })
+                          : strings.room.topicPending;
             }
             if (welcome) welcome.textContent = format(strings.room.welcome, { name });
             if (input) input.placeholder = format(strings.room.placeholder, { name });
