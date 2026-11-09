@@ -645,7 +645,14 @@ export const createRoom = ({
          */
         destroy() {
             this.silence();
-            for (const identity of members.keys()) identity.rooms.delete(id);
+            for (const identity of members.keys()) {
+                identity.rooms.delete(id);
+                // DMs apagadas não podem continuar retidas nos registros
+                // de deduplicação, que também carregam o texto da mensagem.
+                for (const key of identity.recent.keys()) {
+                    if (key.startsWith(id + ":")) identity.recent.delete(key);
+                }
+            }
             members.clear();
             history.length = 0;
             banned.clear();
