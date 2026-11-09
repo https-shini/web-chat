@@ -75,6 +75,7 @@ export const REMOVAL_REASONS = Object.freeze({
  *   id: string,
  *   code: string,
  *   name: string,
+ *   kind?: "room" | "dm",
  *   deliver: (holder: unknown, data: string) => void,
  *   log: (level: "info" | "warn" | "error", event: string, fields?: Record<string, unknown>) => void,
  *   historySize: number,
@@ -92,6 +93,7 @@ export const createRoom = ({
     id,
     code,
     name,
+    kind = "room",
     deliver,
     log,
     historySize,
@@ -200,7 +202,7 @@ export const createRoom = ({
      */
     const summaryFor = (identity) => ({
         conversationId: id,
-        kind: "room",
+        kind,
         code,
         name,
         role: members.get(identity)?.role ?? ROLES.MEMBER,
@@ -352,6 +354,7 @@ export const createRoom = ({
         id,
         code,
         name,
+        kind,
 
         /**
          * Entrada na sala. Quem já participa recebe o estado de novo, sem
@@ -425,6 +428,17 @@ export const createRoom = ({
         },
 
         remove,
+
+        /** Encerramento definitivo de DM: informa os dois participantes e
+         * descarta o histórico, independentemente da conexão atual. */
+        closeDirect() {
+            if (kind !== "dm") return false;
+            for (const identity of members.keys()) {
+                sendTo(identity, serverMessage.roomLeft(id, ROOM_LEFT_REASONS.CLOSED));
+            }
+            this.destroy();
+            return true;
+        },
 
         /**
          * Mensagem digitada. O autor é a identidade; `kind` e `format` do
