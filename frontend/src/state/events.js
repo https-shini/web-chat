@@ -353,10 +353,11 @@ export const createEventHandler =
                 );
                 store.actions.syncRooms(
                     rooms
-                        .filter((room) =>
-                            typeof room?.conversationId === "string" &&
-                            typeof room?.code === "string" &&
-                            typeof room?.name === "string",
+                        .filter(
+                            (room) =>
+                                typeof room?.conversationId === "string" &&
+                                typeof room?.code === "string" &&
+                                typeof room?.name === "string",
                         )
                         .map((room) => ({
                             conversationId: room.conversationId,
