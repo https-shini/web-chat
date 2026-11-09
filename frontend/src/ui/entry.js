@@ -105,7 +105,9 @@ export const describeUsername = (raw, { suggested = false, touched = false } = {
 };
 
 /** Depois de quanto tempo sem confirmação a espera ganha explicação. */
-const SLOW_AFTER_MS = 3000;
+const SLOW_AFTER_MS = 5000;
+const WAKE_AFTER_MS = 15000;
+const LONG_WAIT_AFTER_MS = 45000;
 
 /**
  * @param {{
@@ -138,6 +140,8 @@ export const createEntry = ({ onSubmit, onCancel, onRetry }) => {
     let startedAt = 0;
     /** @type {ReturnType<typeof setTimeout> | null} */
     let slowTimer = null;
+    /** @type {ReturnType<typeof setTimeout> | null} */
+    let longWaitTimer = null;
     /** Último estado do enlace recebido, para o aviso de lentidão. */
     let lastProgress = { link: "idle", attempt: 0 };
 
@@ -186,6 +190,8 @@ export const createEntry = ({ onSubmit, onCancel, onRetry }) => {
     const stopSlowTimer = () => {
         if (slowTimer !== null) clearTimeout(slowTimer);
         slowTimer = null;
+        if (longWaitTimer !== null) clearTimeout(longWaitTimer);
+        longWaitTimer = null;
     };
 
     /** Botão no estado normal (sem carregamento). */
@@ -225,14 +231,17 @@ export const createEntry = ({ onSubmit, onCancel, onRetry }) => {
             });
             return;
         }
-        if (link === "retrying" && attempt > 0) {
+        const elapsed = Date.now() - startedAt;
+        if (elapsed >= LONG_WAIT_AFTER_MS) {
+            showStatus({ title: strings.entry.longWaitTitle, body: strings.entry.longWaitBody });
+        } else if (elapsed >= WAKE_AFTER_MS) {
             showStatus({
-                title: format(strings.conn.retryingNth, { n: attempt }),
-                body: strings.entry.slowBody,
+                title: link === "retrying" && attempt > 0
+                    ? format(strings.conn.retryingNth, { n: attempt })
+                    : strings.entry.wakingTitle,
+                body: strings.entry.wakingBody,
             });
-            return;
-        }
-        if (Date.now() - startedAt >= SLOW_AFTER_MS) {
+        } else if (elapsed >= SLOW_AFTER_MS) {
             showStatus({ title: strings.entry.slowTitle, body: strings.entry.slowBody });
         }
     };
@@ -249,6 +258,10 @@ export const createEntry = ({ onSubmit, onCancel, onRetry }) => {
         hideStatus();
         stopSlowTimer();
         slowTimer = setTimeout(paintProgress, SLOW_AFTER_MS);
+        longWaitTimer = setTimeout(() => {
+            paintProgress();
+            longWaitTimer = setTimeout(paintProgress, LONG_WAIT_AFTER_MS - WAKE_AFTER_MS);
+        }, WAKE_AFTER_MS);
     };
 
     form.addEventListener("submit", (event) => {
