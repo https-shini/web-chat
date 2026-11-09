@@ -79,7 +79,7 @@
 
 /**
  * @typedef {object} State
- * @property {"entry" | "room"} screen
+ * @property {"entry" | "home" | "room"} screen
  * @property {boolean} joining  pediu para entrar e espera o servidor confirmar (na tela de entrada)
  * @property {Person | null} me
  * @property {"member" | "admin"} role
@@ -235,9 +235,13 @@ export const createStore = () => {
                 patch({ room: null, messages: [], people: [], typing: [], historyVersion: null });
             },
 
-            /** Sala e sessão aceitas pelo servidor: agora sim, a conversa. */
+            /** Identidade aceita; a escolha da conversa acontece na Home. */
+            completeLogin() {
+                patch({ screen: "home", joining: false });
+            },
+
+            /** Uma sala foi escolhida e confirmada pelo servidor. */
             completeJoin() {
-                if (!state.joining) return;
                 patch({ screen: "room", joining: false });
             },
 
