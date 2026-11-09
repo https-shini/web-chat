@@ -28,6 +28,8 @@
  * @property {string} code      código de convite
  * @property {string} name
  * @property {"member" | "host"} role  seu papel nesta sala
+ * @property {number} [memberCount]
+ * @property {"room" | "dm"} [kind]
  */
 
 /**
@@ -94,6 +96,12 @@
  * @property {CommandInfo[]} catalog
  * @property {number | null} historyVersion
  * @property {RoomInfo | null} room
+ * @property {ConversationSummary[]} conversations
+ */
+
+/**
+ * Resumo de uma conversa que a identidade participa.
+ * @typedef {RoomInfo & {unread: number, lastMessage: string | null, lastActivity: string | null}} ConversationSummary
  */
 
 /** @typedef {(state: State) => void} Listener */
@@ -118,6 +126,7 @@ const initialState = () => ({
     catalog: [],
     historyVersion: null,
     room: null,
+    conversations: [],
 });
 
 export const createStore = () => {
@@ -126,6 +135,79 @@ export const createStore = () => {
 
     /** Ids escondidos por /clear: o histórico do servidor não os traz de volta. */
     const hidden = new Set();
+
+    /**
+     * Transcrições e presença por conversa. Nada aqui é persistido: o
+     * servidor é a fonte de verdade após login/reconexão.
+     * @type {Map<string, {room: RoomInfo, messages: Message[], people: Person[], typing: Person[], historyVersion: number | null, unread: number, lastMessage: string | null, lastActivity: string | null}>}
+     */
+    const records = new Map();
+
+    const summaries = () =>
+        [...records.values()].map(({ room, unread, lastMessage, lastActivity }) => ({
+            ...room,
+            unread,
+            lastMessage,
+            lastActivity,
+        }));
+
+    /** @param {RoomInfo} room */
+    const register = (room) => {
+        const existing = records.get(room.conversationId);
+        records.set(room.conversationId, existing
+            ? { ...existing, room }
+            : {
+                room,
+                messages: [],
+                people: [],
+                typing: [],
+                historyVersion: null,
+                unread: 0,
+                lastMessage: null,
+                lastActivity: null,
+            });
+    };
+
+    /** @param {Message[]} messages */
+    const latestChat = (messages) =>
+        [...messages].reverse().find((message) => message.kind === "chat") ?? null;
+
+    /**
+     * @param {string} conversationId
+     * @param {Message[]} incoming
+     * @param {boolean} history
+     */
+    const updateConversationMessages = (conversationId, incoming, history) => {
+        const record = records.get(conversationId);
+        if (!record) return;
+        const active = state.screen === "room" && state.room?.conversationId === conversationId;
+        let messages = record.messages.slice();
+        let freshUnread = 0;
+        for (const item of incoming) {
+            if (hidden.has(item.id)) continue;
+            const optimisticIndex = item.clientMsgId
+                ? messages.findIndex((known) => known.own && known.clientMsgId === item.clientMsgId)
+                : -1;
+            if (optimisticIndex >= 0) {
+                messages[optimisticIndex] = { ...item, key: messages[optimisticIndex].key, delivery: "confirmed" };
+                continue;
+            }
+            if (messages.some((known) => known.id === item.id)) continue;
+            messages.push(item);
+            if (!history && !active && item.kind === "chat" && !item.own) freshUnread += 1;
+        }
+        const last = latestChat(messages);
+        records.set(conversationId, {
+            ...record,
+            messages,
+            unread: record.unread + freshUnread,
+            lastMessage: last?.content ?? record.lastMessage,
+            lastActivity: last?.timestamp ?? record.lastActivity,
+        });
+        if (active) patch({ messages });
+        else patch({});
+    };
+
 
     /** @type {Set<Listener>} */
     const listeners = new Set();
@@ -139,6 +221,18 @@ export const createStore = () => {
      */
     const patch = (partial) => {
         state = { ...state, ...partial };
+        const active = state.room && records.get(state.room.conversationId);
+        if (active) {
+            records.set(state.room.conversationId, {
+                ...active,
+                room: state.room,
+                messages: state.messages,
+                people: state.people,
+                typing: state.typing,
+                historyVersion: state.historyVersion,
+            });
+        }
+        state = { ...state, conversations: summaries() };
         notify();
     };
 
@@ -209,21 +303,133 @@ export const createStore = () => {
              * @param {RoomInfo} room
              */
             setRoom(room) {
-                const current = state.room;
-                if (
-                    current &&
-                    current.conversationId === room.conversationId &&
-                    current.code === room.code &&
-                    current.name === room.name &&
-                    current.role === room.role
-                )
+                register(room);
+                const previous = state.room;
+                if (previous?.conversationId === room.conversationId) {
+                    patch({ room });
                     return;
-                const switched = current !== null && current.conversationId !== room.conversationId;
-                patch(
-                    switched
-                        ? { room, messages: [], people: [], typing: [], historyVersion: null }
-                        : { room },
-                );
+                }
+                const record = records.get(room.conversationId);
+                if (!record) return;
+                patch({
+                    room,
+                    messages: record.messages,
+                    people: record.people,
+                    typing: record.typing,
+                    historyVersion: record.historyVersion,
+                });
+            },
+
+            /** @param {RoomInfo} room */
+            registerRoom(room) {
+                register(room);
+                if (state.room?.conversationId === room.conversationId) {
+                    patch({ room });
+                } else {
+                    patch({});
+                }
+            },
+
+            /** @param {string} conversationId */
+            openConversation(conversationId) {
+                const record = records.get(conversationId);
+                if (!record) return false;
+                this.setRoom(record.room);
+                patch({ screen: "room" });
+                // Visualizar marca a conversa como lida; participar continua
+                // independente de qual conversa está selecionada.
+                records.set(conversationId, { ...records.get(conversationId), unread: 0 });
+                patch({});
+                return true;
+            },
+
+            /** @param {string} conversationId */
+            removeConversation(conversationId) {
+                if (!records.delete(conversationId)) return;
+                if (state.room?.conversationId === conversationId) {
+                    patch({
+                        screen: "home",
+                        room: null,
+                        messages: [],
+                        people: [],
+                        typing: [],
+                        historyVersion: null,
+                    });
+                } else {
+                    patch({});
+                }
+            },
+
+            /** Resposta autoritativa do servidor a room_list. @param {RoomInfo[]} rooms */
+            syncRooms(rooms) {
+                const authorized = new Set(rooms.map((room) => room.conversationId));
+                for (const id of records.keys()) {
+                    if (!authorized.has(id)) records.delete(id);
+                }
+                for (const room of rooms) register(room);
+                if (state.room && !authorized.has(state.room.conversationId)) {
+                    patch({
+                        screen: "home",
+                        room: null,
+                        messages: [],
+                        people: [],
+                        typing: [],
+                        historyVersion: null,
+                    });
+                } else {
+                    patch({});
+                }
+            },
+
+            /** @param {string} conversationId @param {Message} message */
+            addConversationMessage(conversationId, message) {
+                updateConversationMessages(conversationId, [message], false);
+            },
+
+            /** @param {string} conversationId @param {Message[]} history */
+            mergeConversationHistory(conversationId, history) {
+                updateConversationMessages(conversationId, history, true);
+            },
+
+            /** @param {string} conversationId @param {Person[]} people */
+            setConversationPeople(conversationId, people) {
+                const record = records.get(conversationId);
+                if (!record) return;
+                records.set(conversationId, { ...record, people });
+                if (state.room?.conversationId === conversationId) patch({ people });
+                else patch({});
+            },
+
+            /** @param {string} conversationId @param {number} version */
+            setConversationHistoryVersion(conversationId, version) {
+                const record = records.get(conversationId);
+                if (!record) return;
+                const changed = record.historyVersion !== null && record.historyVersion !== version;
+                records.set(conversationId, {
+                    ...record,
+                    historyVersion: version,
+                    messages: changed ? [] : record.messages,
+                    ...(changed ? { lastMessage: null, lastActivity: null, unread: 0 } : {}),
+                });
+                if (state.room?.conversationId === conversationId) {
+                    patch({ historyVersion: version, ...(changed ? { messages: [] } : {}) });
+                } else {
+                    patch({});
+                }
+            },
+
+            /** Uma identidade nova nunca herda conversas da anterior. */
+            clearConversations() {
+                records.clear();
+                hidden.clear();
+                patch({
+                    screen: "home",
+                    room: null,
+                    messages: [],
+                    people: [],
+                    typing: [],
+                    historyVersion: null,
+                });
             },
 
             /**
@@ -242,7 +448,14 @@ export const createStore = () => {
 
             /** Retorna à Home sem encerrar a identidade. */
             goHome() {
-                patch({ screen: "home", room: null, messages: [], people: [], typing: [], historyVersion: null });
+                patch({
+                    screen: "home",
+                    room: null,
+                    messages: [],
+                    people: [],
+                    typing: [],
+                    historyVersion: null,
+                });
             },
 
             /** Uma sala foi escolhida e confirmada pelo servidor. */
@@ -284,6 +497,7 @@ export const createStore = () => {
             /** Volta para a tela de entrada (o servidor recusou a entrada). */
             leaveRoom() {
                 hidden.clear();
+                records.clear();
                 patch({ ...initialState() });
             },
 
@@ -297,6 +511,17 @@ export const createStore = () => {
                 if (confirm(message)) return;
                 if (state.messages.some((existing) => existing.id === message.id)) return;
                 patch({ messages: [...state.messages, message] });
+                if (state.room && message.kind === "chat") {
+                    const record = records.get(state.room.conversationId);
+                    if (record) {
+                        records.set(state.room.conversationId, {
+                            ...record,
+                            lastMessage: message.content,
+                            lastActivity: message.timestamp,
+                        });
+                        patch({});
+                    }
+                }
             },
 
             /**
