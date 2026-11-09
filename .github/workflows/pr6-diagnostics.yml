@@ -45,6 +45,7 @@ jobs:
                     "backend/test/integration/direct.test.js",
                     "frontend/src/ui/roomHeader.js",
                     "frontend/test/entry.test.js",
+                    "frontend/src/ui/conversationTabs.js",
                   ]) {
                     const original = fs.readFileSync(path, "utf8");
                     const config = await prettier.resolveConfig(path);
