@@ -53,7 +53,7 @@ const CODE_ATTEMPTS = 20;
 
 /**
  * @param {{
- *   makeRoom: (identity: {id: string, code: string, name: string}) => Room,
+ *   makeRoom: (identity: {id: string, code: string, name: string, kind?: "room" | "dm"}) => Room,
  *   log: (level: "info" | "warn" | "error", event: string, fields?: Record<string, unknown>) => void,
  *   limits?: Partial<typeof ROOM_DEFAULTS>,
  *   destroyScheduler?: Scheduler | null,
@@ -74,10 +74,12 @@ export const createRoomDirectory = ({
         ...limits,
     };
 
-    /** @type {Map<string, {room: Room, createdBy: string, destroyTimer: unknown}>} */
+    /** @type {Map<string, {room: Room, createdBy: string | null, destroyTimer: unknown}>} */
     const rooms = new Map();
     /** código → conversationId @type {Map<string, string>} */
     const byCode = new Map();
+    /** Pair of IDs to direct conversation ID. @type {Map<string, string>} */
+    const directPairs = new Map();
     /** Salas ativas criadas por cada identidade (id → quantidade). @type {Map<string, number>} */
     const created = new Map();
 
@@ -88,10 +90,19 @@ export const createRoomDirectory = ({
             destroyScheduler.cancel(entry.destroyTimer);
         }
         rooms.delete(conversationId);
-        byCode.delete(entry.room.code);
-        const count = (created.get(entry.createdBy) ?? 1) - 1;
-        if (count > 0) created.set(entry.createdBy, count);
-        else created.delete(entry.createdBy);
+        if (entry.room.kind === "dm") {
+            for (const [key, value] of directPairs) {
+                if (value === conversationId) directPairs.delete(key);
+            }
+        } else {
+            byCode.delete(entry.room.code);
+            const owner = entry.createdBy;
+            if (owner !== null) {
+                const count = (created.get(owner) ?? 1) - 1;
+                if (count > 0) created.set(owner, count);
+                else created.delete(owner);
+            }
+        }
         entry.room.destroy();
     };
 
@@ -162,6 +173,42 @@ export const createRoomDirectory = ({
         },
 
         /**
+         * Cria DM única entre duas identidades, com a mesma infraestrutura
+         * de histórico e autorização das salas, mas sem código público.
+         * @param {Identity} source
+         * @param {Identity} target
+         */
+        openDirect(source, target) {
+            if (source.id === target.id) {
+                return { ok: false, code: ERROR_CODES.INVALID_USERNAME };
+            }
+            const key = [source.id, target.id].sort().join(":");
+            const oldId = directPairs.get(key);
+            const existing = oldId ? rooms.get(oldId)?.room : null;
+            if (existing) {
+                existing.add(source);
+                return { ok: true, room: existing, already: true };
+            }
+            if (
+                source.rooms.size >= maxRoomsPerIdentity ||
+                target.rooms.size >= maxRoomsPerIdentity
+            ) {
+                return { ok: false, code: ERROR_CODES.ROOM_JOIN_LIMIT };
+            }
+            if (rooms.size >= maxRooms) return { ok: false, code: ERROR_CODES.ROOMS_FULL };
+            const id = freshConversationId();
+            if (!id) return { ok: false, code: ERROR_CODES.ROOMS_FULL };
+            const name = "@" + source.username + " · @" + target.username;
+            const room = makeRoom({ id, code: "", name, kind: "dm" });
+            rooms.set(id, { room, createdBy: null, destroyTimer: null });
+            directPairs.set(key, id);
+            room.add(source);
+            room.add(target);
+            log("info", "direct_created", { conversation: id });
+            return { ok: true, room, already: false };
+        },
+
+        /**
          * Entra numa sala pelo código (já no formato canônico).
          * @param {Identity} identity
          * @param {string} code
@@ -193,7 +240,14 @@ export const createRoomDirectory = ({
          */
         leave(identity, conversationId, reason = REMOVAL_REASONS.LEFT) {
             const entry = rooms.get(conversationId);
-            if (!entry || !entry.room.remove(identity, reason)) return false;
+            if (!entry) return false;
+            if (entry.room.kind === "dm") {
+                if (!entry.room.has(identity)) return false;
+                entry.room.closeDirect();
+                destroy(conversationId);
+                return true;
+            }
+            if (!entry.room.remove(identity, reason)) return false;
             scheduleIfEmpty(conversationId);
             return true;
         },
