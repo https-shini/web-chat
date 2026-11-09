@@ -181,3 +181,36 @@
 .c-user-search__status {
     margin: 0.75rem 0;
 }
+
+.c-conversation-tabs {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+    flex: 1;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.c-conversation-tabs__item {
+    white-space: nowrap;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.c-conversation-tabs__item[aria-current="page"] {
+    background: var(--surface-raised, transparent);
+    font-weight: 700;
+}
+
+@media (max-width: 640px) {
+    .c-room-navigation {
+        flex-wrap: wrap;
+    }
+
+    .c-conversation-tabs {
+        flex-basis: 100%;
+        order: 2;
+    }
+}
