@@ -217,7 +217,10 @@ export const createEventHandler =
             }
 
             case SERVER_EVENTS.ROOM_LEFT: {
-                if (scope) store.actions.removeConversation(scope);
+                if (!scope || !state.conversations.some((room) => room.conversationId === scope)) {
+                    break;
+                }
+                store.actions.removeConversation(scope);
                 onRoomLeft(typeof payload?.reason === "string" ? payload.reason : "left", scope);
                 break;
             }
