@@ -22,6 +22,7 @@ export const createHome = ({ onCreate, onJoin, onDirect, onOpen, onLeave }) => {
     section.setAttribute("aria-label", "Início");
     // Montagem por DOM seguro; nomes e mensagens de outros participantes
     // entram exclusivamente por textContent (nunca como HTML).
+    /** @param {string} tag @param {string} className @param {string} [content] */
     const create = (tag, className, content = "") => {
         const element = document.createElement(tag);
         element.className = className;
@@ -38,6 +39,7 @@ export const createHome = ({ onCreate, onJoin, onDirect, onOpen, onLeave }) => {
         "Crie uma sala, entre por convite ou converse diretamente com alguém.",
     );
     const actions = create("div", "c-home__actions");
+    /** @param {string} action @param {string} title */
     const addAction = (action, title) => {
         const button = document.createElement("button");
         button.type = "button";
