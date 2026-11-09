@@ -60,11 +60,12 @@ export const createChatServer = ({ config, log, version = "desconhecida", joinGu
         log,
         limits: config.rooms,
         destroyScheduler: timers,
-        makeRoom: ({ id, code, name }) =>
+        makeRoom: ({ id, code, name, kind }) =>
             createRoom({
                 id,
                 code,
                 name,
+                kind,
                 log,
                 historySize: config.historySize,
                 historyOnJoin: config.historyOnJoin,
