@@ -390,7 +390,7 @@ const logout = async () => {
  * retomada o servidor devolve as salas sozinho.
  */
 const enterRoom = (requestedCode = null) => {
-    const code = requestedCode ?? store.getState().room?.code ?? pendingInvite;
+    const code = requestedCode;
     // Identidade nova: a participação anterior não existe mais no servidor.
     store.actions.forgetRoom();
     roomRequest = code ? "join" : "create";
@@ -457,8 +457,9 @@ handleEvent = createEventHandler({
             return;
         }
         if (roomRequest === "create" && store.getState().room === null) {
-            // Nem criar foi possível (servidor no limite): de volta à entrada.
-            endParticipation({ announce: message, notice: message });
+            // Não encerra a identidade por falha ao criar uma sala.
+            roomRequest = null;
+            home.showNotice(message);
             return;
         }
         toasts.show(message, "error");
