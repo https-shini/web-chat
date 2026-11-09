@@ -146,12 +146,20 @@ export const createEventHandler =
         const meId = state.me?.id ?? null;
         const payload = /** @type {any} */ (event.payload);
 
-        // Eventos de uma conversa trazem `conversationId` no envelope. A
-        // interface mostra uma sala por vez: o que for de outra conversa é
-        // ignorado (as próximas fases trazem a navegação entre várias).
+        // Cada evento de conversa é roteado por conversationId, mesmo quando
+        // outra sala está em primeiro plano. Outros eventos conservam o filtro.
         const scope = typeof event.conversationId === "string" ? event.conversationId : null;
         const current = state.room?.conversationId ?? null;
-        if (scope !== null && ![SERVER_EVENTS.ROOM_JOINED, SERVER_EVENTS.ROOM_UPDATED, SERVER_EVENTS.ROOM_LEFT, SERVER_EVENTS.CHAT_MESSAGE, SERVER_EVENTS.MESSAGE_HISTORY, SERVER_EVENTS.USER_LIST, SERVER_EVENTS.CHAT_CLEARED].includes(event.type) && scope !== current) {
+        const conversationEvents = [
+            SERVER_EVENTS.ROOM_JOINED,
+            SERVER_EVENTS.ROOM_UPDATED,
+            SERVER_EVENTS.ROOM_LEFT,
+            SERVER_EVENTS.CHAT_MESSAGE,
+            SERVER_EVENTS.MESSAGE_HISTORY,
+            SERVER_EVENTS.USER_LIST,
+            SERVER_EVENTS.CHAT_CLEARED,
+        ];
+        if (scope !== null && !conversationEvents.includes(event.type) && scope !== current) {
             return;
         }
 
@@ -244,20 +252,20 @@ export const createEventHandler =
             case SERVER_EVENTS.USER_LIST: {
                 const list = Array.isArray(payload) ? payload : [];
                 const people = list.map((person) => ({
-                        id: String(person?.id ?? ""),
-                        name: String(person?.name ?? ""),
-                        username: typeof person?.username === "string" ? person.username : "",
-                        status: person?.status === "away" ? "away" : "online",
-                        role:
-                            person?.role === "admin"
-                                ? "admin"
-                                : person?.role === "host"
-                                  ? "host"
-                                  : "member",
-                        ...(typeof person?.statusText === "string"
-                            ? { statusText: person.statusText }
-                            : {}),
-                    }));
+                    id: String(person?.id ?? ""),
+                    name: String(person?.name ?? ""),
+                    username: typeof person?.username === "string" ? person.username : "",
+                    status: person?.status === "away" ? "away" : "online",
+                    role:
+                        person?.role === "admin"
+                            ? "admin"
+                            : person?.role === "host"
+                              ? "host"
+                              : "member",
+                    ...(typeof person?.statusText === "string"
+                        ? { statusText: person.statusText }
+                        : {}),
+                }));
                 if (scope) store.actions.setConversationPeople(scope, people);
                 else store.actions.setPeople(people);
                 break;
