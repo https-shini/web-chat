@@ -66,6 +66,7 @@ describe("eventos de sala", () => {
             conversationId: ROOM,
             payload: { code: "abc-defg-hij", name: "Sala", role: "member", historyVersion: 0 },
         });
+        store.actions.openConversation(ROOM);
         return { store, handle, calls };
     };
 
