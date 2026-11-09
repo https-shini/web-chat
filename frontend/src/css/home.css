@@ -13,3 +13,7 @@
 .c-home__join label { flex-basis: 100%; }
 .c-home__join input { padding: .85rem; border-radius: .5rem; min-width: min(100%, 260px); }
 .c-home__notice { min-height: 1.5rem; }
+
+.c-room-navigation { display: flex; align-items: center; gap: .5rem; padding: .5rem 1rem; }
+.c-room-navigation button { border: 1px solid currentColor; border-radius: .5rem; padding: .45rem .7rem; font: inherit; cursor: pointer; }
+.c-room-navigation button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
