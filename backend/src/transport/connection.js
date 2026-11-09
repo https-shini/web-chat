@@ -194,6 +194,19 @@ export const createConnectionHandler = ({
                 }
                 metrics.count("roomLeaves");
             },
+            [CLIENT_EVENTS.USER_SEARCH]: (payload) => {
+                const result = hub.searchUsers(ws, payload);
+                if (!result.ok) {
+                    return reject(CLIENT_EVENTS.USER_SEARCH, result.code, requestIdOf(payload));
+                }
+                send(
+                    serverMessage.userSearchResults(
+                        result.query,
+                        result.users,
+                        requestIdOf(payload),
+                    ),
+                );
+            },
             [CLIENT_EVENTS.ROOM_LIST]: (payload) => {
                 const rooms = hub.roomsOf(ws);
                 if (rooms === null) {
