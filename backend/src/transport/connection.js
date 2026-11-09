@@ -194,6 +194,12 @@ export const createConnectionHandler = ({
                 }
                 metrics.count("roomLeaves");
             },
+            [CLIENT_EVENTS.DM_OPEN]: (payload) => {
+                const result = hub.openDirect(ws, payload);
+                if (!result.ok) {
+                    return reject(CLIENT_EVENTS.DM_OPEN, result.code, requestIdOf(payload));
+                }
+            },
             [CLIENT_EVENTS.USER_SEARCH]: (payload) => {
                 const result = hub.searchUsers(ws, payload);
                 if (!result.ok) {
