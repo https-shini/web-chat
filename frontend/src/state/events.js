@@ -119,7 +119,8 @@ export const noticeMessage = ({ tone, text: content, title, lines }) => {
  *   typingTracker: {set: (id: string, name: string, isTyping: boolean) => void, remove?: (id: string) => void},
  *   onSession?: (resumeToken: string | null, resumed: boolean) => void,
  *   onRoomJoined?: (room: import("./store.js").RoomInfo) => void,
- *   onRoomLeft?: (reason: string) => void,
+ *   onRoomLeft?: (reason: string, conversationId: string | null) => void,
+ *   onRoomList?: () => void,
  *   onRoomRefused?: (code: string, message: string) => void,
  *   onLoginRejected?: (message: string, field: "name" | "username") => void,
  *   onCommandResult?: (requestId: string | null, result: {tone: string, text: string, title?: string, lines?: string[], code?: string, data?: Record<string, unknown>}) => void,
@@ -135,6 +136,7 @@ export const createEventHandler =
         onSession = () => {},
         onRoomJoined = () => {},
         onRoomLeft = () => {},
+        onRoomList = () => {},
         onRoomRefused = () => {},
         onLoginRejected = () => {},
         onCommandResult = () => {},
@@ -149,7 +151,7 @@ export const createEventHandler =
         // ignorado (as próximas fases trazem a navegação entre várias).
         const scope = typeof event.conversationId === "string" ? event.conversationId : null;
         const current = state.room?.conversationId ?? null;
-        if (scope !== null && event.type !== SERVER_EVENTS.ROOM_JOINED && scope !== current) {
+        if (scope !== null && ![SERVER_EVENTS.ROOM_JOINED, SERVER_EVENTS.ROOM_UPDATED, SERVER_EVENTS.ROOM_LEFT, SERVER_EVENTS.CHAT_MESSAGE, SERVER_EVENTS.MESSAGE_HISTORY, SERVER_EVENTS.USER_LIST, SERVER_EVENTS.CHAT_CLEARED].includes(event.type) && scope !== current) {
             return;
         }
 
@@ -191,9 +193,6 @@ export const createEventHandler =
                 ) {
                     break;
                 }
-                // Outra sala chegando com uma já aberta (ex.: retomada de uma
-                // identidade em várias salas): fica para as próximas fases.
-                if (current !== null && scope !== current) break;
                 /** @type {import("./store.js").RoomInfo} */
                 const room = {
                     conversationId: scope,
@@ -201,23 +200,17 @@ export const createEventHandler =
                     name: payload.name,
                     role: payload.role === "host" ? "host" : "member",
                 };
-                store.actions.setRoom(room);
+                store.actions.registerRoom(room);
                 if (typeof payload.historyVersion === "number") {
-                    // A sala foi limpa enquanto você estava fora: a conversa
-                    // local deixa de valer antes do histórico novo chegar.
-                    store.actions.syncHistoryVersion(payload.historyVersion);
+                    store.actions.setConversationHistoryVersion(scope, payload.historyVersion);
                 }
-                if (event.type === SERVER_EVENTS.ROOM_JOINED) {
-                    // Primeira sala desta entrada: só agora a pessoa sai da
-                    // tela de entrada (numa reconexão já está na sala).
-                    store.actions.completeJoin();
-                    onRoomJoined(room);
-                }
+                if (event.type === SERVER_EVENTS.ROOM_JOINED) onRoomJoined(room);
                 break;
             }
 
             case SERVER_EVENTS.ROOM_LEFT: {
-                onRoomLeft(typeof payload?.reason === "string" ? payload.reason : "left");
+                if (scope) store.actions.removeConversation(scope);
+                onRoomLeft(typeof payload?.reason === "string" ? payload.reason : "left", scope);
                 break;
             }
 
@@ -227,7 +220,8 @@ export const createEventHandler =
                 // Quem envia para de "digitar" no instante em que a mensagem
                 // chega, mesmo que o sinal de parada se perca no caminho.
                 typingTracker.set(message.userId, message.userName, false);
-                store.actions.addMessage(message);
+                if (scope) store.actions.addConversationMessage(scope, message);
+                else store.actions.addMessage(message);
                 if (!message.own) {
                     notifier.show(message.userName, message.content);
                 }
@@ -242,14 +236,14 @@ export const createEventHandler =
                         /** @returns {item is Message} */
                         (item) => item !== null,
                     );
-                store.actions.mergeHistory(messages);
+                if (scope) store.actions.mergeConversationHistory(scope, messages);
+                else store.actions.mergeHistory(messages);
                 break;
             }
 
             case SERVER_EVENTS.USER_LIST: {
                 const list = Array.isArray(payload) ? payload : [];
-                store.actions.setPeople(
-                    list.map((person) => ({
+                const people = list.map((person) => ({
                         id: String(person?.id ?? ""),
                         name: String(person?.name ?? ""),
                         username: typeof person?.username === "string" ? person.username : "",
@@ -263,8 +257,9 @@ export const createEventHandler =
                         ...(typeof person?.statusText === "string"
                             ? { statusText: person.statusText }
                             : {}),
-                    })),
-                );
+                    }));
+                if (scope) store.actions.setConversationPeople(scope, people);
+                else store.actions.setPeople(people);
                 break;
             }
 
@@ -324,6 +319,10 @@ export const createEventHandler =
             case SERVER_EVENTS.CHAT_CLEARED: {
                 const version = Number(payload?.historyVersion);
                 if (!Number.isFinite(version)) break;
+                if (scope && scope !== current) {
+                    store.actions.setConversationHistoryVersion(scope, version);
+                    break;
+                }
                 store.actions.roomCleared(
                     version,
                     systemMessage(
@@ -332,6 +331,28 @@ export const createEventHandler =
                         { tone: TONES.ADMIN },
                     ),
                 );
+                break;
+            }
+
+            case SERVER_EVENTS.ROOM_LIST: {
+                const rooms = Array.isArray(payload?.rooms) ? payload.rooms : [];
+                store.actions.syncRooms(
+                    rooms
+                        .filter((room) =>
+                            typeof room?.conversationId === "string" &&
+                            typeof room?.code === "string" &&
+                            typeof room?.name === "string",
+                        )
+                        .map((room) => ({
+                            conversationId: room.conversationId,
+                            kind: "room",
+                            code: room.code,
+                            name: room.name,
+                            role: room.role === "host" ? "host" : "member",
+                            memberCount: Number.isInteger(room.memberCount) ? room.memberCount : 0,
+                        })),
+                );
+                onRoomList();
                 break;
             }
 
