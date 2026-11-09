@@ -27,6 +27,7 @@ export const ERROR_CODES = Object.freeze({
     INVALID_NAME: "invalid_name",
     INVALID_USERNAME: "invalid_username",
     USERNAME_TAKEN: "username_taken",
+    USER_NOT_FOUND: "user_not_found",
     EMPTY_MESSAGE: "empty_message",
     ALREADY_LOGGED_IN: "already_logged_in",
     NOT_LOGGED_IN: "not_logged_in",
@@ -62,6 +63,10 @@ const CATALOG = Object.freeze({
         category: VALIDATION,
         message:
             "Username inválido ou reservado. Use de 3 a 20 caracteres: letras minúsculas sem acento, números, ponto ou _.",
+    },
+    [ERROR_CODES.USER_NOT_FOUND]: {
+        category: VALIDATION,
+        message: "Usuário indisponível para conversar no momento.",
     },
     [ERROR_CODES.USERNAME_TAKEN]: {
         category: VALIDATION,
