@@ -487,7 +487,13 @@ const home = createHome({
             if (confirmed) transport.send(CLIENT_EVENTS.ROOM_LEAVE, { conversationId: id });
         })();
     },
-    onDirect: () => home.showNotice("Mensagens diretas por @ ainda não estão disponíveis."),
+    onDirect: () => {},
+    onSearch: (query) => {
+        transport.send(CLIENT_EVENTS.USER_SEARCH, { query, requestId: crypto.randomUUID() });
+    },
+    onStartDirect: (username) => {
+        home.showNotice("DM com @" + username + ": integração de mensagens privadas pendente.");
+    },
 });
 
 // Controles explícitos: navegar não é o mesmo que abandonar uma sala.
@@ -548,6 +554,7 @@ handleEvent = createEventHandler({
         home.setIdentity(store.getState().me?.name ?? "", store.getState().me?.username ?? "");
         if (pendingInvite) home.setInvite(pendingInvite);
     },
+    onUserSearchResults: (query, users) => home.setSearchResults(query, users),
     onRoomJoined: (room) => {
         // Na reconexão o servidor reenvia todas as salas: não abrir
         // automaticamente a última chegada.
