@@ -63,6 +63,7 @@ export const CLIENT_EVENTS = Object.freeze({
     /** Pedir a lista das salas de que a identidade participa. */
     ROOM_LIST: "room_list",
     USER_SEARCH: "user_search",
+    DM_OPEN: "dm_open",
 });
 
 /** Eventos que o servidor envia. */
