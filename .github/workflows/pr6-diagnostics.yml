@@ -46,6 +46,7 @@ jobs:
                     "frontend/src/ui/roomHeader.js",
                     "frontend/test/entry.test.js",
                     "frontend/src/ui/conversationTabs.js",
+                    "docs/PR6-STATUS.md",
                   ]) {
                     const original = fs.readFileSync(path, "utf8");
                     const config = await prettier.resolveConfig(path);
