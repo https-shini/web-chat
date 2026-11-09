@@ -436,7 +436,6 @@ export const createRoom = ({
             for (const identity of members.keys()) {
                 sendTo(identity, serverMessage.roomLeft(id, ROOM_LEFT_REASONS.CLOSED));
             }
-            this.destroy();
             return true;
         },
 
