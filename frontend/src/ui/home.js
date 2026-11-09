@@ -5,6 +5,7 @@
  * Os botões delegam operações ao compositor; permissões ficam no servidor.
  */
 import { normalizeRoomCode } from "../state/invite.js";
+import { createUserSearch } from "./userSearch.js";
 
 /**
  * @param {{
@@ -13,9 +14,11 @@ import { normalizeRoomCode } from "../state/invite.js";
  *   onDirect: () => void,
  *   onOpen: (id: string) => void,
  *   onLeave: (id: string) => void,
+ *   onSearch: (query: string) => void,
+ *   onStartDirect: (username: string) => void,
  * }} actions
  */
-export const createHome = ({ onCreate, onJoin, onDirect, onOpen, onLeave }) => {
+export const createHome = ({ onCreate, onJoin, onDirect, onOpen, onLeave, onSearch, onStartDirect }) => {
     const section = document.createElement("section");
     section.className = "c-home";
     section.hidden = true;
@@ -39,6 +42,7 @@ export const createHome = ({ onCreate, onJoin, onDirect, onOpen, onLeave }) => {
         "Crie uma sala, entre por convite ou converse diretamente com alguém.",
     );
     const actions = create("div", "c-home__actions");
+    const userSearch = createUserSearch({ onSearch, onSelect: onStartDirect });
     /** @param {string} action @param {string} title */
     const addAction = (action, title) => {
         const button = document.createElement("button");
@@ -89,6 +93,7 @@ export const createHome = ({ onCreate, onJoin, onDirect, onOpen, onLeave }) => {
         identityLabel,
         description,
         actions,
+        userSearch.element,
         joinForm,
         feedback,
         connectionLabel,
@@ -113,7 +118,10 @@ export const createHome = ({ onCreate, onJoin, onDirect, onOpen, onLeave }) => {
     section.querySelector('[data-home-action="cancel"]')?.addEventListener("click", () => {
         form.hidden = true;
     });
-    section.querySelector('[data-home-action="direct"]')?.addEventListener("click", onDirect);
+    section.querySelector('[data-home-action="direct"]')?.addEventListener("click", () => {
+        userSearch.open();
+        onDirect();
+    });
     list.addEventListener("click", (event) => {
         const target = event.target;
         if (!(target instanceof Element)) return;
@@ -155,6 +163,17 @@ export const createHome = ({ onCreate, onJoin, onDirect, onOpen, onLeave }) => {
             showNotice("Convite encontrado. Confirme para entrar na sala.");
         },
         showNotice,
+        openUserSearch() {
+            userSearch.open();
+        },
+        /** @param {string} query @param {{id: string, name: string, username: string}[]} users */
+        setSearchResults(query, users) {
+            userSearch.setResults(query, users);
+        },
+        /** @param {string} error */
+        setSearchError(error) {
+            userSearch.setError(error);
+        },
         /** @param {import("../state/store.js").State["conversations"]} conversations */
         renderConversations(conversations) {
             list.replaceChildren();
