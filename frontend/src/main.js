@@ -431,7 +431,24 @@ for (const button of document.querySelectorAll('[data-action="logout"]')) {
 const home = createHome({
     onCreate: () => enterRoom(),
     onJoin: (code) => enterRoom(code),
-    onDirect: () => home.showNotice("Mensagens diretas por @ serão disponibilizadas em breve."),
+    onOpen: (id) => {
+        if (!store.actions.openConversation(id)) return;
+        const selected = store.getState().room;
+        if (selected) history.replaceState(null, "", inviteHash(selected.code));
+    },
+    onLeave: (id) => {
+        const selected = store.getState().conversations.find((item) => item.conversationId === id);
+        if (!selected) return;
+        void (async () => {
+            const confirmed = await dialog.confirm({
+                title: "Sair da sala?",
+                body: "Você deixará esta sala. Se for a última pessoa, o histórico será apagado.",
+                confirmLabel: "Sair da sala",
+            });
+            if (confirmed) transport.send(CLIENT_EVENTS.ROOM_LEAVE, { conversationId: id });
+        })();
+    },
+    onDirect: () => home.showNotice("Mensagens diretas por @ ainda não estão disponíveis."),
 });
 
 // Controles explícitos: navegar não é o mesmo que abandonar uma sala.
@@ -478,13 +495,18 @@ handleEvent = createEventHandler({
     typingTracker,
     onSession: (token, resumed) => {
         resumeToken = token;
+        if (!resumed) store.actions.clearConversations();
+        transport.send(CLIENT_EVENTS.ROOM_LIST, {});
         home.setIdentity(store.getState().me?.name ?? "", store.getState().me?.username ?? "");
         if (pendingInvite) home.setInvite(pendingInvite);
     },
     onRoomJoined: (room) => {
+        // Na reconexão o servidor reenvia todas as salas: não abrir
+        // automaticamente a última chegada.
+        if (roomRequest === null) return;
         pendingInvite = null;
         roomRequest = null;
-        // O endereço da página vira o link de convite da sala aberta.
+        store.actions.openConversation(room.conversationId);
         history.replaceState(null, "", inviteHash(room.code));
     },
     onRoomRefused: (code, message) => {
@@ -502,10 +524,12 @@ handleEvent = createEventHandler({
         }
         toasts.show(message, "error");
     },
-    onRoomLeft: (reason) => {
-        // Deixar uma sala não encerra o login: volta à Home.
-        store.actions.goHome();
-        history.replaceState(null, "", location.pathname + location.search);
+    onRoomLeft: (reason, _conversationId) => {
+        // O estado da sala já foi removido do registro. Outras conversas
+        // seguem ativas, inclusive se o aviso era de outra sala.
+        if (!store.getState().room) {
+            history.replaceState(null, "", location.pathname + location.search);
+        }
         if (reason === "removed") home.showNotice(strings.room.removed);
     },
     onCommandResult: (requestId, result) => {
@@ -585,7 +609,11 @@ const render = (state, previous) => {
         if (!inRoom) memberCard.close({ restoreFocus: false });
     }
 
+    if (changed(state, previous, ["conversations"])) {
+        home.renderConversations(state.conversations);
+    }
     if (changed(state, previous, ["link", "attempt"])) {
+        home.setConnection(state.link);
         connection.render(state.link, state.attempt);
     }
     if (changed(state, previous, ["joining", "link", "attempt"])) {
