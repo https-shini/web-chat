@@ -150,6 +150,7 @@ export const createEventHandler =
         // outra sala está em primeiro plano. Outros eventos conservam o filtro.
         const scope = typeof event.conversationId === "string" ? event.conversationId : null;
         const current = state.room?.conversationId ?? null;
+        /** @type {string[]} */
         const conversationEvents = [
             SERVER_EVENTS.ROOM_JOINED,
             SERVER_EVENTS.ROOM_UPDATED,
@@ -254,6 +255,7 @@ export const createEventHandler =
 
             case SERVER_EVENTS.USER_LIST: {
                 const list = Array.isArray(payload) ? payload : [];
+                /** @type {import("./store.js").Person[]} */
                 const people = list.map((person) => ({
                     id: String(person?.id ?? ""),
                     name: String(person?.name ?? ""),
@@ -346,7 +348,9 @@ export const createEventHandler =
             }
 
             case SERVER_EVENTS.ROOM_LIST: {
-                const rooms = Array.isArray(payload?.rooms) ? payload.rooms : [];
+                const rooms = /** @type {any[]} */ (
+                    Array.isArray(payload?.rooms) ? payload.rooms : []
+                );
                 store.actions.syncRooms(
                     rooms
                         .filter((room) =>
