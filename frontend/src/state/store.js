@@ -237,7 +237,12 @@ export const createStore = () => {
 
             /** Identidade aceita; a escolha da conversa acontece na Home. */
             completeLogin() {
-                patch({ screen: "home", joining: false });
+                if (state.screen === "entry") patch({ screen: "home", joining: false });
+            },
+
+            /** Retorna à Home sem encerrar a identidade. */
+            goHome() {
+                patch({ screen: "home", room: null, messages: [], people: [], typing: [], historyVersion: null });
             },
 
             /** Uma sala foi escolhida e confirmada pelo servidor. */
