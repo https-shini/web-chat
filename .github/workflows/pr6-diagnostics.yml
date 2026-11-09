@@ -30,6 +30,14 @@ jobs:
                     "frontend/src/state/store.js",
                     "frontend/src/ui/home.js",
                     "frontend/test/conversations.test.js",
+                    "backend/src/protocol.js",
+                    "backend/src/room/sessions.js",
+                    "backend/src/room/hub.js",
+                    "backend/src/transport/connection.js",
+                    "backend/test/integration/userSearch.test.js",
+                    "frontend/src/protocol.js",
+                    "frontend/src/ui/userSearch.js",
+                    "frontend/src/css/home.css",
                   ]) {
                     const original = fs.readFileSync(path, "utf8");
                     const config = await prettier.resolveConfig(path);
