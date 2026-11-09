@@ -112,6 +112,7 @@ describe("entrar só depois que o servidor aceita", () => {
             code: "abc-defg-hij",
             name: "Sala de Ana",
             role: "host",
+            kind: "room",
         });
     });
 
