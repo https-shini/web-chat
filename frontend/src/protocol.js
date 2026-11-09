@@ -109,6 +109,7 @@ export const ERROR_CODES = Object.freeze({
     INVALID_NAME: "invalid_name",
     INVALID_USERNAME: "invalid_username",
     USERNAME_TAKEN: "username_taken",
+    USER_NOT_FOUND: "user_not_found",
     RATE_LIMITED: "rate_limited",
     MUTED: "muted",
     INVALID_ROOM_CODE: "invalid_room_code",
