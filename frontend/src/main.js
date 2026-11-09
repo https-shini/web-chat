@@ -144,7 +144,7 @@ let pendingInvite = readInviteHash(location.hash);
 
 /** Correlação do pedido de sala feito na entrada (criar ou entrar). */
 const ROOM_REQUEST_ID = "entrada-sala";
-/** @type {"create" | "join" | null} */
+/** @type {"create" | "join" | "direct" | null} */
 let roomRequest = null;
 
 /**
@@ -473,7 +473,7 @@ const home = createHome({
     onOpen: (id) => {
         if (!store.actions.openConversation(id)) return;
         const selected = store.getState().room;
-        if (selected) history.replaceState(null, "", inviteHash(selected.code));
+        if (selected?.kind !== "dm" && selected) history.replaceState(null, "", inviteHash(selected.code));
     },
     onLeave: (id) => {
         const selected = store.getState().conversations.find((item) => item.conversationId === id);
@@ -492,7 +492,8 @@ const home = createHome({
         transport.send(CLIENT_EVENTS.USER_SEARCH, { query, requestId: crypto.randomUUID() });
     },
     onStartDirect: (username) => {
-        home.showNotice("DM com @" + username + ": integração de mensagens privadas pendente.");
+        roomRequest = "direct";
+        transport.send(CLIENT_EVENTS.DM_OPEN, { username, requestId: ROOM_REQUEST_ID });
     },
 });
 
@@ -562,7 +563,8 @@ handleEvent = createEventHandler({
         pendingInvite = null;
         roomRequest = null;
         store.actions.openConversation(room.conversationId);
-        history.replaceState(null, "", inviteHash(room.code));
+        if (room.kind !== "dm") history.replaceState(null, "", inviteHash(room.code));
+        else history.replaceState(null, "", location.pathname + location.search);
     },
     onRoomRefused: (code, message) => {
         if (roomRequest === "join" && store.getState().room === null) {
@@ -571,7 +573,7 @@ handleEvent = createEventHandler({
             home.showNotice(message);
             return;
         }
-        if (roomRequest === "create" && store.getState().room === null) {
+        if ((roomRequest === "create" || roomRequest === "direct") && store.getState().room === null) {
             // Não encerra a identidade por falha ao criar uma sala.
             roomRequest = null;
             home.showNotice(message);
