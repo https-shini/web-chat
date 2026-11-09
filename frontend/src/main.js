@@ -99,6 +99,41 @@ let handleEvent = () => {};
 let resumeToken = null;
 
 /**
+ * Retomada restrita à mesma aba (sessionStorage). Não há armazenamento de
+ * mensagens nem cadastro permanente. Tokens são rotacionados pelo servidor.
+ */
+const SESSION_KEY = "web-chat:temporary-session:v1";
+const readSavedSession = () => {
+    try {
+        const raw = sessionStorage.getItem(SESSION_KEY);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        if (
+            typeof data?.name !== "string" ||
+            typeof data?.username !== "string" ||
+            typeof data?.token !== "string"
+        ) return null;
+        return data;
+    } catch {
+        return null;
+    }
+};
+const saveSession = (me, token) => {
+    try {
+        if (token && me) {
+            sessionStorage.setItem(
+                SESSION_KEY,
+                JSON.stringify({ name: me.name, username: me.username, token }),
+            );
+        } else {
+            sessionStorage.removeItem(SESSION_KEY);
+        }
+    } catch {
+        // Sem armazenamento, a retomada por refresh fica indisponível.
+    }
+};
+
+/**
  * Código de convite pendente: o do link que abriu a página (`#/s/código`).
  * Vale para a primeira entrada; depois a sala aberta é que manda.
  * @type {string | null}
@@ -372,6 +407,7 @@ const endParticipation = ({ announce = strings.logout.done, notice } = {}) => {
     transport.signal(CLIENT_EVENTS.LOGOUT);
     transport.close();
     resumeToken = null;
+    saveSession(null, null);
     pendingRequests.clear();
     typingTracker.clear();
     memberCard.close({ restoreFocus: false });
@@ -483,6 +519,7 @@ const entry = createEntry({
     onCancel: () => {
         transport.close();
         resumeToken = null;
+        saveSession(null, null);
         store.actions.leaveRoom();
     },
     onRetry: () => transport.retryNow(),
@@ -495,6 +532,7 @@ handleEvent = createEventHandler({
     typingTracker,
     onSession: (token, resumed) => {
         resumeToken = token;
+        saveSession(store.getState().me, token);
         if (!resumed) store.actions.clearConversations();
         transport.send(CLIENT_EVENTS.ROOM_LIST, {});
         home.setIdentity(store.getState().me?.name ?? "", store.getState().me?.username ?? "");
@@ -552,6 +590,7 @@ handleEvent = createEventHandler({
         // a explicação, em vez de ficar numa sala em que não pode falar.
         transport.close();
         resumeToken = null;
+        saveSession(null, null);
         typingTracker.clear();
         store.actions.leaveRoom();
         // A tela de entrada precisa estar visível antes de receber o foco.
@@ -678,3 +717,14 @@ store.subscribe(() => renderLoop.request());
 // troca de tela, que é mudança de contexto e precisa ser anunciada.
 entry.setVisible(true);
 themeToggle.current();
+
+const savedSession = readSavedSession();
+if (savedSession) {
+    resumeToken = savedSession.token;
+    store.actions.startJoin({
+        id: crypto.randomUUID(),
+        name: savedSession.name,
+        username: savedSession.username,
+    });
+    transport.open();
+}
