@@ -471,6 +471,7 @@ for (const button of document.querySelectorAll('[data-action="logout"]')) {
     button.addEventListener("click", () => void logout());
 }
 
+/** @param {string} id */
 const openConversation = (id) => {
     if (!store.actions.openConversation(id)) return;
     const selected = store.getState().room;
