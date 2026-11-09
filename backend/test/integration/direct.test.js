@@ -16,12 +16,9 @@ describe("mensagens diretas temporárias", () => {
             undefined,
             { room: false },
         );
-        const bob = await join(
-            server.url,
-            { userName: "Bob", username: "bob_direct" },
-            undefined,
-            { room: false },
-        );
+        const bob = await join(server.url, { userName: "Bob", username: "bob_direct" }, undefined, {
+            room: false,
+        });
         const outsider = await join(
             server.url,
             { userName: "Charlie", username: "charlie_direct" },
@@ -49,8 +46,8 @@ describe("mensagens diretas temporárias", () => {
             content: "Olá Bob",
             clientMsgId: "unique-direct-message",
         });
-        const delivered = await bob.client.take((frame) =>
-            frame.type === "chat_message" && frame.payload.content === "Olá Bob",
+        const delivered = await bob.client.take(
+            (frame) => frame.type === "chat_message" && frame.payload.content === "Olá Bob",
         );
         assert.equal(delivered.conversationId, a.conversationId);
         assert.equal(delivered.payload.userId, alice.session.id);
@@ -64,10 +61,11 @@ describe("mensagens diretas temporárias", () => {
         bob.client.send("dm_open", { username: "alice_direct" });
         const reopened = await bob.client.take("room_joined");
         assert.notEqual(reopened.conversationId, a.conversationId);
-        const history = bob.client.count((frame) =>
-            frame.conversationId === reopened.conversationId &&
-            frame.type === "chat_message" &&
-            frame.payload.content === "Olá Bob",
+        const history = bob.client.count(
+            (frame) =>
+                frame.conversationId === reopened.conversationId &&
+                frame.type === "chat_message" &&
+                frame.payload.content === "Olá Bob",
         );
         assert.equal(history, 0);
         alice.client.close();
