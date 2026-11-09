@@ -20,31 +20,79 @@ export const createHome = ({ onCreate, onJoin, onDirect, onOpen, onLeave }) => {
     section.className = "c-home";
     section.hidden = true;
     section.setAttribute("aria-label", "Início");
-    section.innerHTML = `
-        <div class="c-home__content">
-            <p class="c-home__eyebrow">WEB CHAT</p>
-            <h1 class="c-home__title">Suas conversas começam aqui.</h1>
-            <p class="c-home__identity"></p>
-            <p class="c-home__description">Crie uma sala, entre por convite ou converse diretamente com alguém.</p>
-            <div class="c-home__actions">
-                <button type="button" data-home-action="create">+ Criar sala</button>
-                <button type="button" data-home-action="join">Entrar com código</button>
-                <button type="button" data-home-action="direct">Mensagem direta por @</button>
-            </div>
-            <form class="c-home__join" hidden>
-                <label for="home-room-code">Código ou link de convite</label>
-                <input id="home-room-code" name="code" autocomplete="off" required />
-                <button type="submit">Entrar na sala</button>
-                <button type="button" data-home-action="cancel">Cancelar</button>
-            </form>
-            <p class="c-home__notice" role="status" aria-live="polite"></p>
-            <div class="c-home__connection" role="status"></div>
-            <section aria-label="Conversas ativas" class="c-home__conversations">
-                <h2>Suas salas</h2>
-                <p class="c-home__empty">Nenhuma sala ativa. Crie uma ou entre com um convite.</p>
-                <ul class="c-home__conversation-list"></ul>
-            </section>
-        </div>`;
+    // Montagem por DOM seguro; nomes e mensagens de outros participantes
+    // entram exclusivamente por textContent (nunca como HTML).
+    const create = (tag, className, content = "") => {
+        const element = document.createElement(tag);
+        element.className = className;
+        element.textContent = content;
+        return element;
+    };
+    const content = create("div", "c-home__content");
+    const eyebrow = create("p", "c-home__eyebrow", "WEB CHAT");
+    const heading = create("h1", "c-home__title", "Suas conversas começam aqui.");
+    const identityLabel = create("p", "c-home__identity");
+    const description = create(
+        "p",
+        "c-home__description",
+        "Crie uma sala, entre por convite ou converse diretamente com alguém.",
+    );
+    const actions = create("div", "c-home__actions");
+    const addAction = (action, title) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.dataset.homeAction = action;
+        button.textContent = title;
+        actions.append(button);
+    };
+    addAction("create", "+ Criar sala");
+    addAction("join", "Entrar com código");
+    addAction("direct", "Mensagem direta por @");
+
+    const joinForm = document.createElement("form");
+    joinForm.className = "c-home__join";
+    joinForm.hidden = true;
+    const joinLabel = document.createElement("label");
+    joinLabel.htmlFor = "home-room-code";
+    joinLabel.textContent = "Código ou link de convite";
+    const joinInput = document.createElement("input");
+    joinInput.id = "home-room-code";
+    joinInput.name = "code";
+    joinInput.autocomplete = "off";
+    joinInput.required = true;
+    const submit = document.createElement("button");
+    submit.type = "submit";
+    submit.textContent = "Entrar na sala";
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.dataset.homeAction = "cancel";
+    cancel.textContent = "Cancelar";
+    joinForm.append(joinLabel, joinInput, submit, cancel);
+
+    const feedback = create("p", "c-home__notice");
+    feedback.setAttribute("role", "status");
+    feedback.setAttribute("aria-live", "polite");
+    const connectionLabel = create("div", "c-home__connection");
+    connectionLabel.setAttribute("role", "status");
+    const conversations = create("section", "c-home__conversations");
+    conversations.setAttribute("aria-label", "Conversas ativas");
+    conversations.append(
+        create("h2", "", "Suas salas"),
+        create("p", "c-home__empty", "Nenhuma sala ativa. Crie uma ou entre com um convite."),
+        create("ul", "c-home__conversation-list"),
+    );
+    content.append(
+        eyebrow,
+        heading,
+        identityLabel,
+        description,
+        actions,
+        joinForm,
+        feedback,
+        connectionLabel,
+        conversations,
+    );
+    section.append(content);
     document.querySelector(".c-app")?.append(section);
     const identity = section.querySelector(".c-home__identity");
     const form = /** @type {HTMLFormElement} */ (section.querySelector("form"));
@@ -54,7 +102,7 @@ export const createHome = ({ onCreate, onJoin, onDirect, onOpen, onLeave }) => {
     const list = /** @type {HTMLUListElement} */ (
         section.querySelector(".c-home__conversation-list")
     );
-    const empty = section.querySelector(".c-home__empty");
+    const empty = /** @type {HTMLElement | null} */ (section.querySelector(".c-home__empty"));
     section.querySelector('[data-home-action="create"]')?.addEventListener("click", onCreate);
     section.querySelector('[data-home-action="join"]')?.addEventListener("click", () => {
         form.hidden = false;
@@ -84,16 +132,20 @@ export const createHome = ({ onCreate, onJoin, onDirect, onOpen, onLeave }) => {
         }
         onJoin(code);
     });
+    /** @param {string} message */
     const showNotice = (message) => {
         if (notice) notice.textContent = message;
     };
     return {
+        /** @param {boolean} visible */
         setVisible(visible) {
             section.hidden = !visible;
         },
+        /** @param {string} name @param {string} username */
         setIdentity(name, username) {
             if (identity) identity.textContent = `${name} · @${username}`;
         },
+        /** @param {string | null} code */
         setInvite(code) {
             if (!code) return;
             form.hidden = false;
