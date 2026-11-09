@@ -264,6 +264,17 @@ export const serverMessage = Object.freeze({
         payload: { rooms, ...(requestId ? { requestId } : {}) },
     }),
 
+    /**
+     * Resultado de pesquisa de perfis públicos de identidades conectadas.
+     * @param {string} query
+     * @param {{id: string, name: string, username: string}[]} users
+     * @param {string | null} [requestId]
+     */
+    userSearchResults: (query, users, requestId = null) => ({
+        type: SERVER_EVENTS.USER_SEARCH_RESULTS,
+        payload: { query, users, ...(requestId ? { requestId } : {}) },
+    }),
+
     /** @param {unknown[]} entries mensagens de chat já no formato de envio */
     history: (entries) => ({ type: SERVER_EVENTS.MESSAGE_HISTORY, payload: entries }),
 
