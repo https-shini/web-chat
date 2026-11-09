@@ -434,6 +434,20 @@ const home = createHome({
     onDirect: () => home.showNotice("Mensagens diretas por @ serão disponibilizadas em breve."),
 });
 
+// Controles explícitos: navegar não é o mesmo que abandonar uma sala.
+const roomNavigation = document.createElement("nav");
+roomNavigation.className = "c-room-navigation";
+roomNavigation.setAttribute("aria-label", "Navegação da conversa");
+roomNavigation.innerHTML = `<button type="button" data-room-nav="home">← Início</button>
+    <button type="button" data-room-nav="leave">Sair da sala</button>`;
+room.prepend(roomNavigation);
+roomNavigation.querySelector('[data-room-nav="home"]')?.addEventListener("click", () => {
+    void shortcuts["go-home"]();
+});
+roomNavigation.querySelector('[data-room-nav="leave"]')?.addEventListener("click", () => {
+    void shortcuts["leave-room"]();
+});
+
 const failure = createFailure({
     onRetry: () => transport.retryNow(),
 });
