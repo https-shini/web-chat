@@ -33,6 +33,7 @@ export const CLIENT_EVENTS = Object.freeze({
     ROOM_JOIN: "room_join",
     ROOM_LEAVE: "room_leave",
     ROOM_LIST: "room_list",
+    USER_SEARCH: "user_search",
 });
 
 /** Eventos que o servidor envia. */
@@ -53,6 +54,7 @@ export const SERVER_EVENTS = Object.freeze({
     ROOM_LEFT: "room_left",
     ROOM_LIST: "room_list",
     ROOM_UPDATED: "room_updated",
+    USER_SEARCH_RESULTS: "user_search_results",
 });
 
 /**
