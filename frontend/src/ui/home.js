@@ -16,6 +16,7 @@ import { createUserSearch } from "./userSearch.js";
  *   onLeave: (id: string) => void,
  *   onSearch: (query: string) => void,
  *   onStartDirect: (username: string) => void,
+ *   onLogout: () => void,
  * }} actions
  */
 export const createHome = ({
@@ -26,6 +27,7 @@ export const createHome = ({
     onLeave,
     onSearch,
     onStartDirect,
+    onLogout,
 }) => {
     const section = document.createElement("section");
     section.className = "c-home";
@@ -44,6 +46,11 @@ export const createHome = ({
     const eyebrow = create("p", "c-home__eyebrow", "WEB CHAT");
     const heading = create("h1", "c-home__title", "Suas conversas começam aqui.");
     const identityLabel = create("p", "c-home__identity");
+    const logoutButton = document.createElement("button");
+    logoutButton.type = "button";
+    logoutButton.className = "c-home__logout";
+    logoutButton.textContent = "Encerrar sessão";
+    logoutButton.addEventListener("click", onLogout);
     const description = create(
         "p",
         "c-home__description",
@@ -91,14 +98,15 @@ export const createHome = ({
     const conversations = create("section", "c-home__conversations");
     conversations.setAttribute("aria-label", "Conversas ativas");
     conversations.append(
-        create("h2", "", "Suas salas"),
-        create("p", "c-home__empty", "Nenhuma sala ativa. Crie uma ou entre com um convite."),
+        create("h2", "", "Suas conversas"),
+        create("p", "c-home__empty", "Nenhuma conversa ativa. Crie uma sala ou procure alguém por @username."),
         create("ul", "c-home__conversation-list"),
     );
     content.append(
         eyebrow,
         heading,
         identityLabel,
+        logoutButton,
         description,
         actions,
         userSearch.element,
@@ -194,7 +202,7 @@ export const createHome = ({
                 open.dataset.conversationId = room.conversationId;
                 open.dataset.action = "open";
                 const title = document.createElement("strong");
-                title.textContent = room.name;
+                title.textContent = (room.kind === "dm" ? "Mensagem direta · " : "Sala · ") + room.name;
                 const detail = document.createElement("span");
                 detail.textContent = room.unread
                     ? " · " + room.unread + " não lida(s)"
@@ -206,8 +214,8 @@ export const createHome = ({
                 leave.type = "button";
                 leave.dataset.conversationId = room.conversationId;
                 leave.dataset.action = "leave";
-                leave.textContent = "Sair da sala";
-                leave.setAttribute("aria-label", "Sair da sala " + room.name);
+                leave.textContent = room.kind === "dm" ? "Encerrar DM" : "Sair da sala";
+                leave.setAttribute("aria-label", leave.textContent + " " + room.name);
                 item.append(open, leave);
                 list.append(item);
             }
