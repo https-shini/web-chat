@@ -31,7 +31,7 @@ import { hydrateIcons } from "./ui/icons.js";
 import { createLayout } from "./ui/layout.js";
 import { createPanelResize } from "./ui/panelResize.js";
 import { createRoomHeader } from "./ui/roomHeader.js";
-import { inviteHash, readInviteHash } from "./state/invite.js";
+import { inviteHash, readInviteHash, normalizeRoomCode } from "./state/invite.js";
 import { createMemberCard } from "./ui/memberCard.js";
 import { createTooltips } from "./ui/tooltip.js";
 import { createUserPanel } from "./ui/userPanel.js";
@@ -390,7 +390,11 @@ const logout = async () => {
  * retomada o servidor devolve as salas sozinho.
  */
 const enterRoom = (requestedCode = null) => {
-    const code = requestedCode;
+    const code = requestedCode ? normalizeRoomCode(requestedCode) : null;
+    if (requestedCode && !code) {
+        home.showNotice("Código de convite inválido.");
+        return;
+    }
     // Identidade nova: a participação anterior não existe mais no servidor.
     store.actions.forgetRoom();
     roomRequest = code ? "join" : "create";
@@ -465,11 +469,10 @@ handleEvent = createEventHandler({
         toasts.show(message, "error");
     },
     onRoomLeft: (reason) => {
-        endParticipation(
-            reason === "removed"
-                ? { announce: strings.room.removed, notice: strings.room.removed }
-                : {},
-        );
+        // Deixar uma sala não encerra o login: volta à Home.
+        store.actions.goHome();
+        history.replaceState(null, "", location.pathname + location.search);
+        if (reason === "removed") home.showNotice(strings.room.removed);
     },
     onCommandResult: (requestId, result) => {
         const request = requestId ? pendingRequests.get(requestId) : undefined;
