@@ -1,15 +1,16 @@
 /**
  * Execução de comandos no servidor — o único interpretador.
  *
- * Fluxo: texto bruto → parser → registro → permissão → argumentos →
- * intervalo mínimo → handler → resposta padronizada (`command_result`).
- * A identidade e o papel vêm da sala (emitidos pelo servidor), nunca do
- * payload. O texto dos argumentos nunca vai para o log (pode conter a chave
+ * Fluxo: texto bruto → parser → registro → conversa → permissão →
+ * argumentos → intervalo mínimo → handler → resposta padronizada
+ * (`command_result`). A identidade vem da sessão e o papel da participação
+ * na sala (emitidos pelo servidor), nunca do payload. Comando de sala só
+ * roda numa conversa de que a conexão participa (`payload.conversationId`). O texto dos argumentos nunca vai para o log (pode conter a chave
  * de administrador ou conteúdo de mensagem).
  */
 
 import { LIMITS, serverMessage } from "../protocol.js";
-import { hasPermission, PERMISSIONS } from "../room/policy.js";
+import { hasPermission, isAdmin, PERMISSIONS } from "../room/policy.js";
 import { readClientId } from "../validation.js";
 import { parseCommand } from "./parser.js";
 import { COMMAND_ERRORS, reply } from "./response.js";
@@ -18,7 +19,7 @@ import { validateArgs } from "./validator.js";
 /**
  * @param {{
  *   registry: ReturnType<typeof import("./registry.js").createCommandRegistry>,
- *   room: ReturnType<typeof import("../room/room.js").createRoom>,
+ *   hub: ReturnType<typeof import("../room/hub.js").createHub>,
  *   log: (level: "info" | "warn" | "error", event: string, fields?: Record<string, unknown>) => void,
  *   services: Record<string, unknown>,
  *   metrics?: {count: (name: string, label?: string) => void},
@@ -27,7 +28,7 @@ import { validateArgs } from "./validator.js";
  */
 export const createCommandExecutor = ({
     registry,
-    room,
+    hub,
     log,
     services,
     metrics = { count() {} },
@@ -38,9 +39,25 @@ export const createCommandExecutor = ({
 
     const send = (member, message) => services.deliver(member, JSON.stringify(message));
 
+    /**
+     * Catálogo da conexão. "Liberado" para comandos de moderação quando a
+     * pessoa modera alguma sala; a decisão de verdade é feita por sala, em
+     * cada execução.
+     */
     const sendCatalog = (member) => {
-        const entry = room.entryOf(member);
-        if (entry) send(member, serverMessage.commandCatalog(registry.catalogFor(entry.identity)));
+        const entry = hub.entryOf(member);
+        if (!entry) return;
+        const { identity } = entry;
+        const moderates = isAdmin(identity) || hub.hostsAnyRoom(identity);
+        send(
+            member,
+            serverMessage.commandCatalog(
+                registry.catalogFor(
+                    identity,
+                    moderates ? { role: "host", mutedUntil: null } : null,
+                ),
+            ),
+        );
     };
 
     /**
@@ -59,9 +76,9 @@ export const createCommandExecutor = ({
             );
         };
 
-        const entry = room.entryOf(member);
+        const entry = hub.entryOf(member);
         if (!entry) {
-            return respond(reply.error("not_logged_in", "Entre na sala antes de usar comandos."));
+            return respond(reply.error("not_logged_in", "Entre no chat antes de usar comandos."));
         }
         const text = payload.text;
         if (typeof text !== "string" || text.length > LIMITS.commandMaxLength) {
@@ -92,10 +109,28 @@ export const createCommandExecutor = ({
             );
         }
         const { identity } = entry;
+
+        // Conversa: informada → precisa ser uma de que a conexão participa.
+        let room = null;
+        if (payload.conversationId !== undefined && payload.conversationId !== null) {
+            const found = hub.resolve(member, payload.conversationId);
+            if (!found.ok) {
+                return respond(
+                    reply.error(
+                        COMMAND_ERRORS.NO_CONVERSATION,
+                        "Você não participa desta conversa.",
+                    ),
+                );
+            }
+            room = found.room;
+        }
+        const membership = room ? room.membershipOf(identity) : null;
+
         const outcome = (ok, code) =>
             log(ok ? "info" : "warn", "command_executed", {
                 user: identity.id,
                 command: command.name,
+                ...(room ? { conversation: room.id } : {}),
                 ok,
                 ...(code ? { code } : {}),
             });
@@ -110,15 +145,25 @@ export const createCommandExecutor = ({
                 ),
             );
         }
-        if (!hasPermission(identity, command.permission)) {
+        if (command.requiresRoom && !room) {
+            return respond(
+                reply.error(
+                    COMMAND_ERRORS.NO_CONVERSATION,
+                    `/${command.name} funciona dentro de uma sala. Abra uma sala e tente de novo.`,
+                ),
+            );
+        }
+        if (!hasPermission(identity, command.permission, membership)) {
             outcome(false, COMMAND_ERRORS.FORBIDDEN);
             metrics.count("commandsRejected", COMMAND_ERRORS.FORBIDDEN);
+            const why = {
+                [PERMISSIONS.ADMIN]: `/${command.name} é restrito a administradores.`,
+                [PERMISSIONS.MODERATOR]: `/${command.name} é restrito a quem modera a sala (anfitrião ou administrador).`,
+            };
             return respond(
                 reply.error(
                     COMMAND_ERRORS.FORBIDDEN,
-                    command.permission === PERMISSIONS.ADMIN
-                        ? `/${command.name} é restrito a administradores.`
-                        : `Você não pode usar /${command.name}.`,
+                    why[command.permission] ?? `Você não pode usar /${command.name}.`,
                 ),
             );
         }
@@ -154,6 +199,8 @@ export const createCommandExecutor = ({
             identity,
             args: args.values,
             room,
+            membership,
+            hub,
             reply,
             errors: COMMAND_ERRORS,
             services,

@@ -17,7 +17,8 @@ export const CATEGORIES = Object.freeze({
     profile: "Perfil",
     social: "Interação",
     formatting: "Formatação",
-    admin: "Administração",
+    room: "Salas",
+    admin: "Moderação",
 });
 
 const NAME = /^[a-z][a-z0-9]{0,31}$/;
@@ -35,6 +36,7 @@ const NAME = /^[a-z][a-z0-9]{0,31}$/;
  *   scope?: "server" | "client",
  *   params?: Param[],
  *   cooldownMs?: number,
+ *   requiresRoom?: boolean,  só roda dentro de uma sala (payload.conversationId)
  *   run?: (ctx: any) => unknown,
  * }} CommandDefinition
  */
@@ -55,6 +57,7 @@ export const createCommandRegistry = () => {
                 scope: "server",
                 params: [],
                 cooldownMs: 0,
+                requiresRoom: false,
                 ...definition,
             };
             for (const name of [command.name, ...command.aliases]) {
@@ -105,8 +108,9 @@ export const createCommandRegistry = () => {
          * Catálogo para o cliente: metadados públicos + se a pessoa pode usar.
          * Nunca inclui o handler.
          * @param {{role: string}} identity
+         * @param {import("../room/policy.js").Membership} [membership] papel numa sala
          */
-        catalogFor(identity) {
+        catalogFor(identity, membership = null) {
             return ordered.map((command) => ({
                 name: command.name,
                 aliases: command.aliases,
@@ -117,7 +121,8 @@ export const createCommandRegistry = () => {
                 examples: command.examples,
                 permission: command.permission,
                 scope: command.scope,
-                allowed: hasPermission(identity, command.permission),
+                requiresRoom: command.requiresRoom,
+                allowed: hasPermission(identity, command.permission, membership),
             }));
         },
     };

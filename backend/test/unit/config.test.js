@@ -12,7 +12,8 @@ test("sem variáveis, os padrões reproduzem o comportamento anterior", () => {
         maxPayloadBytes: 16384,
         messageRate: { capacity: 40, refillPerSecond: 8 },
         signalRate: { capacity: 40, refillPerSecond: 8 },
-        historySize: 1000,
+        // Por sala desde a Fase 2 da evolução (eram 1000 na sala única).
+        historySize: 200,
         historyOnJoin: 50,
         // Fase 3: novos parâmetros, com padrões explícitos.
         heartbeatMaxMissed: 2,
@@ -22,6 +23,13 @@ test("sem variáveis, os padrões reproduzem o comportamento anterior", () => {
         metricsLogIntervalMs: 60000,
         // Fase 4: janela de retomada e administração (desligada sem chave).
         leaveGraceMs: 10000,
+        // Fase 2 da evolução: várias salas, com limites.
+        rooms: {
+            maxRooms: 500,
+            maxRoomsPerIdentity: 10,
+            maxCreatedPerIdentity: 5,
+            emptyTtlMs: 60000,
+        },
         adminKey: null,
         production: false,
     });

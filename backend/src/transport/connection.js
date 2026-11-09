@@ -5,13 +5,13 @@
  *  1. aplicar os limites de taxa da conexão (sinais e mensagens separados —
  *     Fase 1, P02);
  *  2. validar o envelope de cada quadro;
- *  3. encaminhar o evento à sala e transformar recusas em respostas de erro;
- *  4. exigir que a conexão entre na sala dentro do prazo (Fase 3);
- *  5. limpar a participação e os timers quando a conexão termina;
+ *  3. encaminhar o evento ao hub e transformar recusas em respostas de erro;
+ *  4. exigir que a conexão comece uma sessão dentro do prazo (Fase 3);
+ *  5. pausar a sessão e limpar os timers quando a conexão termina;
  *  6. registrar métricas do que recebeu e processou.
  *
- * Nenhuma regra de negócio vive aqui: quem decide se um login, uma mensagem
- * ou um sinal é válido é `room/room.js`.
+ * Nenhuma regra de negócio vive aqui: quem decide se um login, uma sala, uma
+ * mensagem ou um sinal é válido é `room/hub.js` (e, por ele, as salas).
  */
 
 import crypto from "node:crypto";
@@ -25,7 +25,7 @@ import {
     serverMessage,
 } from "../protocol.js";
 import { createRateLimiter } from "../rateLimiter.js";
-import { readClientId } from "../validation.js";
+import { readClientId, readConversationId } from "../validation.js";
 
 /** No máximo um aviso de "rápido demais" por segundo (anti-amplificação). */
 export const RATE_LIMIT_NOTICE_INTERVAL_MS = 1000;
@@ -34,14 +34,19 @@ export const RATE_LIMIT_NOTICE_INTERVAL_MS = 1000;
 export const LOGIN_TIMEOUT_CLOSE_CODE = 4001;
 
 /** Eventos cujo excesso recebe aviso de limite (os demais são descartados). */
-const NOTIFY_WHEN_LIMITED = new Set([CLIENT_EVENTS.CHAT_MESSAGE, CLIENT_EVENTS.COMMAND]);
+const NOTIFY_WHEN_LIMITED = new Set([
+    CLIENT_EVENTS.CHAT_MESSAGE,
+    CLIENT_EVENTS.COMMAND,
+    CLIENT_EVENTS.ROOM_CREATE,
+    CLIENT_EVENTS.ROOM_JOIN,
+]);
 
 /** Métricas no-op: o handler funciona sem instrumentação (testes de unidade). */
 const NO_METRICS = { count() {}, observeProcessing() {} };
 
 /**
  * @param {{
- *   room: ReturnType<typeof import("../room/room.js").createRoom>,
+ *   hub: ReturnType<typeof import("../room/hub.js").createHub>,
  *   commands?: {execute: (ws: unknown, payload: Record<string, unknown>) => void, sendCatalog: (ws: unknown) => void},
  *   log: (level: "info" | "warn" | "error", event: string, fields?: Record<string, unknown>) => void,
  *   messageRate: {capacity: number, refillPerSecond: number},
@@ -55,7 +60,7 @@ const NO_METRICS = { count() {}, observeProcessing() {} };
  * @returns {(ws: import("ws").WebSocket) => void}
  */
 export const createConnectionHandler = ({
-    room,
+    hub,
     commands = null,
     log,
     messageRate,
@@ -75,14 +80,14 @@ export const createConnectionHandler = ({
 
         log("info", "client_connected", { connection: label });
 
-        // Prazo para entrar na sala. Sem ele, uma conexão que nunca faz login
+        // Prazo para começar a sessão. Sem ele, uma conexão que nunca faz login
         // — mas responde ao ping — ocuparia uma vaga do teto indefinidamente.
         // O cliente oficial faz login assim que conecta.
         let loginTimer =
             loginTimeoutMs > 0
                 ? setTimeout(() => {
                       loginTimer = null;
-                      if (room.isMember(ws)) return;
+                      if (hub.isLoggedIn(ws)) return;
                       metrics.count("loginTimeouts");
                       log("info", "login_timeout", { connection: label });
                       ws.close(LOGIN_TIMEOUT_CLOSE_CODE, "Tempo para entrar na sala esgotado");
@@ -103,9 +108,10 @@ export const createConnectionHandler = ({
         /**
          * Recusa uma operação: registra com contexto e responde com o código.
          * `ref` devolve o id de correlação do cliente (`clientMsgId` ou
-         * `requestId`) para que ele saiba QUAL envio falhou.
+         * `requestId`) para que ele saiba QUAL envio falhou; `conversationId`
+         * diz a que conversa o erro se refere.
          */
-        const reject = (operation, code, ref = null) => {
+        const reject = (operation, code, ref = null, conversationId = null) => {
             const { category } = describeError(code);
             metrics.count("requestsRejected", code);
             metrics.count("errorsByCategory", category);
@@ -114,14 +120,17 @@ export const createConnectionHandler = ({
                 operation,
                 code,
                 category,
-                ...(room.isMember(ws) ? { user: room.userIdOf(ws) } : {}),
+                ...(hub.isLoggedIn(ws) ? { user: hub.userIdOf(ws) } : {}),
             });
-            send(serverMessage.error(code, ref));
+            send(serverMessage.error(code, ref, conversationId));
         };
+
+        /** Id de correlação de um pedido de sala. @param {Record<string, unknown>} payload */
+        const requestIdOf = (payload) => readClientId(payload.requestId);
 
         const handlers = {
             [CLIENT_EVENTS.LOGIN]: (payload) => {
-                const result = room.join(ws, payload, label);
+                const result = hub.login(ws, payload, label);
                 if (!result.ok) return reject(CLIENT_EVENTS.LOGIN, result.code);
                 clearLoginTimer();
                 // O catálogo de comandos é a fonte do autocomplete e do /help.
@@ -132,12 +141,13 @@ export const createConnectionHandler = ({
                 }
             },
             [CLIENT_EVENTS.CHAT_MESSAGE]: (payload) => {
-                const result = room.post(ws, payload);
+                const result = hub.post(ws, payload);
                 if (!result.ok) {
                     return reject(
                         CLIENT_EVENTS.CHAT_MESSAGE,
                         result.code,
                         readClientId(payload.clientMsgId),
+                        readConversationId(payload.conversationId),
                     );
                 }
                 if (!result.duplicate) metrics.count("messagesAccepted");
@@ -146,17 +156,55 @@ export const createConnectionHandler = ({
                 if (!commands) return reject(CLIENT_EVENTS.COMMAND, ERROR_CODES.UNKNOWN_TYPE);
                 commands.execute(ws, payload);
             },
-            // Sair: a identidade é encerrada no servidor (token inválido,
-            // username livre) e a conexão fecha com um código que o cliente
-            // trata como definitivo. Fechar mesmo sem estar na sala: quem
-            // pediu para sair não deve continuar conectado.
+            // Encerrar a sessão: a identidade acaba no servidor (token
+            // inválido, username livre, fora de todas as salas) e a conexão
+            // fecha com um código que o cliente trata como definitivo. Fechar
+            // mesmo sem sessão: quem pediu para sair não deve continuar
+            // conectado.
             [CLIENT_EVENTS.LOGOUT]: () => {
-                if (room.logout(ws)) metrics.count("logouts");
+                if (hub.logout(ws)) metrics.count("logouts");
                 clearLoginTimer();
-                ws.close(CLOSE_CODES.LOGGED_OUT, "Você saiu da sala");
+                ws.close(CLOSE_CODES.LOGGED_OUT, "Você saiu");
             },
-            [CLIENT_EVENTS.TYPING_START]: () => room.typing(ws, true),
-            [CLIENT_EVENTS.TYPING_STOP]: () => room.typing(ws, false),
+            [CLIENT_EVENTS.TYPING_START]: (payload) => hub.typing(ws, payload, true),
+            [CLIENT_EVENTS.TYPING_STOP]: (payload) => hub.typing(ws, payload, false),
+            [CLIENT_EVENTS.ROOM_CREATE]: (payload) => {
+                const result = hub.createRoom(ws, payload);
+                if (!result.ok) {
+                    return reject(CLIENT_EVENTS.ROOM_CREATE, result.code, requestIdOf(payload));
+                }
+                metrics.count("roomsCreated");
+            },
+            [CLIENT_EVENTS.ROOM_JOIN]: (payload) => {
+                const result = hub.joinRoom(ws, payload);
+                if (!result.ok) {
+                    return reject(CLIENT_EVENTS.ROOM_JOIN, result.code, requestIdOf(payload));
+                }
+                if (!result.already) metrics.count("roomJoins");
+            },
+            [CLIENT_EVENTS.ROOM_LEAVE]: (payload) => {
+                const result = hub.leaveRoom(ws, payload);
+                if (!result.ok) {
+                    return reject(
+                        CLIENT_EVENTS.ROOM_LEAVE,
+                        result.code,
+                        requestIdOf(payload),
+                        readConversationId(payload.conversationId),
+                    );
+                }
+                metrics.count("roomLeaves");
+            },
+            [CLIENT_EVENTS.ROOM_LIST]: (payload) => {
+                const rooms = hub.roomsOf(ws);
+                if (rooms === null) {
+                    return reject(
+                        CLIENT_EVENTS.ROOM_LIST,
+                        ERROR_CODES.NOT_LOGGED_IN,
+                        requestIdOf(payload),
+                    );
+                }
+                send(serverMessage.roomList(rooms, requestIdOf(payload)));
+            },
         };
 
         const handleFrame = (data, isBinary) => {
@@ -233,11 +281,12 @@ export const createConnectionHandler = ({
         });
 
         // Toda forma de término (fechamento normal, terminate, queda) passa
-        // por aqui: timer de login cancelado e participação desfeita.
+        // por aqui: timer de login cancelado e sessão pausada (a identidade
+        // fica retomável e continua nas salas até o prazo vencer).
         ws.on("close", (code) => {
             clearLoginTimer();
             metrics.count("connectionsClosed");
-            room.leave(ws);
+            hub.disconnect(ws);
             log("info", "client_disconnected", { connection: label, code });
         });
     };

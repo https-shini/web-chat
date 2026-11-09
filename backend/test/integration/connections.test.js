@@ -4,7 +4,7 @@
 
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { startServer, connect, join, barrier } from "./helpers.js";
+import { startServer, connect, join, barrier, enterSharedRoom } from "./helpers.js";
 
 describe("ciclo de vida da conexão", () => {
     let server;
@@ -13,12 +13,16 @@ describe("ciclo de vida da conexão", () => {
     });
     after(() => server.stop());
 
-    test("login normal: sessão, lista atualizada e aviso para os outros", async () => {
+    test("login e entrada na sala: sessão, lista atualizada e aviso para os outros", async () => {
         const first = await join(server.url, { userName: "Primeira" });
         const second = await connect(server.url);
         second.send("user_login", { userName: "Segunda" });
 
         const session = await second.take("session");
+        // Só a sessão não põe ninguém em sala: os outros não veem nada ainda.
+        await barrier(first.client, first.client);
+        assert.equal(first.client.count("user_joined"), 0);
+        await enterSharedRoom(server.url, second);
         const joined = await first.client.take("user_joined");
         assert.equal(joined.payload.userName, "Segunda");
 
@@ -157,6 +161,7 @@ describe("ciclo de vida da conexão", () => {
         const reader = await connect(server.url);
         reader.send("user_login", { userName: "Lê" });
         await reader.take("session");
+        await enterSharedRoom(server.url, reader);
         const history = await reader.take("message_history");
         assert.ok(history.payload.some((entry) => entry.payload.content === "para o histórico"));
         assert.ok(history.payload.length <= 50);

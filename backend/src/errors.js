@@ -33,6 +33,16 @@ export const ERROR_CODES = Object.freeze({
     RATE_LIMITED: "rate_limited",
     MUTED: "muted",
     INTERNAL_ERROR: "internal_error",
+    // Salas (Fase 2 da evolução)
+    INVALID_ROOM_CODE: "invalid_room_code",
+    INVALID_ROOM_NAME: "invalid_room_name",
+    ROOM_NOT_FOUND: "room_not_found",
+    CONVERSATION_NOT_FOUND: "conversation_not_found",
+    REMOVED_FROM_ROOM: "removed_from_room",
+    ROOM_JOIN_LIMIT: "room_join_limit",
+    ROOM_CREATE_LIMIT: "room_create_limit",
+    ROOMS_FULL: "rooms_full",
+    ROOM_JOIN_LOCKED: "room_join_locked",
 });
 
 const { PROTOCOL, VALIDATION, AUTHORIZATION, RATE_LIMIT, INTERNAL } = ERROR_CATEGORIES;
@@ -55,7 +65,7 @@ const CATALOG = Object.freeze({
     },
     [ERROR_CODES.USERNAME_TAKEN]: {
         category: VALIDATION,
-        message: "Este username já está em uso na sala. Escolha outro.",
+        message: "Este username já está em uso. Escolha outro.",
     },
     [ERROR_CODES.EMPTY_MESSAGE]: { category: VALIDATION, message: "Mensagem vazia." },
     [ERROR_CODES.ALREADY_LOGGED_IN]: {
@@ -72,6 +82,44 @@ const CATALOG = Object.freeze({
         message: "Você foi silenciado por um administrador e não pode enviar mensagens agora.",
     },
     [ERROR_CODES.INTERNAL_ERROR]: { category: INTERNAL, message: "Erro interno do servidor" },
+    [ERROR_CODES.INVALID_ROOM_CODE]: {
+        category: VALIDATION,
+        message: "Código de sala inválido. O formato é abc-defg-hij.",
+    },
+    [ERROR_CODES.INVALID_ROOM_NAME]: {
+        category: VALIDATION,
+        message: "Nome de sala inválido. Use até 40 caracteres.",
+    },
+    // Mesmo texto para "não existe" e "existe mas você não pode ver": quem
+    // tenta adivinhar códigos não aprende nada com a resposta.
+    [ERROR_CODES.ROOM_NOT_FOUND]: {
+        category: VALIDATION,
+        message: "Nenhuma sala ativa com este código. Confira o código ou peça um convite novo.",
+    },
+    [ERROR_CODES.CONVERSATION_NOT_FOUND]: {
+        category: AUTHORIZATION,
+        message: "Você não participa desta conversa.",
+    },
+    [ERROR_CODES.REMOVED_FROM_ROOM]: {
+        category: AUTHORIZATION,
+        message: "Você foi removido desta sala e não pode voltar a ela nesta sessão.",
+    },
+    [ERROR_CODES.ROOM_JOIN_LIMIT]: {
+        category: AUTHORIZATION,
+        message: "Você já está no número máximo de salas. Saia de uma para entrar em outra.",
+    },
+    [ERROR_CODES.ROOM_CREATE_LIMIT]: {
+        category: AUTHORIZATION,
+        message: "Você já criou o número máximo de salas ativas. Aguarde uma delas acabar.",
+    },
+    [ERROR_CODES.ROOMS_FULL]: {
+        category: RATE_LIMIT,
+        message: "O servidor está no limite de salas agora. Tente de novo em instantes.",
+    },
+    [ERROR_CODES.ROOM_JOIN_LOCKED]: {
+        category: RATE_LIMIT,
+        message: "Tentativas demais com códigos inválidos. Aguarde um pouco para tentar de novo.",
+    },
 });
 
 /**

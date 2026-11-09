@@ -4,6 +4,15 @@
  * Todo quadro é JSON `{ type, payload }`; mensagens de chat têm também `id`
  * no topo. Erros são `{ type: "error", payload: { code, message } }`.
  *
+ * Conversas (Fase 2 da evolução): uma identidade participa de várias salas
+ * ao mesmo tempo. Todo evento que pertence a uma conversa leva
+ * `conversationId` no TOPO do envelope (como o `id` das mensagens), e o
+ * payload continua com o formato de antes. No sentido inverso, o cliente
+ * informa a conversa dentro do payload (`payload.conversationId`), e o
+ * servidor confere se a conexão participa dela antes de qualquer efeito.
+ * O `conversationId` é opaco e não é o código de convite: o código só é
+ * entregue a quem está na sala e nunca vai para o log.
+ *
  * O cliente tem o espelho deste contrato em `frontend/src/protocol.js`; um
  * teste (`test/unit/contract.test.js`) falha se os dois divergirem. Os dois
  * arquivos não são compartilhados por import porque o frontend precisa
@@ -28,6 +37,12 @@ export const LIMITS = Object.freeze({
     clientIdMaxLength: 64,
     /** Texto de ausência (`/afk motivo`). */
     awayTextMaxLength: 60,
+    /** Nome opcional de uma sala. */
+    roomNameMaxLength: 40,
+    /** Código de convite como digitado (com espaços, hífens ou o link inteiro). */
+    roomCodeInputMaxLength: 200,
+    /** `conversationId` recebido do cliente. */
+    conversationIdMaxLength: 64,
 });
 
 /** Eventos que o cliente envia. */
@@ -37,8 +52,16 @@ export const CLIENT_EVENTS = Object.freeze({
     TYPING_START: "typing_start",
     TYPING_STOP: "typing_stop",
     COMMAND: "command",
-    /** Sair da sala: libera a identidade temporária e o username na hora. */
+    /** Encerrar a sessão: libera a identidade temporária e o username na hora. */
     LOGOUT: "user_logout",
+    /** Criar uma sala nova; quem cria entra como anfitrião. */
+    ROOM_CREATE: "room_create",
+    /** Entrar numa sala pelo código de convite. */
+    ROOM_JOIN: "room_join",
+    /** Sair de uma sala (a identidade continua nas outras). */
+    ROOM_LEAVE: "room_leave",
+    /** Pedir a lista das salas de que a identidade participa. */
+    ROOM_LIST: "room_list",
 });
 
 /** Eventos que o servidor envia. */
@@ -55,6 +78,14 @@ export const SERVER_EVENTS = Object.freeze({
     COMMAND_RESULT: "command_result",
     NOTICE: "notice",
     CHAT_CLEARED: "chat_cleared",
+    /** Você está numa sala: resumo dela (seguido de histórico e lista). */
+    ROOM_JOINED: "room_joined",
+    /** Você não está mais numa sala (saiu, foi removido ou ela acabou). */
+    ROOM_LEFT: "room_left",
+    /** Resposta a `room_list`. */
+    ROOM_LIST: "room_list",
+    /** O resumo de uma sala mudou (ex.: anfitrião novo). */
+    ROOM_UPDATED: "room_updated",
 });
 
 /**
@@ -80,8 +111,21 @@ export const MESSAGE_FORMATS = Object.freeze({
 /** Estados de presença em `user_list`. */
 export const PRESENCE = Object.freeze({ ONLINE: "online", AWAY: "away" });
 
-/** Papéis em `user_list` e `session`. */
-export const ROLES = Object.freeze({ MEMBER: "member", ADMIN: "admin" });
+/**
+ * Papéis. `admin` é global (chave do servidor) e vale em todas as salas;
+ * `host` (anfitrião) vale só na sala em que a pessoa o recebeu.
+ */
+export const ROLES = Object.freeze({ MEMBER: "member", ADMIN: "admin", HOST: "host" });
+
+/** Por que alguém deixou de estar numa sala (`room_left`). */
+export const ROOM_LEFT_REASONS = Object.freeze({
+    /** A própria pessoa saiu. */
+    LEFT: "left",
+    /** Removida por quem modera a sala. */
+    REMOVED: "removed",
+    /** A sala acabou (servidor desligando). */
+    CLOSED: "closed",
+});
 
 /** Tons de `command_result` e `notice`. */
 export const TONES = Object.freeze({
@@ -150,22 +194,72 @@ export const errorCodeForEnvelope = (reason) =>
  * Construtores dos quadros enviados pelo servidor. Concentrar o formato aqui
  * é o que garante que um mesmo evento nunca saia com campos diferentes.
  */
+/**
+ * Põe o quadro no escopo de uma conversa: `conversationId` no topo do
+ * envelope, payload intacto.
+ * @template {Record<string, unknown>} T
+ * @param {string} conversationId
+ * @param {T} message
+ * @returns {T & {conversationId: string}}
+ */
+export const scoped = (conversationId, message) => ({ ...message, conversationId });
+
+/**
+ * @typedef {object} RoomSummary
+ * @property {string} conversationId
+ * @property {"room"} kind
+ * @property {string} code      código de convite (só para quem está na sala)
+ * @property {string} name
+ * @property {string} role      papel de quem recebe NESTA sala
+ * @property {string | null} hostId
+ * @property {number} memberCount
+ * @property {number} historyVersion
+ */
+
 export const serverMessage = Object.freeze({
     /**
+     * Sessão: quem a conexão é. Não diz nada sobre salas — cada sala chega
+     * no seu próprio `room_joined`. `resumed` diz se a identidade anterior
+     * foi retomada (e, com ela, as salas); sem isso, a identidade é nova e
+     * não está em sala nenhuma.
      * @param {{id: string, name: string, username?: string, role?: string}} user
      * @param {string} resumeToken
-     * @param {number} [historyVersion] muda quando a sala é limpa (`/clearall`)
+     * @param {boolean} [resumed]
      */
-    session: (user, resumeToken, historyVersion = 0) => ({
+    session: (user, resumeToken, resumed = false) => ({
         type: SERVER_EVENTS.SESSION,
         payload: {
             id: user.id,
             name: user.name,
             username: user.username ?? "",
             resumeToken,
-            role: user.role ?? ROLES.MEMBER,
-            historyVersion,
+            role: user.role === ROLES.ADMIN ? ROLES.ADMIN : ROLES.MEMBER,
+            resumed,
         },
+    }),
+
+    /**
+     * @param {RoomSummary} summary
+     * @param {{created?: boolean, resumed?: boolean}} [how]
+     */
+    roomJoined: (summary, { created = false, resumed = false } = {}) =>
+        scoped(summary.conversationId, {
+            type: SERVER_EVENTS.ROOM_JOINED,
+            payload: { ...summary, created, resumed },
+        }),
+
+    /** @param {RoomSummary} summary */
+    roomUpdated: (summary) =>
+        scoped(summary.conversationId, { type: SERVER_EVENTS.ROOM_UPDATED, payload: summary }),
+
+    /** @param {string} conversationId @param {string} reason um dos `ROOM_LEFT_REASONS` */
+    roomLeft: (conversationId, reason) =>
+        scoped(conversationId, { type: SERVER_EVENTS.ROOM_LEFT, payload: { reason } }),
+
+    /** @param {RoomSummary[]} rooms @param {string | null} [requestId] */
+    roomList: (rooms, requestId = null) => ({
+        type: SERVER_EVENTS.ROOM_LIST,
+        payload: { rooms, ...(requestId ? { requestId } : {}) },
     }),
 
     /** @param {unknown[]} entries mensagens de chat já no formato de envio */
@@ -222,6 +316,7 @@ export const serverMessage = Object.freeze({
     /**
      * `status` já existia ("online"); agora também "away". `role` e
      * `statusText` são aditivos.
+     * `role` é o papel NA SALA: `admin` (global) prevalece sobre `host`.
      * @param {{id: string, name: string, username?: string, role?: string, away?: string | null}[]} users
      */
     userList: (users) => ({
@@ -244,10 +339,12 @@ export const serverMessage = Object.freeze({
 
     /**
      * @param {string} code um dos `ERROR_CODES`
-     * @param {string | null} [ref] `clientMsgId` da mensagem recusada, quando houver
+     * @param {string | null} [ref] `clientMsgId` ou `requestId` recusado, quando houver
+     * @param {string | null} [conversationId] conversa a que o erro se refere
      */
-    error: (code, ref = null) => ({
+    error: (code, ref = null, conversationId = null) => ({
         type: SERVER_EVENTS.ERROR,
+        ...(conversationId ? { conversationId } : {}),
         payload: { code, message: describeError(code).message, ...(ref ? { ref } : {}) },
     }),
 

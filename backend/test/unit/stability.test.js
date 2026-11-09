@@ -3,66 +3,39 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import { createRoom } from "../../src/room/room.js";
-import { createIdentityStore } from "../../src/room/sessions.js";
-import { withUsername } from "../identity.js";
-
-/** Entra na sala com username automático (ver test/identity.js). */
-const joinRoom = (room, member, payload, label) => room.join(member, withUsername(payload), label);
+import { setup as harness } from "./harness.js";
 import { createMetrics } from "../../src/metrics.js";
 import { createHttpHandler } from "../../src/transport/http.js";
 import { createConnectionHandler } from "../../src/transport/connection.js";
 
 describe("agrupamento da lista de pessoas", () => {
     const setup = () => {
-        const queue = [];
-        const inbox = new Map();
-        let lists = 0;
-        const room = createRoom({
-            identities: createIdentityStore(),
-            log: () => {},
-            historySize: 10,
-            historyOnJoin: 5,
-            deliver: (member, data) => {
-                if (!inbox.has(member)) inbox.set(member, []);
-                inbox.get(member).push(JSON.parse(data));
-            },
-            userListScheduler: {
-                schedule: (callback) => (queue.push(callback), queue.length),
-                cancel: (handle) => (queue[handle - 1] = null),
-            },
-            onUserList: () => (lists += 1),
-        });
-        const flush = () => {
-            const pending = queue.splice(0);
-            for (const callback of pending) callback?.();
-        };
-        return { room, inbox, flush, lists: () => lists };
+        const h = harness({ coalesce: true });
+        const userLists = (m) => h.received(m, "user_list");
+        const total = () =>
+            [...h.inbox.values()].flat().filter((m) => m.type === "user_list").length;
+        return { ...h, userLists, total };
     };
 
     test("várias entradas seguidas viram um envio só, com o estado final", () => {
-        const { room, inbox, flush, lists } = setup();
-        const members = Array.from({ length: 20 }, (_, i) => ({ i }));
-        members.forEach((member, i) => joinRoom(room, member, { userName: `p${i}` }, `c${i}`));
-        assert.equal(lists(), 0, "nada enviado antes do agendamento disparar");
-        flush();
-        assert.equal(lists(), 1);
-        const last = inbox
-            .get(members[0])
-            .filter((m) => m.type === "user_list")
-            .at(-1);
-        assert.equal(last.payload.length, 20);
+        const { member, enter, flushLists, userLists } = setup();
+        const members = Array.from({ length: 20 }, (_, i) => member(`p${i}`));
+        members.forEach((m) => enter(m));
+        assert.equal(userLists(members[0]).length, 0, "nada enviado antes do agendamento disparar");
+        flushLists();
+        assert.equal(userLists(members[0]).length, 1);
+        assert.equal(userLists(members[0]).at(-1).payload.length, 20);
     });
 
     test("entrada e saída na mesma janela: a lista reflete só quem ficou", () => {
-        const { room, inbox, flush } = setup();
-        const a = { a: 1 };
-        const b = { b: 1 };
-        joinRoom(room, a, { userName: "A" }, "a");
-        joinRoom(room, b, { userName: "B" }, "b");
-        room.leave(b);
-        flush();
-        const list = inbox.get(a).filter((m) => m.type === "user_list");
+        const { member, enter, hub, flushLists, userLists, room } = setup();
+        const a = member("A");
+        const b = member("B");
+        enter(a);
+        enter(b);
+        hub.leaveRoom(b, { conversationId: room.id });
+        flushLists();
+        const list = userLists(a);
         assert.equal(list.length, 1);
         assert.deepEqual(
             list[0].payload.map((p) => p.name),
@@ -70,23 +43,23 @@ describe("agrupamento da lista de pessoas", () => {
         );
     });
 
-    test("ordem para quem entra continua: sessão antes da lista", () => {
-        const { room, inbox, flush } = setup();
-        const a = { a: 1 };
-        joinRoom(room, a, { userName: "A" }, "a");
-        flush();
+    test("ordem para quem entra continua: sessão, sala, depois a lista", () => {
+        const { member, enter, flushLists, all } = setup();
+        const a = member("A");
+        enter(a);
+        flushLists();
         assert.deepEqual(
-            inbox.get(a).map((m) => m.type),
-            ["session", "user_list"],
+            all(a).map((m) => m.type),
+            ["session", "room_joined", "user_list"],
         );
     });
 
     test("silence cancela o envio pendente (nenhum timer sobra)", () => {
-        const { room, flush, lists } = setup();
-        joinRoom(room, { x: 1 }, { userName: "X" }, "x");
-        room.silence();
-        flush();
-        assert.equal(lists(), 0);
+        const { member, enter, hub, flushLists, total } = setup();
+        enter(member("X"));
+        hub.silence();
+        flushLists();
+        assert.equal(total(), 0);
     });
 });
 
@@ -107,6 +80,22 @@ describe("métricas", () => {
         assert.equal(typeof snapshot.process.rssMb, "number");
         assert.equal(typeof snapshot.eventLoopDelayMs.p99, "number");
         assert.deepEqual(snapshot.gauges, { connections: 1, users: 1, identities: 1 });
+    });
+
+    test("todo contador usado pelo servidor existe (nenhum vira NaN)", async () => {
+        const { readFile, readdir } = await import("node:fs/promises");
+        const metrics = createMetrics();
+        const snapshot = metrics.snapshot({ connections: 0, users: 0, identities: 0 });
+        metrics.stop();
+        const dir = new URL("../../src/transport/", import.meta.url);
+        const used = new Set();
+        for (const file of await readdir(dir)) {
+            const source = await readFile(new URL(file, dir), "utf8");
+            for (const match of source.matchAll(/metrics\.count\("([A-Za-z]+)"/g))
+                used.add(match[1]);
+        }
+        assert.ok(used.has("roomsCreated"));
+        for (const name of used) assert.ok(name in snapshot.counters, name);
     });
 
     test("reset zera as janelas, não os contadores cumulativos", () => {
@@ -168,16 +157,16 @@ describe("prazo de login e sinal de atividade", () => {
     test("conexão que não entra a tempo é fechada com 4001; quem entra não", async () => {
         let member = false;
         const room = {
-            join: () => ((member = true), { ok: true, replaced: null }),
+            login: () => ((member = true), { ok: true, replaced: null }),
             post: () => ({ ok: true }),
             typing() {},
-            leave() {},
-            isMember: () => member,
+            disconnect() {},
+            isLoggedIn: () => member,
             userIdOf: () => null,
         };
         const counted = [];
         const handle = createConnectionHandler({
-            room,
+            hub: /** @type {any} */ (room),
             log: () => {},
             messageRate: { capacity: 5, refillPerSecond: 1 },
             signalRate: { capacity: 5, refillPerSecond: 1 },
@@ -208,14 +197,14 @@ describe("prazo de login e sinal de atividade", () => {
     test("todo quadro recebido sinaliza atividade (heartbeat)", () => {
         const seen = [];
         const handle = createConnectionHandler({
-            room: {
-                join: () => ({ ok: false, code: "invalid_name" }),
+            hub: /** @type {any} */ ({
+                login: () => ({ ok: false, code: "invalid_name" }),
                 post() {},
                 typing() {},
-                leave() {},
-                isMember: () => false,
+                disconnect() {},
+                isLoggedIn: () => false,
                 userIdOf: () => null,
-            },
+            }),
             log: () => {},
             messageRate: { capacity: 5, refillPerSecond: 1 },
             signalRate: { capacity: 5, refillPerSecond: 1 },

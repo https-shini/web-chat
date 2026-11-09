@@ -15,7 +15,7 @@ export const profileCommands = [
         examples: ["/nick João Silva"],
         params: [{ name: "novo nome", type: "text" }],
         run: (ctx) => {
-            const result = ctx.room.rename(ctx.member, ctx.args["novo nome"]);
+            const result = ctx.hub.rename(ctx.member, ctx.args["novo nome"]);
             if (result.ok) {
                 return result.changed
                     ? ctx.reply.success(`Agora você se chama ${result.name}.`)
@@ -37,27 +37,46 @@ export const profileCommands = [
         name: "profile",
         aliases: ["whois", "perfil"],
         category: "profile",
-        description: "Mostra o perfil público de alguém (ou o seu).",
+        description: "Mostra o perfil público de alguém da sala (ou o seu).",
         syntax: "/profile [nome ou id]",
         examples: ["/profile", "/profile @ana", "/profile Ana"],
         params: [{ name: "nome ou id", type: "text", optional: true }],
         run: (ctx) => {
             let identity = ctx.identity;
+            let membership = ctx.membership;
             const query = ctx.args["nome ou id"];
             if (query) {
+                // Procurar alguém só faz sentido dentro de uma sala: fora dela
+                // não há como saber quem você "vê".
+                if (!ctx.room) {
+                    return ctx.reply.error(
+                        ctx.errors.NO_CONVERSATION,
+                        "Para ver o perfil de alguém, use /profile dentro de uma sala.",
+                    );
+                }
                 const found = findTarget(ctx, query);
                 if (!found.ok) return found.response;
                 identity = found.target.identity;
+                membership = found.target.membership;
             }
             const time = ctx.now();
+            const role =
+                identity.role === "admin"
+                    ? "administrador"
+                    : membership?.role === "host"
+                      ? "anfitrião da sala"
+                      : "participante";
+            const muted = membership && isMuted(membership, time) ? " · silenciado" : "";
             return ctx.reply.result(identity.name, {
                 title: "Perfil",
                 lines: [
                     `Username: @${identity.username}`,
                     `Id: ${identity.id}`,
-                    `Papel: ${identity.role === "admin" ? "administrador" : "participante"}`,
-                    `Status: ${identity.away !== null ? `ausente (${identity.away})` : "presente"}${isMuted(identity, time) ? " · silenciado" : ""}`,
-                    `Na sala desde: ${clock(identity.joinedAt)}`,
+                    `Papel: ${role}`,
+                    `Status: ${identity.away !== null ? `ausente (${identity.away})` : "presente"}${muted}`,
+                    membership
+                        ? `Na sala desde: ${clock(membership.joinedAt)}`
+                        : `No chat desde: ${clock(identity.joinedAt)}`,
                     `Mensagens nesta sessão do servidor: ${identity.messageCount}`,
                 ],
             });
@@ -79,6 +98,7 @@ export const profileCommands = [
         description: "Publica uma ação em terceira pessoa.",
         syntax: "/me <ação>",
         examples: ["/me está estudando programação"],
+        requiresRoom: true,
         params: [{ name: "ação", type: "text" }],
         run: (ctx) => publishFor(ctx, { content: ctx.args["ação"], kind: MESSAGE_KINDS.ACTION }),
     },
@@ -94,10 +114,10 @@ export const profileCommands = [
         run: (ctx) => {
             const reason = ctx.args.motivo;
             if (!reason && ctx.identity.away !== null) {
-                ctx.room.setAway(ctx.member, null);
+                ctx.hub.setAway(ctx.member, null);
                 return ctx.reply.success("Bem-vindo de volta: você está presente.");
             }
-            const result = ctx.room.setAway(ctx.member, reason ?? "");
+            const result = ctx.hub.setAway(ctx.member, reason ?? "");
             return ctx.reply.success(
                 `Você está ausente: ${result.away}. Envie uma mensagem ou /afk para voltar.`,
             );

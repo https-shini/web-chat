@@ -225,12 +225,33 @@ const connect = (url, options = {}) =>
             const client = {
                 ws,
                 inbox,
+                /**
+                 * Conversa padrão deste cliente (a sala em que `join` o pôs).
+                 * Quadros de conversa sem `conversationId` declarado a recebem.
+                 * @type {string | null}
+                 */
+                conversationId: null,
                 get closed() {
                     return closeInfo;
                 },
                 send(type, payload) {
                     // Login sem username declarado ganha um automático (ver identity.js).
-                    const body = type === "user_login" ? withUsername(payload) : payload;
+                    let body = type === "user_login" ? withUsername(payload) : payload;
+                    // Desde a Fase 2 da evolução toda mensagem, sinal e comando
+                    // diz a conversa. Teste que não trata disso fala na sala
+                    // padrão; quem testa a conversa declara a chave (mesmo
+                    // `conversationId: undefined`, para testar a ausência).
+                    if (
+                        CONVERSATION_EVENTS.has(type) &&
+                        client.conversationId !== null &&
+                        (body === undefined ||
+                            (typeof body === "object" &&
+                                body !== null &&
+                                !Array.isArray(body) &&
+                                !Object.hasOwn(body, "conversationId")))
+                    ) {
+                        body = { ...(body ?? {}), conversationId: client.conversationId };
+                    }
                     ws.send(
                         JSON.stringify(body === undefined ? { type } : { type, payload: body }),
                     );
@@ -306,17 +327,54 @@ const connect = (url, options = {}) =>
         `conexão com ${url}`,
     );
 
+/** Quadros do cliente que pertencem a uma conversa. */
+const CONVERSATION_EVENTS = new Set(["chat_message", "typing_start", "typing_stop", "command"]);
+
+/** Sala padrão de cada servidor de teste (url → código). @type {Map<string, string>} */
+const sharedRooms = new Map();
+
 /**
- * Conecta e entra na sala; devolve o cliente e a sessão recebida.
+ * Põe o cliente (já com sessão) na sala padrão do servidor: a primeira
+ * pessoa a cria, as seguintes entram pelo código. Devolve o `room_joined`.
+ * @param {string} url
+ * @param {Awaited<ReturnType<typeof connect>>} client
+ */
+const enterSharedRoom = async (url, client) => {
+    const code = sharedRooms.get(url);
+    if (code) {
+        client.send("room_join", { code });
+        const reply = await client.take(
+            (message) =>
+                message.type === "room_joined" ||
+                (message.type === "error" && message.payload.code === "room_not_found"),
+        );
+        if (reply.type === "room_joined") {
+            client.conversationId = reply.conversationId;
+            return reply;
+        }
+    }
+    client.send("room_create", {});
+    const joined = await client.take("room_joined");
+    sharedRooms.set(url, joined.payload.code);
+    client.conversationId = joined.conversationId;
+    return joined;
+};
+
+/**
+ * Conecta, começa a sessão e (por padrão) entra na sala padrão do servidor;
+ * devolve o cliente, a sessão e o resumo da sala. `{room: false}` deixa o
+ * cliente só com a sessão.
  * @param {string} url
  * @param {Record<string, unknown>} payload
  * @param {import("ws").ClientOptions} [options]
+ * @param {{room?: boolean}} [behavior]
  */
-const join = async (url, payload, options) => {
+const join = async (url, payload, options, { room = true } = {}) => {
     const client = await connect(url, options);
     client.send("user_login", payload);
     const session = await client.take("session");
-    return { client, session: session.payload };
+    const joined = room ? await enterSharedRoom(url, client) : null;
+    return { client, session: session.payload, room: joined?.payload ?? null };
 };
 
 /**
@@ -333,4 +391,4 @@ const barrier = async (sender, observer) => {
     );
 };
 
-export { startServer, connect, join, barrier, freePort, BACKEND_DIR };
+export { startServer, connect, join, enterSharedRoom, barrier, freePort, BACKEND_DIR };

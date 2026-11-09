@@ -33,6 +33,7 @@ const TERMINAL_CLOSE_CODES = new Set([CLOSE_CODES.REMOVED, CLOSE_CODES.LOGGED_OU
  * @property {string} type
  * @property {unknown} payload
  * @property {string} [id]
+ * @property {string} [conversationId]  conversa a que o evento pertence
  */
 
 /**
@@ -103,6 +104,10 @@ export const createTransport = ({ url, onStatus, onEvent, onOpen, onQueueChange 
                 /** @type {DomainEvent} */
                 const domainEvent = { type: decoded.type, payload: decoded.payload };
                 if (typeof decoded.id === "string") domainEvent.id = decoded.id;
+                // Escopo da conversa (Fase 2 da evolução): no topo do envelope.
+                if (typeof decoded.conversationId === "string") {
+                    domainEvent.conversationId = decoded.conversationId;
+                }
                 onEvent(domainEvent);
             }
         } catch {

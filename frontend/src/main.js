@@ -29,6 +29,8 @@ import { createDialog } from "./ui/dialog.js";
 import { hydrateIcons } from "./ui/icons.js";
 import { createLayout } from "./ui/layout.js";
 import { createPanelResize } from "./ui/panelResize.js";
+import { createRoomHeader } from "./ui/roomHeader.js";
+import { inviteHash, readInviteHash } from "./state/invite.js";
 import { createMemberCard } from "./ui/memberCard.js";
 import { createTooltips } from "./ui/tooltip.js";
 import { createUserPanel } from "./ui/userPanel.js";
@@ -95,6 +97,28 @@ let handleEvent = () => {};
  */
 let resumeToken = null;
 
+/**
+ * Código de convite pendente: o do link que abriu a página (`#/s/código`).
+ * Vale para a primeira entrada; depois a sala aberta é que manda.
+ * @type {string | null}
+ */
+let pendingInvite = readInviteHash(location.hash);
+
+/** Correlação do pedido de sala feito na entrada (criar ou entrar). */
+const ROOM_REQUEST_ID = "entrada-sala";
+/** @type {"create" | "join" | null} */
+let roomRequest = null;
+
+/**
+ * Acrescenta a conversa aberta ao payload: o servidor só aceita mensagem,
+ * sinal e comando de quem participa da conversa informada.
+ * @param {Record<string, unknown>} payload
+ */
+const inRoom = (payload) => {
+    const conversationId = store.getState().room?.conversationId;
+    return conversationId ? { ...payload, conversationId } : payload;
+};
+
 /** Sem confirmação do servidor nesse prazo, a mensagem vira "não enviada". */
 const DELIVERY_TIMEOUT_MS = 10_000;
 
@@ -136,7 +160,7 @@ const transport = createTransport({
 });
 
 const typingSignal = createTypingSignal({
-    send: (type) => transport.signal(type),
+    send: (type) => transport.signal(type, inRoom({})),
     interval: TIMING.typingSignalInterval,
     idle: TIMING.typingIdle,
 });
@@ -150,7 +174,7 @@ const sendChat = (content) => {
     const me = store.getState().me;
     if (!me) return;
     const clientMsgId = crypto.randomUUID();
-    const sent = transport.send(CLIENT_EVENTS.CHAT_MESSAGE, { content, clientMsgId });
+    const sent = transport.send(CLIENT_EVENTS.CHAT_MESSAGE, inRoom({ content, clientMsgId }));
     store.actions.addMessage({
         id: `local:${clientMsgId}`,
         key: `c:${clientMsgId}`,
@@ -176,10 +200,10 @@ const sendChat = (content) => {
  */
 const retryMessage = (message) => {
     if (!message.clientMsgId) return;
-    const sent = transport.send(CLIENT_EVENTS.CHAT_MESSAGE, {
-        content: message.content,
-        clientMsgId: message.clientMsgId,
-    });
+    const sent = transport.send(
+        CLIENT_EVENTS.CHAT_MESSAGE,
+        inRoom({ content: message.content, clientMsgId: message.clientMsgId }),
+    );
     store.actions.retryMessage(message.clientMsgId, sent ? Date.now() : null);
 };
 
@@ -231,7 +255,7 @@ const submit = (content) => {
         // valida e autoriza é o servidor.
         const requestId = crypto.randomUUID();
         pendingRequests.set(requestId, { name: route.name, sentAt: Date.now() });
-        transport.send(CLIENT_EVENTS.COMMAND, { requestId, text: route.text });
+        transport.send(CLIENT_EVENTS.COMMAND, inRoom({ requestId, text: route.text }));
     }
 };
 
@@ -250,15 +274,17 @@ const suggestions = createCommandSuggestions({
 
 /**
  * Papel efetivo para a INTERFACE (mostrar ou não atalhos de moderação).
- * O `session` só traz o papel da entrada; depois de um /admin, o valor
- * atual chega na lista de pessoas do servidor. Permissão de verdade é
- * sempre conferida no servidor, a cada comando.
+ * O `session` só traz o papel global; o papel NA SALA (anfitrião) e um
+ * /admin posterior chegam na lista de pessoas do servidor. Permissão de
+ * verdade é sempre conferida no servidor, a cada comando.
  * @param {import("./state/store.js").State} state
- * @returns {"member" | "admin"}
+ * @returns {"member" | "admin" | "host"}
  */
 const effectiveRole = (state) => {
     const listed = state.people.find((person) => person.id === state.me?.id);
-    return listed?.role ?? state.role;
+    if (listed?.role) return listed.role;
+    if (state.role === "admin") return "admin";
+    return state.room?.role === "host" ? "host" : "member";
 };
 
 const memberCard = createMemberCard({
@@ -278,6 +304,8 @@ const memberCard = createMemberCard({
     confirm: (options) => dialog.confirm(options),
     notify: (text, kind) => toasts.show(text, kind),
 });
+
+const roomHeader = createRoomHeader();
 
 const people = createPeople({ onSelect: (person, button) => memberCard.open(person, button) });
 
@@ -312,21 +340,16 @@ for (const button of document.querySelectorAll("[data-action]")) {
 }
 
 /**
- * Sair da sala. A identidade temporária é encerrada no servidor (token
- * inválido, username livre na hora) e tudo o que era desta participação é
- * descartado no navegador: conversa, fila de envio, token de retomada e os
- * campos da entrada. A preferência de tema não é dado da participação e
- * fica. Sem conexão no momento, não há como avisar o servidor: a identidade
- * expira sozinha no fim do prazo de retomada (2 min).
+ * Encerra a participação neste navegador: a identidade temporária acaba no
+ * servidor (token inválido, username livre, fora de todas as salas) e tudo
+ * o que era desta participação é descartado aqui: conversa, fila de envio,
+ * token de retomada, link de convite e os campos da entrada. A preferência
+ * de tema não é dado da participação e fica. Sem conexão no momento, não há
+ * como avisar o servidor: a identidade expira sozinha no fim do prazo de
+ * retomada (2 min).
+ * @param {{announce?: string, notice?: string}} [options]
  */
-const logout = async () => {
-    layout.closeDrawer();
-    const confirmed = await dialog.confirm({
-        title: strings.logout.title,
-        body: strings.logout.body,
-        confirmLabel: strings.logout.confirm,
-    });
-    if (!confirmed) return;
+const endParticipation = ({ announce = strings.logout.done, notice } = {}) => {
     typingSignal.stop();
     transport.signal(CLIENT_EVENTS.LOGOUT);
     transport.close();
@@ -341,7 +364,39 @@ const logout = async () => {
     renderLoop.flush();
     entry.clear();
     entry.focus();
-    announcer.say(strings.logout.done, { force: true });
+    pendingInvite = null;
+    roomRequest = null;
+    history.replaceState(null, "", location.pathname + location.search);
+    if (notice) toasts.show(notice, "error");
+    announcer.say(announce, { force: true });
+};
+
+/** Sair, com confirmação: o botão "Sair" da interface. */
+const logout = async () => {
+    layout.closeDrawer();
+    const confirmed = await dialog.confirm({
+        title: strings.logout.title,
+        body: strings.logout.body,
+        confirmLabel: strings.logout.confirm,
+    });
+    if (!confirmed) return;
+    endParticipation();
+};
+
+/**
+ * Depois da sessão nova, a sala: a do convite (ou a que estava aberta, se o
+ * servidor reiniciou e a identidade é outra) ou uma sala nova. Numa
+ * retomada o servidor devolve as salas sozinho.
+ */
+const enterRoom = () => {
+    const code = store.getState().room?.code ?? pendingInvite;
+    // Identidade nova: a participação anterior não existe mais no servidor.
+    store.actions.forgetRoom();
+    roomRequest = code ? "join" : "create";
+    transport.send(
+        code ? CLIENT_EVENTS.ROOM_JOIN : CLIENT_EVENTS.ROOM_CREATE,
+        code ? { code, requestId: ROOM_REQUEST_ID } : { requestId: ROOM_REQUEST_ID },
+    );
 };
 
 for (const button of document.querySelectorAll('[data-action="logout"]')) {
@@ -354,6 +409,9 @@ const failure = createFailure({
 
 const entry = createEntry({
     onSubmit: (name, username) => {
+        // O link pode ter mudado sem recarregar a página (só o `#` muda ao
+        // abrir um convite com a aba já aberta): vale o endereço de agora.
+        pendingInvite = readInviteHash(location.hash) ?? pendingInvite;
         // A pessoa fica na entrada, vendo o progresso, até o servidor aceitar
         // (evento `session`). Id provisório: o definitivo vem na sessão.
         store.actions.startJoin({ id: crypto.randomUUID(), name, username });
@@ -373,8 +431,39 @@ handleEvent = createEventHandler({
     toasts,
     notifier,
     typingTracker,
-    onSession: (token) => {
+    onSession: (token, resumed) => {
         resumeToken = token;
+        if (!resumed) enterRoom();
+    },
+    onRoomJoined: (room) => {
+        pendingInvite = null;
+        roomRequest = null;
+        // O endereço da página vira o link de convite da sala aberta.
+        history.replaceState(null, "", inviteHash(room.code));
+    },
+    onRoomRefused: (code, message) => {
+        if (roomRequest === "join" && store.getState().room === null) {
+            // Convite que não deu certo (código errado, sala que já acabou,
+            // remoção): a pessoa não fica sem sala — ganha uma nova.
+            pendingInvite = null;
+            toasts.show(format(strings.room.inviteFailed, { reason: message }), "error");
+            roomRequest = "create";
+            transport.send(CLIENT_EVENTS.ROOM_CREATE, { requestId: ROOM_REQUEST_ID });
+            return;
+        }
+        if (roomRequest === "create" && store.getState().room === null) {
+            // Nem criar foi possível (servidor no limite): de volta à entrada.
+            endParticipation({ announce: message, notice: message });
+            return;
+        }
+        toasts.show(message, "error");
+    },
+    onRoomLeft: (reason) => {
+        endParticipation(
+            reason === "removed"
+                ? { announce: strings.room.removed, notice: strings.room.removed }
+                : {},
+        );
     },
     onCommandResult: (requestId, result) => {
         const request = requestId ? pendingRequests.get(requestId) : undefined;
@@ -479,7 +568,8 @@ const render = (state, previous) => {
     if (changed(state, previous, ["people", "me", "link"])) {
         people.render(state.people, state.me?.id ?? null, state.link === "online");
     }
-    if (changed(state, previous, ["people", "me", "role", "link"])) {
+    if (changed(state, previous, ["room"])) roomHeader.render(state.room);
+    if (changed(state, previous, ["people", "me", "role", "link", "room"])) {
         const meId = state.me?.id;
         userPanel.render(
             state.me,

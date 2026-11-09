@@ -133,3 +133,77 @@ export const readClientId = (raw) =>
     typeof raw === "string" && raw.length <= LIMITS.clientIdMaxLength && CLIENT_ID.test(raw)
         ? raw
         : null;
+
+/** Letras do código de sala, sempre minúsculas e sem acento. */
+export const ROOM_CODE_LETTERS = "abcdefghijklmnopqrstuvwxyz";
+/** Tamanho de cada grupo do código `abc-defg-hij`. */
+export const ROOM_CODE_GROUPS = Object.freeze([3, 4, 3]);
+const ROOM_CODE_LENGTH = ROOM_CODE_GROUPS.reduce((sum, size) => sum + size, 0);
+
+/**
+ * Formata 10 letras como `abc-defg-hij`.
+ * @param {string} letters
+ */
+export const formatRoomCode = (letters) => {
+    const parts = [];
+    let start = 0;
+    for (const size of ROOM_CODE_GROUPS) {
+        parts.push(letters.slice(start, start + size));
+        start += size;
+    }
+    return parts.join("-");
+};
+
+/**
+ * Código de convite como alguém o digitaria: com ou sem hífens, com espaços,
+ * em maiúsculas ou colado de um link (`…#/s/abc-defg-hij`). Devolve o código
+ * canônico ou recusa — a recusa de formato é a mesma para qualquer entrada.
+ * @param {unknown} raw
+ * @returns {{ok: true, code: string} | {ok: false, code: string}}
+ */
+export const readRoomCode = (raw) => {
+    if (typeof raw !== "string" || raw.length > LIMITS.roomCodeInputMaxLength) {
+        return { ok: false, code: ERROR_CODES.INVALID_ROOM_CODE };
+    }
+    // Link de convite: vale o último segmento do caminho ou do fragmento.
+    const tail =
+        raw
+            .trim()
+            .split(/[/#?=]/)
+            .filter(Boolean)
+            .at(-1) ?? "";
+    const letters = tail.toLowerCase().replace(/[\s-]/g, "");
+    if (letters.length !== ROOM_CODE_LENGTH || !/^[a-z]+$/.test(letters)) {
+        return { ok: false, code: ERROR_CODES.INVALID_ROOM_CODE };
+    }
+    return { ok: true, code: formatRoomCode(letters) };
+};
+
+/**
+ * Nome opcional de sala. Ausente ou vazio vira `""` (quem chama dá o padrão).
+ * @param {unknown} raw
+ * @returns {{ok: true, name: string} | {ok: false, code: string}}
+ */
+export const readRoomName = (raw) => {
+    if (raw === undefined || raw === null) return { ok: true, name: "" };
+    if (typeof raw !== "string") return { ok: false, code: ERROR_CODES.INVALID_ROOM_NAME };
+    if (normalizeText(raw, Infinity).length > LIMITS.roomNameMaxLength) {
+        return { ok: false, code: ERROR_CODES.INVALID_ROOM_NAME };
+    }
+    return { ok: true, name: normalizeText(raw, LIMITS.roomNameMaxLength) };
+};
+
+const CONVERSATION_ID = /^[a-z]{1,4}_[A-Za-z0-9_-]{8,48}$/;
+
+/**
+ * `conversationId` vindo do cliente: só formato; quem chama confere se a
+ * conexão participa da conversa. Inválido é tratado como ausente.
+ * @param {unknown} raw
+ * @returns {string | null}
+ */
+export const readConversationId = (raw) =>
+    typeof raw === "string" &&
+    raw.length <= LIMITS.conversationIdMaxLength &&
+    CONVERSATION_ID.test(raw)
+        ? raw
+        : null;

@@ -30,11 +30,12 @@ export const createUserPanel = ({ onToggleAway }) => {
         /**
          * @param {Person | null} me
          * @param {Person | undefined} listed  você na lista do servidor (presença real)
-         * @param {"member" | "admin"} role
+         * @param {"member" | "admin" | "host"} role
          * @param {boolean} online
          */
         render(me, listed, role, online) {
-            for (const node of adminOnly) node.hidden = role !== "admin";
+            // Moderação da sala: administrador ou anfitrião dela.
+            for (const node of adminOnly) node.hidden = role !== "admin" && role !== "host";
             if (!me) return;
             const isAway = listed?.status === "away";
             avatar.replaceChildren(
@@ -57,7 +58,11 @@ export const createUserPanel = ({ onToggleAway }) => {
                   : strings.userPanel.online;
             const parts = [
                 me.username ? `@${me.username}` : "",
-                role === "admin" ? strings.userPanel.admin : "",
+                role === "admin"
+                    ? strings.userPanel.admin
+                    : role === "host"
+                      ? strings.userPanel.host
+                      : "",
                 presence,
             ].filter(Boolean);
             status.textContent = parts.join(" · ");

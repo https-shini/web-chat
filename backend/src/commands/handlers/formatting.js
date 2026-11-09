@@ -11,6 +11,7 @@ import { publishFor } from "./shared.js";
 const emoticon = (name, art, description) => ({
     name,
     category: "formatting",
+    requiresRoom: true,
     description,
     syntax: `/${name} [texto]`,
     examples: [`/${name}`, `/${name} fazer o quê`],
@@ -27,6 +28,7 @@ const styled = (name, format, description, aliases = []) => ({
     name,
     aliases,
     category: "formatting",
+    requiresRoom: true,
     description,
     syntax: `/${name} <texto>`,
     examples: [`/${name} texto de exemplo`],

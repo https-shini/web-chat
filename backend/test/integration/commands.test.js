@@ -2,7 +2,7 @@
 
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { startServer, connect, join, barrier } from "./helpers.js";
+import { startServer, connect, join, barrier, enterSharedRoom } from "./helpers.js";
 
 const ADMIN_KEY = "chave-de-integracao-0123456789";
 let seq = 0;
@@ -31,8 +31,10 @@ describe("comandos", () => {
     test("o catálogo chega depois da sessão, com permissões da pessoa", async () => {
         const { client } = await join(server.url, { userName: "Cat" });
         const catalog = (await client.take("command_catalog")).payload.commands;
-        assert.equal(catalog.length, 28);
+        assert.equal(catalog.length, 30);
+        // O catálogo do login é anterior a qualquer sala: moderação ainda não liberada.
         assert.equal(catalog.find((c) => c.name === "clearall").allowed, false);
+        assert.equal(catalog.find((c) => c.name === "clearall").requiresRoom, true);
         assert.equal(catalog.find((c) => c.name === "clear").scope, "client");
         client.close();
     });
@@ -49,6 +51,8 @@ describe("comandos", () => {
         assert.equal(b.client.count("chat_cleared"), 0);
         const late = await connect(server.url);
         late.send("user_login", { userName: "Depois" });
+        await late.take("session");
+        await enterSharedRoom(server.url, late);
         const history = await late.take("message_history");
         assert.ok(history.payload.some((m) => m.payload.content === "fica no servidor"));
         a.client.close();
@@ -85,15 +89,18 @@ describe("comandos", () => {
         }
         const late = await connect(server.url);
         late.send("user_login", { userName: "Chegou" });
-        const session = await late.take("session");
-        assert.ok(session.payload.historyVersion >= 1);
+        await late.take("session");
+        const joined = await enterSharedRoom(server.url, late);
+        assert.ok(joined.payload.historyVersion >= 1);
         await barrier(admin.client, late);
         assert.equal(
             late.count("message_history"),
             0,
             "quem chega depois não vê o que foi apagado",
         );
-        await server.waitForLog((e) => e.event === "admin_action" && e.action === "clear_history");
+        await server.waitForLog(
+            (e) => e.event === "moderation_action" && e.action === "clear_history",
+        );
         admin.client.close();
         user.client.close();
         late.close();
@@ -266,13 +273,15 @@ describe("moderação", () => {
         target.client.close();
     });
 
-    test("/kick: fecha com 4003, avisa a sala e o token deixa de valer", async () => {
+    test("/kick: tira da sala, avisa, e a pessoa não volta a ela; a conexão continua", async () => {
         const admin = await join(server.url, { userName: "Juiz" });
         const target = await join(server.url, { userName: "Expulso" });
         const witness = await join(server.url, { userName: "Testemunha" });
         await becomeAdmin(admin.client);
         admin.client.send("command", { requestId: "k", text: "/kick Expulso" });
-        assert.equal((await target.client.waitClose()).code, 4003);
+        const removed = await target.client.take("room_left");
+        assert.equal(removed.payload.reason, "removed");
+        assert.equal(removed.conversationId, target.client.conversationId);
         const left = await witness.client.take(
             (m) => m.type === "user_left" && m.payload.userName === "Expulso",
         );
@@ -280,12 +289,13 @@ describe("moderação", () => {
         await witness.client.take(
             (m) => m.type === "notice" && m.payload.text.includes("removido"),
         );
-        const back = await join(server.url, {
-            userName: "Expulso",
-            resumeToken: target.session.resumeToken,
-        });
-        assert.notEqual(back.session.id, target.session.id);
-        for (const c of [admin, witness, back]) c.client.close();
+        assert.equal(target.client.closed, null, "a conexão continua aberta");
+        // Não fala mais na sala nem volta pelo código.
+        target.client.send("chat_message", { content: "ainda estou?" });
+        assert.equal((await target.client.take("error")).payload.code, "conversation_not_found");
+        target.client.send("room_join", { code: admin.room.code });
+        assert.equal((await target.client.take("error")).payload.code, "removed_from_room");
+        for (const c of [admin, witness, target]) c.client.close();
     });
 
     test("hierarquia: não modera a si mesmo nem outro administrador; alvo ambíguo pede id", async () => {
@@ -308,10 +318,13 @@ describe("moderação", () => {
 describe("administração desativada", () => {
     test("sem ADMIN_KEY, /admin informa que está desativada", async () => {
         const server = await startServer({ ADMIN_KEY: "" });
+        const host = await join(server.url, { userName: "Anfitriã" });
         const { client } = await join(server.url, { userName: "X" });
         assert.equal((await run(client, "/admin qualquer-coisa-123456")).code, "admin_disabled");
-        assert.equal((await run(client, "/kick X")).code, "forbidden");
+        // Sem ser anfitrião nem administrador, ninguém modera.
+        assert.equal((await run(client, "/kick Anfitriã")).code, "forbidden");
         client.close();
+        host.client.close();
         await server.stop();
     });
 });

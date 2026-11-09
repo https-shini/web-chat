@@ -3,7 +3,7 @@
 
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { startServer, connect, join, barrier } from "./helpers.js";
+import { startServer, connect, join, barrier, enterSharedRoom } from "./helpers.js";
 
 describe("identidade atribuída pelo servidor", () => {
     let server;
@@ -120,6 +120,8 @@ describe("identidade atribuída pelo servidor", () => {
         // Ao entrar, passa a receber normalmente — inclusive o histórico.
         lurker.send("user_login", { userName: "Agora entrei" });
         await lurker.take("session");
+        // Só a sessão ainda não dá acesso a nada: é preciso o código da sala.
+        await enterSharedRoom(server.url, lurker);
         const history = await lurker.take("message_history");
         assert.ok(
             history.payload.some((entry) => entry.payload.content === "conversa privada da sala"),

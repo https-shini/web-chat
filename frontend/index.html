@@ -99,7 +99,7 @@
                         <h2 class="c-nav-section__title" id="secao-sala">Sala</h2>
                         <a class="c-nav-item" href="#conteudo" aria-current="page">
                             <span class="c-nav-item__icon" data-icon="hash"></span>
-                            <span class="c-nav-item__label">sala-aberta</span>
+                            <span class="c-nav-item__label" data-room-name>sala</span>
                         </a>
                     </section>
 
@@ -121,7 +121,7 @@
                         data-admin-only
                         hidden
                     >
-                        <h2 class="c-nav-section__title" id="secao-admin">Administração</h2>
+                        <h2 class="c-nav-section__title" id="secao-admin">Moderação</h2>
                         <button
                             type="button"
                             class="c-nav-item c-nav-item--danger"
@@ -390,8 +390,8 @@
                             <span data-icon="menu"></span>
                         </button>
                         <span class="c-header__icon" data-icon="hash"></span>
-                        <h1 class="c-header__title">sala-aberta</h1>
-                        <p class="c-header__topic">Sala única, efêmera e anônima</p>
+                        <h1 class="c-header__title" data-room-name>sala</h1>
+                        <p class="c-header__topic" data-room-topic>Sala efêmera e anônima</p>
                         <span class="c-header__spacer"></span>
                         <p class="c-status-pill" data-state="connecting" aria-hidden="true">
                             <span class="c-status-pill__dot"></span>
@@ -431,7 +431,7 @@
 
                         <div class="c-empty" hidden>
                             <span class="c-empty__icon" data-icon="hash"></span>
-                            <p class="c-empty__title">Boas-vindas à #sala-aberta!</p>
+                            <p class="c-empty__title" data-room-welcome>Boas-vindas!</p>
                             <p class="c-empty__body">
                                 Este é o começo da conversa. Escreva a primeira mensagem — ou digite
                                 <kbd>/</kbd> para ver os comandos.
@@ -489,7 +489,7 @@
                                 maxlength="1000"
                                 autocomplete="off"
                                 enterkeyhint="send"
-                                placeholder="Conversar em #sala-aberta — digite / para comandos"
+                                placeholder="Conversar na sala — digite / para comandos"
                             />
                             <button
                                 type="submit"
