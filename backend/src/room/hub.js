@@ -21,10 +21,16 @@
  *
  * Também concentra o que é da IDENTIDADE e não de uma sala: nome, ausência
  * e papel de administrador, refletidos em todas as salas da pessoa.
+ *
+ * Conversas privadas (Fase 3 da evolução): busca por @ exato, abrir,
+ * encerrar e bloquear. Salas e conversas privadas são tipos distintos de
+ * conversa, com autorização própria, mas passam pelo mesmo caminho de
+ * mensagem e digitação (`resolveConversation`).
  */
 
 import { ERROR_CODES } from "../errors.js";
 import { LIMITS, ROLES, serverMessage } from "../protocol.js";
+import { createRateLimiter } from "../rateLimiter.js";
 import {
     normalizeText,
     readConversationId,
@@ -32,6 +38,7 @@ import {
     readResumeToken,
     readRoomCode,
     readRoomName,
+    readUserId,
     readUsername,
 } from "../validation.js";
 import { isHost } from "./policy.js";
@@ -40,13 +47,30 @@ import { REMOVAL_REASONS, RENAME_COOLDOWN_MS } from "./room.js";
 /**
  * @typedef {import("./sessions.js").Identity} Identity
  * @typedef {ReturnType<typeof import("./room.js").createRoom>} Room
+ * @typedef {import("./direct.js").DirectConversation} DirectConversation
  * @typedef {{ok: false, code: string}} Refusal
  */
+
+/**
+ * Limites contra abuso das conversas privadas, por identidade.
+ *  - busca por @: 20 seguidas, depois 1 a cada 3 s — encontrar um conhecido
+ *    é fácil; varrer @ às cegas, não;
+ *  - conversas NOVAS: 10 seguidas, depois 1 a cada 30 s — reabrir uma
+ *    conversa existente não conta;
+ *  - bloqueios: até 100 por sessão.
+ */
+export const DM_GUARD_DEFAULTS = Object.freeze({
+    lookup: Object.freeze({ capacity: 20, refillPerSecond: 1 / 3 }),
+    newConversation: Object.freeze({ capacity: 10, refillPerSecond: 1 / 30 }),
+    maxBlocked: 100,
+});
 
 /**
  * @param {{
  *   identities: ReturnType<typeof import("./sessions.js").createIdentityStore>,
  *   directory: ReturnType<typeof import("./directory.js").createRoomDirectory>,
+ *   directs: ReturnType<typeof import("./direct.js").createDirectDirectory>,
+ *   dmGuard?: Partial<typeof DM_GUARD_DEFAULTS>,
  *   joinGuard: ReturnType<typeof import("./joinGuard.js").createJoinGuard>,
  *   deliver: (holder: unknown, data: string) => void,
  *   log: (level: "info" | "warn" | "error", event: string, fields?: Record<string, unknown>) => void,
@@ -57,6 +81,8 @@ import { REMOVAL_REASONS, RENAME_COOLDOWN_MS } from "./room.js";
 export const createHub = ({
     identities,
     directory,
+    directs,
+    dmGuard = {},
     joinGuard,
     deliver,
     log,
@@ -71,6 +97,29 @@ export const createHub = ({
 
     /** @param {unknown} member */
     const entryOf = (member) => connections.get(member) ?? null;
+
+    const guard = { ...DM_GUARD_DEFAULTS, ...dmGuard };
+    /** Baldes por identidade; somem junto com ela. */
+    const buckets = {
+        lookup: new WeakMap(),
+        newConversation: new WeakMap(),
+    };
+    /**
+     * Consome uma ficha do balde da identidade.
+     * @param {"lookup" | "newConversation"} kind
+     * @param {Identity} identity
+     */
+    const consume = (kind, identity) => {
+        let take = buckets[kind].get(identity);
+        if (!take) {
+            take = createRateLimiter({ ...guard[kind], now });
+            buckets[kind].set(identity, take);
+        }
+        return take();
+    };
+
+    /** Alguém bloqueou alguém (em qualquer direção)? @param {Identity} x @param {Identity} y */
+    const blockedBetween = (x, y) => x.blocked.has(y.id) || y.blocked.has(x.id);
 
     /**
      * Identidade da conexão e a sala pedida, se ela participa.
@@ -87,6 +136,46 @@ export const createHub = ({
     };
 
     /**
+     * Identidade da conexão e a conversa pedida — sala OU privada —, se ela
+     * participa. As duas têm `post`, `publish` e `typing`.
+     * @param {unknown} member
+     * @param {unknown} rawConversationId
+     * @returns {{ok: true, identity: Identity, conversation: Room | DirectConversation} | Refusal}
+     */
+    const resolveConversation = (member, rawConversationId) => {
+        const entry = connections.get(member);
+        if (!entry) return { ok: false, code: ERROR_CODES.NOT_LOGGED_IN };
+        const id = readConversationId(rawConversationId);
+        const conversation =
+            directory.roomFor(entry.identity, id) ?? directs.forIdentity(entry.identity, id);
+        if (!conversation) return { ok: false, code: ERROR_CODES.CONVERSATION_NOT_FOUND };
+        return { ok: true, identity: entry.identity, conversation };
+    };
+
+    /**
+     * Pessoa indicada por `userId` ou `username` no payload.
+     *  - por id: qualquer identidade viva (conectada ou na janela de retomada);
+     *  - por @: só quem está conectado agora, e a busca conta no limite.
+     * @param {Identity} identity quem procura
+     * @param {Record<string, unknown>} payload
+     * @returns {{ok: true, target: Identity | null} | Refusal}
+     */
+    const findTarget = (identity, payload) => {
+        if (payload.userId !== undefined) {
+            const id = readUserId(payload.userId);
+            if (id === null) return { ok: false, code: ERROR_CODES.INVALID_USER };
+            return { ok: true, target: identities.findById(id) };
+        }
+        const read = readUsername(payload.username);
+        if (!read.ok || !read.username) return { ok: false, code: ERROR_CODES.INVALID_USER };
+        if (!consume("lookup", identity)) return { ok: false, code: ERROR_CODES.LOOKUP_LIMITED };
+        return { ok: true, target: identities.findConnected(read.username) };
+    };
+
+    /** Bloqueados da identidade, para `block_list`. @param {Identity} identity */
+    const blockedOf = (identity) => [...identity.blocked.values()];
+
+    /**
      * Fim da identidade (chamado pelo armazenamento): sai de todas as salas.
      * @param {Identity} identity
      */
@@ -95,6 +184,9 @@ export const createHub = ({
             directory.leave(identity, room.id, REMOVAL_REASONS.ENDED);
         }
         identity.rooms.clear();
+        // Conversas privadas acabam junto, com o histórico; a outra pessoa é avisada.
+        directs.dropIdentity(identity);
+        identity.blocked.clear();
         identity.recent.clear();
         log("info", "identity_ended", { user: identity.id });
     };
@@ -104,6 +196,12 @@ export const createHub = ({
         for (const room of directory.roomsOf(identity)) room.refreshUserList();
         onCapabilitiesChange(identity);
     };
+
+    /** Salas e conversas privadas da identidade. @param {Identity} identity */
+    const conversationsOf = (identity) => ({
+        rooms: directory.roomsOf(identity).map((room) => room.summaryFor(identity)),
+        dms: directs.of(identity).map((conversation) => conversation.summaryFor(identity)),
+    });
 
     return {
         forget,
@@ -157,6 +255,7 @@ export const createHub = ({
             // para reconhecer as próprias mensagens nos históricos.
             sendTo(member, serverMessage.session(identity, resumeToken, resumed));
             for (const room of directory.roomsOf(identity)) room.reconnect(identity);
+            for (const conversation of directs.of(identity)) conversation.reconnect(identity);
             return {
                 ok: true,
                 user: { id: identity.id, name: identity.name },
@@ -179,6 +278,8 @@ export const createHub = ({
             if (identity.holder !== member) return true; // já substituída por outra conexão
             for (const room of directory.roomsOf(identity)) room.disconnect(identity);
             identities.release(identity, member);
+            // Depois de liberar: a outra pessoa de cada conversa vê "offline".
+            for (const conversation of directs.of(identity)) conversation.disconnect(identity);
             log("info", "session_paused", { connection: entry.label, user: identity.id });
             return true;
         },
@@ -268,16 +369,147 @@ export const createHub = ({
             return directory.roomsOf(entry.identity).map((room) => room.summaryFor(entry.identity));
         },
 
+        /**
+         * Salas e conversas privadas da conexão (`room_list`).
+         * @param {unknown} member
+         */
+        conversationsOf(member) {
+            const entry = connections.get(member);
+            return entry ? conversationsOf(entry.identity) : null;
+        },
+
         resolve,
+        resolveConversation,
 
         /**
+         * Mensagem numa conversa — sala ou privada.
          * @param {unknown} member
          * @param {Record<string, unknown>} payload `{ conversationId, content, clientMsgId? }`
          */
         post(member, payload) {
-            const found = resolve(member, payload.conversationId);
+            const found = resolveConversation(member, payload.conversationId);
             if (!found.ok) return found;
-            return found.room.post(found.identity, payload);
+            return found.conversation.post(found.identity, payload);
+        },
+
+        /**
+         * Procura alguém conectado pelo @ EXATO. Nunca lista, completa ou
+         * sugere: sem o @ certo, nada aparece. Quem bloqueou você também não
+         * aparece (a resposta não diz por quê).
+         * @param {unknown} member
+         * @param {Record<string, unknown>} payload `{ username }`
+         * @returns {{ok: true, user: Identity | null} | Refusal}
+         */
+        lookup(member, payload) {
+            const entry = connections.get(member);
+            if (!entry) return { ok: false, code: ERROR_CODES.NOT_LOGGED_IN };
+            const { identity } = entry;
+            const read = readUsername(payload.username);
+            if (!read.ok || !read.username) return { ok: false, code: ERROR_CODES.INVALID_USER };
+            if (!consume("lookup", identity))
+                return { ok: false, code: ERROR_CODES.LOOKUP_LIMITED };
+            const found = identities.findConnected(read.username);
+            const visible = found && !found.blocked.has(identity.id) ? found : null;
+            return { ok: true, user: visible };
+        },
+
+        /**
+         * Abre (ou retoma) a conversa privada com alguém, por `userId` (de uma
+         * lista de sala ou de uma busca) ou `username` exato. Conversa nova
+         * exige a outra pessoa conectada; uma existente é devolvida mesmo com
+         * ela na janela de retomada.
+         * @param {unknown} member
+         * @param {Record<string, unknown>} payload `{ userId } | { username }`
+         * @returns {{ok: true, conversation: DirectConversation, created: boolean} | Refusal}
+         */
+        openDm(member, payload) {
+            const entry = connections.get(member);
+            if (!entry) return { ok: false, code: ERROR_CODES.NOT_LOGGED_IN };
+            const { identity } = entry;
+            const found = findTarget(identity, payload);
+            if (!found.ok) return found;
+            const { target } = found;
+            // "Não existe", "não está aqui" e "bloqueou você" são a mesma resposta.
+            if (!target || blockedBetween(identity, target)) {
+                return { ok: false, code: ERROR_CODES.USER_UNAVAILABLE };
+            }
+            if (target === identity) return { ok: false, code: ERROR_CODES.DM_SELF };
+            const existing = directs.between(identity, target);
+            if (!existing) {
+                if (target.holder === null)
+                    return { ok: false, code: ERROR_CODES.USER_UNAVAILABLE };
+                if (!consume("newConversation", identity)) {
+                    return { ok: false, code: ERROR_CODES.DM_OPEN_LIMITED };
+                }
+            }
+            const result = existing
+                ? { ok: true, conversation: existing, created: false }
+                : directs.open(identity, target);
+            if (!result.ok) return result;
+            result.conversation.open(identity, { created: result.created });
+            return result;
+        },
+
+        /**
+         * Encerra uma conversa privada para as duas pessoas, com o histórico.
+         * @param {unknown} member
+         * @param {Record<string, unknown>} payload `{ conversationId }`
+         * @returns {{ok: true} | Refusal}
+         */
+        closeDm(member, payload) {
+            const entry = connections.get(member);
+            if (!entry) return { ok: false, code: ERROR_CODES.NOT_LOGGED_IN };
+            const conversation = directs.forIdentity(
+                entry.identity,
+                readConversationId(payload.conversationId),
+            );
+            if (!conversation) return { ok: false, code: ERROR_CODES.CONVERSATION_NOT_FOUND };
+            directs.close(conversation);
+            return { ok: true };
+        },
+
+        /**
+         * Bloqueia alguém até o fim da sessão: a conversa privada entre as
+         * duas acaba, e nenhuma nova pode ser aberta em nenhuma direção. Quem
+         * foi bloqueado não é avisado do bloqueio (só vê a conversa encerrada).
+         * Vale só para conversas privadas: salas têm moderação própria.
+         * @param {unknown} member
+         * @param {Record<string, unknown>} payload `{ userId }`
+         * @returns {{ok: true, blocked: {id: string, name: string, username: string}[]} | Refusal}
+         */
+        block(member, payload) {
+            const entry = connections.get(member);
+            if (!entry) return { ok: false, code: ERROR_CODES.NOT_LOGGED_IN };
+            const { identity } = entry;
+            const id = readUserId(payload.userId);
+            if (id === null || id === identity.id)
+                return { ok: false, code: ERROR_CODES.INVALID_USER };
+            if (!identity.blocked.has(id)) {
+                if (identity.blocked.size >= guard.maxBlocked) {
+                    return { ok: false, code: ERROR_CODES.BLOCK_LIMIT };
+                }
+                const target = identities.findById(id);
+                if (!target) return { ok: false, code: ERROR_CODES.USER_UNAVAILABLE };
+                identity.blocked.set(id, { id, name: target.name, username: target.username });
+                const conversation = directs.between(identity, target);
+                if (conversation) directs.close(conversation);
+                log("info", "user_blocked", { user: identity.id });
+            }
+            return { ok: true, blocked: blockedOf(identity) };
+        },
+
+        /**
+         * @param {unknown} member
+         * @param {Record<string, unknown>} payload `{ userId }`
+         * @returns {{ok: true, blocked: {id: string, name: string, username: string}[]} | Refusal}
+         */
+        unblock(member, payload) {
+            const entry = connections.get(member);
+            if (!entry) return { ok: false, code: ERROR_CODES.NOT_LOGGED_IN };
+            const id = readUserId(payload.userId);
+            if (id === null) return { ok: false, code: ERROR_CODES.INVALID_USER };
+            entry.identity.blocked.delete(id);
+            return { ok: true, blocked: blockedOf(entry.identity) };
         },
 
         /**
@@ -287,8 +519,8 @@ export const createHub = ({
          * @param {boolean} isTyping
          */
         typing(member, payload, isTyping) {
-            const found = resolve(member, payload.conversationId);
-            if (found.ok) found.room.typing(found.identity, isTyping);
+            const found = resolveConversation(member, payload.conversationId);
+            if (found.ok) found.conversation.typing(found.identity, isTyping);
         },
 
         /**
@@ -314,6 +546,7 @@ export const createHub = ({
             identity.lastRenameAt = now();
             log("info", "user_renamed", { user: identity.id });
             for (const room of directory.roomsOf(identity)) room.announceRename(identity, previous);
+            for (const conversation of directs.of(identity)) conversation.refreshPeerOf(identity);
             return { ok: true, changed: true, name: identity.name };
         },
 
@@ -371,14 +604,19 @@ export const createHub = ({
             return directory.size;
         },
 
+        get dmCount() {
+            return directs.size;
+        },
+
         /** Desligamento: nenhuma sala anuncia saídas nem deixa timer pendente. */
         silence() {
             for (const room of directory.all()) room.silence();
         },
 
-        /** Fim do processo: salas e históricos descartados. */
+        /** Fim do processo: salas, conversas privadas e históricos descartados. */
         closeAll() {
             directory.closeAll();
+            directs.closeAll();
         },
     };
 };

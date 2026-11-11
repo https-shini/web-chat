@@ -35,7 +35,7 @@ describe("várias salas", () => {
         const { client } = await session(server.url, "Solitária");
         client.send("room_list", { requestId: "lista" });
         const list = await client.take("room_list");
-        assert.deepEqual(list.payload, { rooms: [], requestId: "lista" });
+        assert.deepEqual(list.payload, { rooms: [], dms: [], requestId: "lista" });
         client.send("chat_message", { content: "alguém?" });
         assert.equal((await client.take("error")).payload.code, "conversation_not_found");
         client.close();

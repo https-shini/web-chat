@@ -43,6 +43,8 @@ export const LIMITS = Object.freeze({
     roomCodeInputMaxLength: 200,
     /** `conversationId` recebido do cliente. */
     conversationIdMaxLength: 64,
+    /** Id de pessoa recebido do cliente (UUID emitido pelo servidor). */
+    userIdMaxLength: 64,
 });
 
 /** Eventos que o cliente envia. */
@@ -60,8 +62,18 @@ export const CLIENT_EVENTS = Object.freeze({
     ROOM_JOIN: "room_join",
     /** Sair de uma sala (a identidade continua nas outras). */
     ROOM_LEAVE: "room_leave",
-    /** Pedir a lista das salas de que a identidade participa. */
+    /** Pedir a lista das conversas (salas e privadas) da identidade. */
     ROOM_LIST: "room_list",
+    /** Procurar alguém conectado pelo @ exato (nunca lista ninguém). */
+    USER_LOOKUP: "user_lookup",
+    /** Abrir (ou retomar) a conversa privada com alguém. */
+    DM_OPEN: "dm_open",
+    /** Encerrar uma conversa privada: some para os dois, com o histórico. */
+    DM_CLOSE: "dm_close",
+    /** Bloquear alguém até o fim da sessão (só afeta conversas privadas). */
+    USER_BLOCK: "user_block",
+    /** Desfazer um bloqueio. */
+    USER_UNBLOCK: "user_unblock",
 });
 
 /** Eventos que o servidor envia. */
@@ -86,6 +98,16 @@ export const SERVER_EVENTS = Object.freeze({
     ROOM_LIST: "room_list",
     /** O resumo de uma sala mudou (ex.: anfitrião novo). */
     ROOM_UPDATED: "room_updated",
+    /** Resposta a `user_lookup`. */
+    USER_LOOKUP: "user_lookup",
+    /** Você está numa conversa privada: resumo (seguido de histórico). */
+    DM_OPENED: "dm_opened",
+    /** O resumo de uma conversa privada mudou (nome ou presença da outra pessoa). */
+    DM_UPDATED: "dm_updated",
+    /** A conversa privada acabou, com o histórico. */
+    DM_CLOSED: "dm_closed",
+    /** Quem você bloqueou nesta sessão (resposta a bloquear/desbloquear). */
+    BLOCK_LIST: "block_list",
 });
 
 /**
@@ -116,6 +138,17 @@ export const PRESENCE = Object.freeze({ ONLINE: "online", AWAY: "away" });
  * `host` (anfitrião) vale só na sala em que a pessoa o recebeu.
  */
 export const ROLES = Object.freeze({ MEMBER: "member", ADMIN: "admin", HOST: "host" });
+
+/** Tipos de conversa: o prefixo do `conversationId` diz qual é. */
+export const CONVERSATION_KINDS = Object.freeze({ ROOM: "room", DM: "dm" });
+
+/** Por que uma conversa privada acabou (`dm_closed`). */
+export const DM_CLOSED_REASONS = Object.freeze({
+    /** Uma das duas pessoas a encerrou (ou bloqueou a outra). */
+    CLOSED: "closed",
+    /** A identidade da outra pessoa acabou (saiu ou não voltou a tempo). */
+    ENDED: "ended",
+});
 
 /** Por que alguém deixou de estar numa sala (`room_left`). */
 export const ROOM_LEFT_REASONS = Object.freeze({
@@ -216,6 +249,14 @@ export const scoped = (conversationId, message) => ({ ...message, conversationId
  * @property {number} historyVersion
  */
 
+/**
+ * @typedef {object} DmSummary
+ * @property {string} conversationId
+ * @property {"dm"} kind
+ * @property {{id: string, name: string, username: string, online: boolean}} peer a outra pessoa
+ * @property {number} historyVersion
+ */
+
 export const serverMessage = Object.freeze({
     /**
      * Sessão: quem a conexão é. Não diz nada sobre salas — cada sala chega
@@ -256,10 +297,59 @@ export const serverMessage = Object.freeze({
     roomLeft: (conversationId, reason) =>
         scoped(conversationId, { type: SERVER_EVENTS.ROOM_LEFT, payload: { reason } }),
 
-    /** @param {RoomSummary[]} rooms @param {string | null} [requestId] */
-    roomList: (rooms, requestId = null) => ({
+    /**
+     * As conversas da identidade: salas e conversas privadas.
+     * @param {RoomSummary[]} rooms
+     * @param {DmSummary[]} dms
+     * @param {string | null} [requestId]
+     */
+    roomList: (rooms, dms, requestId = null) => ({
         type: SERVER_EVENTS.ROOM_LIST,
-        payload: { rooms, ...(requestId ? { requestId } : {}) },
+        payload: { rooms, dms, ...(requestId ? { requestId } : {}) },
+    }),
+
+    /**
+     * Resultado de uma busca por @: só nome, @ e id de quem foi achado.
+     * @param {{id: string, name: string, username: string} | null} user
+     * @param {string | null} [requestId]
+     */
+    userLookup: (user, requestId = null) => ({
+        type: SERVER_EVENTS.USER_LOOKUP,
+        payload: {
+            found: user !== null,
+            ...(user ? { user: { id: user.id, name: user.name, username: user.username } } : {}),
+            ...(requestId ? { requestId } : {}),
+        },
+    }),
+
+    /**
+     * @param {DmSummary} summary
+     * @param {{created?: boolean, resumed?: boolean}} [how]
+     */
+    dmOpened: (summary, { created = false, resumed = false } = {}) =>
+        scoped(summary.conversationId, {
+            type: SERVER_EVENTS.DM_OPENED,
+            payload: { ...summary, created, resumed },
+        }),
+
+    /** @param {DmSummary} summary */
+    dmUpdated: (summary) =>
+        scoped(summary.conversationId, { type: SERVER_EVENTS.DM_UPDATED, payload: summary }),
+
+    /** @param {string} conversationId @param {string} reason um dos `DM_CLOSED_REASONS` */
+    dmClosed: (conversationId, reason) =>
+        scoped(conversationId, { type: SERVER_EVENTS.DM_CLOSED, payload: { reason } }),
+
+    /**
+     * @param {{id: string, name: string, username: string}[]} people
+     * @param {string | null} [requestId]
+     */
+    blockList: (people, requestId = null) => ({
+        type: SERVER_EVENTS.BLOCK_LIST,
+        payload: {
+            blocked: people.map(({ id, name, username }) => ({ id, name, username })),
+            ...(requestId ? { requestId } : {}),
+        },
     }),
 
     /** @param {unknown[]} entries mensagens de chat já no formato de envio */

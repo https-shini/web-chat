@@ -39,6 +39,8 @@ const NOTIFY_WHEN_LIMITED = new Set([
     CLIENT_EVENTS.COMMAND,
     CLIENT_EVENTS.ROOM_CREATE,
     CLIENT_EVENTS.ROOM_JOIN,
+    CLIENT_EVENTS.USER_LOOKUP,
+    CLIENT_EVENTS.DM_OPEN,
 ]);
 
 /** Métricas no-op: o handler funciona sem instrumentação (testes de unidade). */
@@ -195,15 +197,63 @@ export const createConnectionHandler = ({
                 metrics.count("roomLeaves");
             },
             [CLIENT_EVENTS.ROOM_LIST]: (payload) => {
-                const rooms = hub.roomsOf(ws);
-                if (rooms === null) {
+                const conversations = hub.conversationsOf(ws);
+                if (conversations === null) {
                     return reject(
                         CLIENT_EVENTS.ROOM_LIST,
                         ERROR_CODES.NOT_LOGGED_IN,
                         requestIdOf(payload),
                     );
                 }
-                send(serverMessage.roomList(rooms, requestIdOf(payload)));
+                send(
+                    serverMessage.roomList(
+                        conversations.rooms,
+                        conversations.dms,
+                        requestIdOf(payload),
+                    ),
+                );
+            },
+            [CLIENT_EVENTS.USER_LOOKUP]: (payload) => {
+                const result = hub.lookup(ws, payload);
+                if (!result.ok) {
+                    return reject(CLIENT_EVENTS.USER_LOOKUP, result.code, requestIdOf(payload));
+                }
+                metrics.count("userLookups");
+                send(serverMessage.userLookup(result.user, requestIdOf(payload)));
+            },
+            [CLIENT_EVENTS.DM_OPEN]: (payload) => {
+                const result = hub.openDm(ws, payload);
+                if (!result.ok) {
+                    return reject(CLIENT_EVENTS.DM_OPEN, result.code, requestIdOf(payload));
+                }
+                if (result.created) metrics.count("dmsOpened");
+            },
+            [CLIENT_EVENTS.DM_CLOSE]: (payload) => {
+                const result = hub.closeDm(ws, payload);
+                if (!result.ok) {
+                    return reject(
+                        CLIENT_EVENTS.DM_CLOSE,
+                        result.code,
+                        requestIdOf(payload),
+                        readConversationId(payload.conversationId),
+                    );
+                }
+                metrics.count("dmsClosed");
+            },
+            [CLIENT_EVENTS.USER_BLOCK]: (payload) => {
+                const result = hub.block(ws, payload);
+                if (!result.ok) {
+                    return reject(CLIENT_EVENTS.USER_BLOCK, result.code, requestIdOf(payload));
+                }
+                metrics.count("blocks");
+                send(serverMessage.blockList(result.blocked, requestIdOf(payload)));
+            },
+            [CLIENT_EVENTS.USER_UNBLOCK]: (payload) => {
+                const result = hub.unblock(ws, payload);
+                if (!result.ok) {
+                    return reject(CLIENT_EVENTS.USER_UNBLOCK, result.code, requestIdOf(payload));
+                }
+                send(serverMessage.blockList(result.blocked, requestIdOf(payload)));
             },
         };
 

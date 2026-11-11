@@ -30,6 +30,8 @@ test("sem variáveis, os padrões reproduzem o comportamento anterior", () => {
             maxCreatedPerIdentity: 5,
             emptyTtlMs: 60000,
         },
+        // Fase 3 da evolução: conversas privadas.
+        dms: { maxPerIdentity: 20, maxTotal: 5000, historySize: 100 },
         adminKey: null,
         production: false,
     });

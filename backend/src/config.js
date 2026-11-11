@@ -54,6 +54,9 @@ export const DEFAULTS = Object.freeze({
     maxRoomsPerUser: 10,
     maxRoomsCreatedPerUser: 5,
     roomEmptyTtlMs: 60000,
+    maxDmsPerUser: 20,
+    maxDms: 5000,
+    dmHistorySize: 100,
 });
 
 const isBlank = (raw) => raw === undefined || raw === "";
@@ -172,6 +175,7 @@ const readOrigins = (raw) =>
  * @property {number} metricsLogIntervalMs  0 desliga o log periódico de métricas
  * @property {number} leaveGraceMs   janela em que uma reconexão não gera avisos de saída/entrada
  * @property {{maxRooms: number, maxRoomsPerIdentity: number, maxCreatedPerIdentity: number, emptyTtlMs: number}} rooms
+ * @property {{maxPerIdentity: number, maxTotal: number, historySize: number}} dms
  * @property {string | null} adminKey chave secreta de administrador (null = administração desativada)
  * @property {boolean} production
  */
@@ -293,6 +297,25 @@ export const loadConfig = (env) => {
                 min: 0,
                 max: 30 * 60 * 1000,
                 unit: " ms",
+            }),
+        },
+        dms: {
+            // Conversas privadas abertas por identidade ao mesmo tempo.
+            maxPerIdentity: readInteger("MAX_DMS_PER_USER", env.MAX_DMS_PER_USER, {
+                fallback: DEFAULTS.maxDmsPerUser,
+                min: 1,
+                max: 1000,
+            }),
+            // Conversas privadas no servidor inteiro: protege a memória.
+            maxTotal: readInteger("MAX_DMS", env.MAX_DMS, {
+                fallback: DEFAULTS.maxDms,
+                min: 1,
+                max: 1000000,
+            }),
+            historySize: readInteger("DM_HISTORY_SIZE", env.DM_HISTORY_SIZE, {
+                fallback: DEFAULTS.dmHistorySize,
+                min: 1,
+                max: 10000,
             }),
         },
         adminKey: readAdminKey(env.ADMIN_KEY),

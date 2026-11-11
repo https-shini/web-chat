@@ -41,7 +41,7 @@ const setup = (hubOverrides = {}) => {
             { ok: true, already: false }
         ),
         leaveRoom: (ws, payload) => (calls.push(["leaveRoom", payload]), { ok: true }),
-        roomsOf: () => [],
+        conversationsOf: () => ({ rooms: [], dms: [] }),
         isLoggedIn: () => false,
         userIdOf: () => null,
         ...hubOverrides,
@@ -77,7 +77,7 @@ test("encaminha cada evento ao método certo do hub", () => {
 
 test("pedidos de sala chegam ao hub; room_list responde com as salas e o requestId", () => {
     const summary = { conversationId: "r_abcdefghijkl", code: "abc-defg-hij" };
-    const { ws, calls, tick } = setup({ roomsOf: () => [summary] });
+    const { ws, calls, tick } = setup({ conversationsOf: () => ({ rooms: [summary], dms: [] }) });
     ws.frame({ type: "room_create", payload: { name: "Estudos" } });
     ws.frame({ type: "room_join", payload: { code: "abc-defg-hij" } });
     ws.frame({ type: "room_leave", payload: { conversationId: "r_abcdefghijkl" } });
@@ -89,7 +89,7 @@ test("pedidos de sala chegam ao hub; room_list responde com as salas e o request
         ["leaveRoom", { conversationId: "r_abcdefghijkl" }],
     ]);
     assert.deepEqual(ws.sent, [
-        { type: "room_list", payload: { rooms: [summary], requestId: "lista-1" } },
+        { type: "room_list", payload: { rooms: [summary], dms: [], requestId: "lista-1" } },
     ]);
 });
 

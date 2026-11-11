@@ -33,6 +33,11 @@ export const CLIENT_EVENTS = Object.freeze({
     ROOM_JOIN: "room_join",
     ROOM_LEAVE: "room_leave",
     ROOM_LIST: "room_list",
+    USER_LOOKUP: "user_lookup",
+    DM_OPEN: "dm_open",
+    DM_CLOSE: "dm_close",
+    USER_BLOCK: "user_block",
+    USER_UNBLOCK: "user_unblock",
 });
 
 /** Eventos que o servidor envia. */
@@ -53,7 +58,18 @@ export const SERVER_EVENTS = Object.freeze({
     ROOM_LEFT: "room_left",
     ROOM_LIST: "room_list",
     ROOM_UPDATED: "room_updated",
+    USER_LOOKUP: "user_lookup",
+    DM_OPENED: "dm_opened",
+    DM_UPDATED: "dm_updated",
+    DM_CLOSED: "dm_closed",
+    BLOCK_LIST: "block_list",
 });
+
+/** Tipos de conversa (o prefixo do `conversationId` diz qual é). */
+export const CONVERSATION_KINDS = Object.freeze({ ROOM: "room", DM: "dm" });
+
+/** Por que uma conversa privada acabou (`dm_closed`). */
+export const DM_CLOSED_REASONS = Object.freeze({ CLOSED: "closed", ENDED: "ended" });
 
 /**
  * Papéis: `admin` é global; `host` (anfitrião) vale só na sala em que a
@@ -116,4 +132,12 @@ export const ERROR_CODES = Object.freeze({
     ROOM_CREATE_LIMIT: "room_create_limit",
     ROOMS_FULL: "rooms_full",
     ROOM_JOIN_LOCKED: "room_join_locked",
+    INVALID_USER: "invalid_user",
+    USER_UNAVAILABLE: "user_unavailable",
+    DM_SELF: "dm_self",
+    DM_LIMIT: "dm_limit",
+    DMS_FULL: "dms_full",
+    LOOKUP_LIMITED: "lookup_limited",
+    DM_OPEN_LIMITED: "dm_open_limited",
+    BLOCK_LIMIT: "block_limit",
 });

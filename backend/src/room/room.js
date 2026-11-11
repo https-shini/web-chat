@@ -38,12 +38,12 @@ import {
 } from "../protocol.js";
 import { readClientId, readContent } from "../validation.js";
 import { isMuted } from "./policy.js";
+import { createTranscript } from "./transcript.js";
 
 /** Intervalo mínimo entre duas trocas de nome da mesma pessoa. */
 export const RENAME_COOLDOWN_MS = 10_000;
 
-/** Mensagens recentes guardadas por identidade para ignorar reenvios. */
-export const RECENT_MESSAGES_PER_IDENTITY = 20;
+export { RECENT_MESSAGES_PER_IDENTITY } from "./transcript.js";
 
 /**
  * Por que uma participação termina.
@@ -110,10 +110,8 @@ export const createRoom = ({
      * @type {Map<Identity, Membership>}
      */
     const members = new Map();
-    /** Mensagens de chat já no formato de envio, da mais antiga à mais nova. */
-    const history = [];
-    /** Muda a cada limpeza da sala; o cliente a usa para descartar o que viu antes. */
-    let historyVersion = 0;
+    /** O que foi dito (núcleo comum a salas e conversas privadas). */
+    const transcript = createTranscript({ id, historySize, now, newMessageId });
     /** Em desligamento: saídas não são anunciadas. */
     let quiet = false;
     /** Ids removidos por moderação: não voltam enquanto a sala existir. */
@@ -206,7 +204,7 @@ export const createRoom = ({
         role: members.get(identity)?.role ?? ROLES.MEMBER,
         hostId,
         memberCount: members.size,
-        historyVersion,
+        historyVersion: transcript.version,
     });
 
     /**
@@ -221,8 +219,9 @@ export const createRoom = ({
             identity.holder,
             JSON.stringify(serverMessage.roomJoined(summaryFor(identity), how)),
         );
-        if (history.length > 0 && historyOnJoin > 0) {
-            sendTo(identity, serverMessage.history(history.slice(-historyOnJoin)));
+        const recent = transcript.recent(historyOnJoin);
+        if (recent.length > 0) {
+            sendTo(identity, serverMessage.history(recent));
         }
     };
 
@@ -276,35 +275,17 @@ export const createRoom = ({
         if (!membership) return { ok: false, code: ERROR_CODES.CONVERSATION_NOT_FOUND };
         if (isMuted(membership, nowMs())) return { ok: false, code: ERROR_CODES.MUTED };
 
-        // Reenvio da mesma mensagem (retentativa do cliente): devolve a
-        // original só para quem enviou, sem duplicar na sala. A chave inclui
-        // a sala: o mesmo id de correlação em outra sala é outra mensagem.
-        const recentKey = clientMsgId ? `${id}:${clientMsgId}` : null;
-        if (recentKey) {
-            const original = identity.recent.get(recentKey);
-            if (original) {
-                sendTo(identity, /** @type {Record<string, unknown>} */ (original));
-                return { ok: true, duplicate: true };
-            }
-        }
-
-        const message = serverMessage.chat({
-            id: newMessageId(),
-            user: identity,
+        // Reenvio da mesma mensagem (retentativa do cliente): a original volta
+        // só para quem enviou, sem duplicar na sala.
+        const { message, duplicate } = transcript.append(identity, {
             content,
-            timestamp: timestamp(),
             kind,
             format,
             clientMsgId,
         });
-        history.push(message);
-        if (history.length > historySize) history.shift();
-        identity.messageCount += 1;
-        if (recentKey) {
-            identity.recent.set(recentKey, message);
-            if (identity.recent.size > RECENT_MESSAGES_PER_IDENTITY) {
-                identity.recent.delete(identity.recent.keys().next().value);
-            }
+        if (duplicate) {
+            sendTo(identity, message);
+            return { ok: true, duplicate: true };
         }
         broadcast(message);
 
@@ -484,23 +465,15 @@ export const createRoom = ({
          * @param {Identity} actor
          */
         clearHistory(actor) {
-            const removed = history.length;
-            history.length = 0;
-            historyVersion += 1;
-            const prefix = `${id}:`;
-            for (const identity of members.keys()) {
-                for (const key of identity.recent.keys()) {
-                    if (key.startsWith(prefix)) identity.recent.delete(key);
-                }
-            }
+            const removed = transcript.clear(members.keys());
             log("warn", "moderation_action", {
                 action: "clear_history",
                 conversation: id,
                 actor: actor.id,
                 removed,
-                historyVersion,
+                historyVersion: transcript.version,
             });
-            broadcast(serverMessage.chatCleared(actor.name, timestamp(), historyVersion));
+            broadcast(serverMessage.chatCleared(actor.name, timestamp(), transcript.version));
             return true;
         },
 
@@ -602,11 +575,11 @@ export const createRoom = ({
         },
 
         get historyVersion() {
-            return historyVersion;
+            return transcript.version;
         },
 
         get historyLength() {
-            return history.length;
+            return transcript.length;
         },
 
         get hostId() {
@@ -632,9 +605,9 @@ export const createRoom = ({
          */
         destroy() {
             this.silence();
+            transcript.discard(members.keys());
             for (const identity of members.keys()) identity.rooms.delete(id);
             members.clear();
-            history.length = 0;
             banned.clear();
             hostId = null;
             log("info", "room_destroyed", { conversation: id });

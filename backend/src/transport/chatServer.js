@@ -14,6 +14,7 @@ import { createDefaultRegistry } from "../commands/index.js";
 import { createAdminAuth } from "../commands/adminAuth.js";
 import { createCommandExecutor } from "../commands/executor.js";
 import { createMetrics } from "../metrics.js";
+import { createDirectConversation, createDirectDirectory } from "../room/direct.js";
 import { createRoomDirectory } from "../room/directory.js";
 import { createHub } from "../room/hub.js";
 import { createJoinGuard } from "../room/joinGuard.js";
@@ -39,9 +40,16 @@ export const USER_LIST_COALESCE_MS = 50;
  *   log: (level: "info" | "warn" | "error", event: string, fields?: Record<string, unknown>) => void,
  *   version?: string,
  *   joinGuard?: Parameters<typeof createJoinGuard>[0],
+ *   dmGuard?: Parameters<typeof createHub>[0]["dmGuard"],
  * }} options
  */
-export const createChatServer = ({ config, log, version = "desconhecida", joinGuard = {} }) => {
+export const createChatServer = ({
+    config,
+    log,
+    version = "desconhecida",
+    joinGuard = {},
+    dmGuard = {},
+}) => {
     const metrics = createMetrics();
 
     /** Agendador com timers reais; cancelável e sem nada pendurado no desligamento. */
@@ -80,9 +88,27 @@ export const createChatServer = ({ config, log, version = "desconhecida", joinGu
             }),
     });
 
+    const directs = createDirectDirectory({
+        log,
+        limits: config.dms,
+        makeConversation: ({ id, a, b }) =>
+            createDirectConversation({
+                id,
+                a,
+                b,
+                log,
+                historySize: config.dms.historySize,
+                historyOnJoin: config.historyOnJoin,
+                deliver: (holder, data) => deliver(holder, data),
+                onPresenceChange: (identity) => hub?.refreshEverywhere(identity),
+            }),
+    });
+
     hub = createHub({
         identities,
         directory,
+        directs,
+        dmGuard,
         joinGuard: createJoinGuard(joinGuard),
         log,
         deliver: (member, data) => deliver(member, data),
@@ -139,6 +165,7 @@ export const createChatServer = ({ config, log, version = "desconhecida", joinGu
         users: sessions.sessionCount,
         identities: identities.size,
         rooms: sessions.roomCount,
+        dms: sessions.dmCount,
     });
 
     const httpServer = http.createServer(
