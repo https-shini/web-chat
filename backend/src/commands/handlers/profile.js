@@ -1,7 +1,7 @@
 /** Perfil e presença: nome, id, perfil público, ausência, ação. */
 
 import { MESSAGE_KINDS } from "../../protocol.js";
-import { isMuted } from "../../room/policy.js";
+import { isAdmin, isMuted, PERMISSIONS } from "../../room/policy.js";
 import { clock, findTarget, publishFor } from "./shared.js";
 
 /** @type {import("../registry.js").CommandDefinition[]} */
@@ -10,7 +10,7 @@ export const profileCommands = [
         name: "nick",
         aliases: ["nome"],
         category: "profile",
-        description: "Troca o seu nome de exibição. O seu id continua o mesmo.",
+        description: "Troca o seu nome de exibição. O seu @ continua o mesmo.",
         syntax: "/nick <novo nome>",
         examples: ["/nick João Silva"],
         params: [{ name: "novo nome", type: "text" }],
@@ -38,13 +38,13 @@ export const profileCommands = [
         aliases: ["whois", "perfil"],
         category: "profile",
         description: "Mostra o perfil público de alguém da sala (ou o seu).",
-        syntax: "/profile [nome ou id]",
+        syntax: "/profile [@ ou nome]",
         examples: ["/profile", "/profile @ana", "/profile Ana"],
-        params: [{ name: "nome ou id", type: "text", optional: true }],
+        params: [{ name: "@ ou nome", type: "text", optional: true }],
         run: (ctx) => {
             let identity = ctx.identity;
             let membership = ctx.membership;
-            const query = ctx.args["nome ou id"];
+            const query = ctx.args["@ ou nome"];
             if (query) {
                 // Procurar alguém só faz sentido dentro de uma sala: fora dela
                 // não há como saber quem você "vê".
@@ -71,7 +71,8 @@ export const profileCommands = [
                 title: "Perfil",
                 lines: [
                     `Username: @${identity.username}`,
-                    `Id: ${identity.id}`,
+                    // O id interno só aparece para administradores.
+                    ...(isAdmin(ctx.identity) ? [`Id interno: ${identity.id}`] : []),
                     `Papel: ${role}`,
                     `Status: ${identity.away !== null ? `ausente (${identity.away})` : "presente"}${muted}`,
                     membership
@@ -86,10 +87,11 @@ export const profileCommands = [
         name: "id",
         aliases: [],
         category: "profile",
-        description: "Mostra o seu id completo, atribuído pelo servidor.",
+        permission: PERMISSIONS.ADMIN,
+        description: "Mostra o seu id interno. Só para administradores.",
         syntax: "/id",
         examples: ["/id"],
-        run: (ctx) => ctx.reply.result(`Seu id: ${ctx.identity.id}`),
+        run: (ctx) => ctx.reply.result(`Seu id interno: ${ctx.identity.id}`),
     },
     {
         name: "me",

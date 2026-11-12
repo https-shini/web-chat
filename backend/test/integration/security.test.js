@@ -12,41 +12,51 @@ describe("identidade atribuída pelo servidor", () => {
     });
     after(() => server.stop());
 
-    test("o servidor ignora o userId enviado e atribui um id próprio", async () => {
+    test("o servidor ignora o userId enviado; o id interno fica só nele", async () => {
         const { client, session } = await join(server.url, {
             userId: "id-escolhido-pelo-cliente",
             userName: "Ana",
         });
-        assert.notEqual(session.id, "id-escolhido-pelo-cliente");
-        assert.match(session.id, /^[0-9a-f-]{36}$/);
+        assert.equal("id" in session, false, "a sessão não traz id");
+        const started = await server.waitForLog(
+            (entry) => entry.event === "session_started" && /^[0-9a-f-]{36}$/.test(entry.user),
+        );
+        assert.notEqual(started.user, "id-escolhido-pelo-cliente");
+        assert.ok(!JSON.stringify(client.inbox).includes(started.user));
         assert.equal(session.name, "Ana");
         assert.equal(typeof session.resumeToken, "string");
         assert.ok(session.resumeToken.length >= 32);
         client.close();
     });
 
-    test("tentativa de personificação: copiar o id de outra pessoa não funciona", async () => {
+    test("tentativa de personificação: dizer que é outra pessoa não funciona", async () => {
         const victim = await join(server.url, { userName: "Vítima" });
         const attacker = await join(server.url, {
-            userId: victim.session.id,
+            userId: victim.session.username,
             userName: "Vítima",
         });
 
-        assert.notEqual(attacker.session.id, victim.session.id);
+        assert.notEqual(attacker.session.username, victim.session.username);
+        // O @ é a identidade visível: enquanto a vítima existe, ninguém o pega.
+        const thief = await connect(server.url);
+        thief.send("user_login", { userName: "Vítima", username: victim.session.username });
+        assert.equal((await thief.take("error")).payload.code, "username_taken");
+        thief.close();
 
         attacker.client.send("chat_message", { content: "sou eu, a vítima" });
         const seen = await victim.client.take(
             (m) => m.type === "chat_message" && m.payload.content === "sou eu, a vítima",
         );
-        // O cliente marca como "Você" quando userId === seu id: aqui não pode.
-        assert.equal(seen.payload.userId, attacker.session.id);
-        assert.notEqual(seen.payload.userId, victim.session.id);
+        // O cliente marca como "Você" pelo @ da mensagem: aqui é o do atacante.
+        assert.equal(seen.payload.username, attacker.session.username);
+        assert.notEqual(seen.payload.username, victim.session.username);
 
         const list = await victim.client.take(
             (m) => m.type === "user_list" && m.payload.length >= 2,
         );
-        const ids = list.payload.map((person) => person.id);
-        assert.equal(new Set(ids).size, ids.length, "lista sem ids duplicados");
+        const handles = list.payload.map((person) => person.username);
+        assert.equal(new Set(handles).size, handles.length, "lista sem @ duplicado");
+        assert.ok(list.payload.every((person) => !("id" in person)));
 
         victim.client.close();
         attacker.client.close();
@@ -56,7 +66,7 @@ describe("identidade atribuída pelo servidor", () => {
         const observer = await join(server.url, { userName: "Observador" });
         const user = await join(server.url, { userName: "Bruno" });
 
-        user.client.send("user_login", { userId: observer.session.id, userName: "Admin" });
+        user.client.send("user_login", { userId: observer.session.username, userName: "Admin" });
         const error = await user.client.take("error");
         assert.equal(error.payload.code, "already_logged_in");
 
@@ -64,7 +74,7 @@ describe("identidade atribuída pelo servidor", () => {
         const seen = await observer.client.take(
             (m) => m.type === "chat_message" && m.payload.content === "depois da tentativa",
         );
-        assert.equal(seen.payload.userId, user.session.id);
+        assert.equal(seen.payload.username, user.session.username);
         assert.equal(seen.payload.userName, "Bruno");
 
         observer.client.close();
@@ -77,7 +87,7 @@ describe("identidade atribuída pelo servidor", () => {
             userName: "Intruso",
             resumeToken: "a".repeat(43),
         });
-        assert.notEqual(attacker.session.id, victim.session.id);
+        assert.notEqual(attacker.session.username, victim.session.username);
         assert.equal(attacker.session.name, "Intruso");
         victim.client.close();
         attacker.client.close();
@@ -93,7 +103,7 @@ describe("identidade atribuída pelo servidor", () => {
             const seen = await observer.client.take(
                 (m) => m.type === "chat_message" && m.payload.content === content,
             );
-            assert.equal(seen.payload.userId, user.session.id);
+            assert.equal(seen.payload.username, user.session.username);
             assert.equal(seen.payload.userName, "Duda");
         }
         observer.client.close();

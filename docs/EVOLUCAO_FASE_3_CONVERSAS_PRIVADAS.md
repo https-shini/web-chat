@@ -7,7 +7,7 @@
 ## O que mudou
 
 Duas identidades conectadas podem conversar em privado, mesmo sem dividir uma
-sala. A conversa é aberta pelo `@` exato ou pelo id da pessoa, fica só em memória
+sala. A conversa é aberta pelo `@` exato da pessoa, fica só em memória
 e acaba, com o histórico, quando uma das duas a encerra, bloqueia a outra ou
 deixa de existir.
 
@@ -46,7 +46,23 @@ deixa de existir.
 9. **Bloqueio só em conversas privadas.** Numa sala, quem modera é o anfitrião;
    esconder mensagens de sala por pessoa é assunto da interface (Fases 4 e 5).
 
+10. **O id interno não sai do servidor.** Pedido posterior à primeira versão desta
+    fase: quem conversa se vê só pelo `@`. O id deixou de ir em todos os eventos
+    (sessão, mensagens, listas, digitação, resumos de sala e de conversa privada,
+    busca e bloqueios) e de ser aceito em pedidos (`dm_open`, `user_block`). No
+    cliente, a chave de cada pessoa passou a ser o `@`. Só administradores veem
+    o id, pelos comandos `/users`, `/profile` e `/id`.
+11. **`since` contra confusão de `@` reutilizado.** Sem id no protocolo, o cliente
+    reconhece as próprias mensagens pelo `@`. Como um `@` volta a ficar livre
+    quando a identidade acaba, a sessão informa quando a identidade nasceu, e o
+    cliente só marca como "suas" as mensagens escritas a partir daí.
+
 ## Limitações conhecidas
+
+- Com o `@` como única identificação visível, mensagens antigas de uma sala
+  escritas por alguém que já saiu aparecem com o mesmo `@` de quem o pegou
+  depois. Elas não são marcadas como da pessoa nova, mas os outros participantes
+  não têm como distinguir as duas no histórico.
 
 - A interface ainda não mostra conversas privadas: o cliente atual ignora os
   eventos de conversas que não são a sala aberta.

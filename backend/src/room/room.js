@@ -116,8 +116,8 @@ export const createRoom = ({
     let quiet = false;
     /** Ids removidos por moderação: não voltam enquanto a sala existir. */
     const banned = new Set();
-    /** @type {string | null} */
-    let hostId = null;
+    /** Quem é anfitrião agora. @type {Identity | null} */
+    let host = null;
 
     const timestamp = () => now().toISOString();
     const nowMs = () => now().getTime();
@@ -148,7 +148,6 @@ export const createRoom = ({
         broadcast(
             serverMessage.userList(
                 present().map(([identity, membership]) => ({
-                    id: identity.id,
                     name: identity.name,
                     username: identity.username,
                     away: identity.away,
@@ -202,7 +201,7 @@ export const createRoom = ({
         code,
         name,
         role: members.get(identity)?.role ?? ROLES.MEMBER,
-        hostId,
+        hostUsername: host?.username ?? null,
         memberCount: members.size,
         historyVersion: transcript.version,
     });
@@ -247,12 +246,12 @@ export const createRoom = ({
         const next =
             candidates.find(([, membership]) => membership.connected) ?? candidates[0] ?? null;
         if (!next) {
-            hostId = null;
+            host = null;
             return;
         }
         const [identity, membership] = next;
         membership.role = ROLES.HOST;
-        hostId = identity.id;
+        host = identity;
         log("info", "room_host_transferred", { conversation: id, user: identity.id });
         notice(TONES.INFO, `${identity.name} agora é anfitrião da sala`);
         broadcastSummary();
@@ -341,24 +340,28 @@ export const createRoom = ({
          * @param {{host?: boolean, created?: boolean}} [options]
          * @returns {{ok: true, already: boolean} | {ok: false, code: string}}
          */
-        add(identity, { host = false, created = false } = {}) {
+        add(identity, { host: asHost = false, created = false } = {}) {
             if (banned.has(identity.id)) return { ok: false, code: ERROR_CODES.REMOVED_FROM_ROOM };
             if (members.has(identity)) {
                 sendState(identity, { resumed: true });
                 return { ok: true, already: true };
             }
             members.set(identity, {
-                role: host ? ROLES.HOST : ROLES.MEMBER,
+                role: asHost ? ROLES.HOST : ROLES.MEMBER,
                 mutedUntil: null,
                 joinedAt: nowMs(),
                 connected: identity.holder !== null,
                 pendingLeave: null,
             });
             identity.rooms.add(id);
-            if (host) hostId = identity.id;
-            log("info", "room_member_joined", { conversation: id, user: identity.id, host });
+            if (asHost) host = identity;
+            log("info", "room_member_joined", {
+                conversation: id,
+                user: identity.id,
+                host: asHost,
+            });
             sendState(identity, { created });
-            broadcast(serverMessage.joined(identity.name, timestamp()), identity);
+            broadcast(serverMessage.joined(identity, timestamp()), identity);
             broadcastUserList();
             return { ok: true, already: false };
         },
@@ -400,8 +403,7 @@ export const createRoom = ({
             membership.connected = true;
             const silentReturn = wasConnected || cancelPendingLeave(membership);
             sendState(identity, { resumed: true });
-            if (!silentReturn)
-                broadcast(serverMessage.joined(identity.name, timestamp()), identity);
+            if (!silentReturn) broadcast(serverMessage.joined(identity, timestamp()), identity);
             broadcastUserList();
         },
 
@@ -544,20 +546,24 @@ export const createRoom = ({
 
         /**
          * Localiza pessoas conectadas na sala por `@username` (exato e
-         * único), por id (ou prefixo de id com 6+ caracteres) ou por nome
-         * (sem diferenciar maiúsculas; pode haver mais de uma pessoa).
+         * único) ou por nome (sem diferenciar maiúsculas; pode haver mais
+         * de uma pessoa). Com `allowIds` (administradores), também por id
+         * interno ou prefixo dele com 6+ caracteres.
          * @param {string} query
+         * @param {{allowIds?: boolean}} [options]
          */
-        findMembers(query) {
+        findMembers(query, { allowIds = false } = {}) {
             const wanted = query.trim().toLowerCase();
             if (!wanted) return [];
             const all = present().map(([identity, membership]) => ({ identity, membership }));
             if (wanted.startsWith("@")) {
                 return all.filter(({ identity }) => identity.username === wanted.slice(1));
             }
-            const byId = /^[0-9a-f-]{6,36}$/.test(wanted)
-                ? all.filter(({ identity }) => identity.id.startsWith(wanted))
-                : [];
+            // Por id interno: só para administradores (quem chama decide).
+            const byId =
+                allowIds && /^[0-9a-f-]{6,36}$/.test(wanted)
+                    ? all.filter(({ identity }) => identity.id.startsWith(wanted))
+                    : [];
             if (byId.length > 0) return byId;
             const byName = all.filter(({ identity }) => identity.name.toLowerCase() === wanted);
             if (byName.length > 0) return byName;
@@ -582,8 +588,9 @@ export const createRoom = ({
             return transcript.length;
         },
 
+        /** Id interno do anfitrião: só para o servidor (testes, diagnóstico). */
         get hostId() {
-            return hostId;
+            return host?.id ?? null;
         },
 
         /**
@@ -609,7 +616,7 @@ export const createRoom = ({
             for (const identity of members.keys()) identity.rooms.delete(id);
             members.clear();
             banned.clear();
-            hostId = null;
+            host = null;
             log("info", "room_destroyed", { conversation: id });
         },
     };

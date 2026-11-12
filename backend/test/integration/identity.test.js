@@ -13,13 +13,14 @@ describe("identidade temporária: nome completo + username", () => {
     });
     after(() => server.stop());
 
-    test("sessão, lista e mensagens carregam o username; o id vem do servidor", async () => {
+    test("sessão, lista e mensagens carregam o username; o id interno nunca é enviado", async () => {
         const { client, session } = await join(server.url, {
             userId: "escolhido",
             userName: "Ana Carolina Souza",
             username: "@AnaCarolina",
         });
-        assert.notEqual(session.id, "escolhido");
+        assert.equal("id" in session, false);
+        assert.ok(!JSON.stringify(session).includes("escolhido"));
         assert.equal(session.name, "Ana Carolina Souza");
         assert.equal(session.username, "anacarolina");
         const list = await client.take("user_list");
@@ -53,7 +54,7 @@ describe("identidade temporária: nome completo + username", () => {
         client.close();
     });
 
-    test("queda abrupta: username fica reservado e a retomada devolve id e username", async () => {
+    test("queda abrupta: username fica reservado e a retomada devolve a mesma identidade", async () => {
         const { client, session } = await join(server.url, { userName: "Davi", username: "davi" });
         client.close();
         await client.waitClose();
@@ -62,7 +63,7 @@ describe("identidade temporária: nome completo + username", () => {
         assert.equal((await other.take("error")).payload.code, "username_taken");
         other.close();
         const back = await join(server.url, { userName: "Davi", resumeToken: session.resumeToken });
-        assert.equal(back.session.id, session.id);
+        assert.equal(back.session.resumed, true);
         assert.equal(back.session.username, "davi");
         back.client.close();
     });
@@ -109,7 +110,7 @@ describe("sair (user_logout)", () => {
         // Com username, entra — como identidade nova, com o mesmo @ já livre.
         again.send("user_login", { userName: "Fábio", username: "fabio" });
         const fresh = await again.take("session");
-        assert.notEqual(fresh.payload.id, session.id);
+        assert.equal(fresh.payload.resumed, false);
         assert.equal(fresh.payload.username, "fabio");
         again.close();
     });
@@ -186,7 +187,7 @@ describe("allowlist de origem: clientes automatizados e reconexão", () => {
             { userName: "Helena", resumeToken: session.resumeToken },
             { origin: ALLOWED },
         );
-        assert.equal(back.session.id, session.id);
+        assert.equal(back.session.resumed, true);
         back.client.close();
     });
 });

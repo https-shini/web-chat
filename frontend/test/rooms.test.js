@@ -60,7 +60,7 @@ describe("eventos de sala", () => {
             onRoomLeft: (reason) => calls.left.push(reason),
             onRoomRefused: (code, message) => calls.refused.push({ code, message }),
         });
-        handle({ type: "session", payload: { id: "eu", name: "Eu", resumeToken: "t" } });
+        handle({ type: "session", payload: { username: "eu", name: "Eu", resumeToken: "t" } });
         handle({
             type: "room_joined",
             conversationId: ROOM,
@@ -73,7 +73,7 @@ describe("eventos de sala", () => {
         const { handle, calls } = setup();
         handle({
             type: "session",
-            payload: { id: "eu", name: "Eu", resumeToken: "t2", resumed: true },
+            payload: { username: "eu", name: "Eu", resumeToken: "t2", resumed: true },
         });
         assert.deepEqual(calls.sessions, [
             { token: "t", resumed: false },
@@ -87,7 +87,7 @@ describe("eventos de sala", () => {
             type: "chat_message",
             id: "fora",
             conversationId: OTHER,
-            payload: { userId: "x", userName: "X", content: "de outra sala" },
+            payload: { username: "x", userName: "X", content: "de outra sala" },
         });
         handle({
             type: "user_list",
@@ -98,7 +98,7 @@ describe("eventos de sala", () => {
             type: "chat_message",
             id: "dentro",
             conversationId: ROOM,
-            payload: { userId: "y", userName: "Y", content: "desta sala" },
+            payload: { username: "y", userName: "Y", content: "desta sala" },
         });
         assert.deepEqual(
             store.getState().messages.map((m) => m.content),
@@ -118,7 +118,7 @@ describe("eventos de sala", () => {
         handle({
             type: "message_history",
             conversationId: DM,
-            payload: [{ id: "p1", payload: { userId: "x", userName: "X", content: "privada" } }],
+            payload: [{ id: "p1", payload: { username: "x", userName: "X", content: "privada" } }],
         });
         handle({ type: "dm_closed", conversationId: DM, payload: { reason: "closed" } });
         assert.equal(store.getState().room?.conversationId, ROOM);
@@ -166,7 +166,7 @@ describe("eventos de sala", () => {
             type: "chat_message",
             id: "m1",
             conversationId: ROOM,
-            payload: { userId: "x", userName: "X", content: "antes" },
+            payload: { username: "x", userName: "X", content: "antes" },
         });
         store.actions.forgetRoom();
         assert.equal(store.getState().room, null);

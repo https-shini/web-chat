@@ -122,7 +122,7 @@ describe("agrupamento da lista de pessoas", () => {
             (m) => m.type === "user_list" && m.payload.length === 31,
             3000,
         );
-        assert.equal(new Set(final.payload.map((p) => p.id)).size, 31);
+        assert.equal(new Set(final.payload.map((p) => p.username)).size, 31);
         const metrics = await metricsOf(server);
         assert.ok(
             metrics.counters.userListBroadcasts < 31,

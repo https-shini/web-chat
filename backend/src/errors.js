@@ -131,7 +131,7 @@ const CATALOG = Object.freeze({
     },
     [ERROR_CODES.INVALID_USER]: {
         category: VALIDATION,
-        message: "Informe um @ válido ou o id de uma pessoa.",
+        message: "Informe um @ válido.",
     },
     // Mesmo texto para "não existe", "não está conectada" e "bloqueou você":
     // a resposta não revela bloqueio nem confirma que alguém existe.

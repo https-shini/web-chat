@@ -144,13 +144,10 @@ const transport = createTransport({
     onOpen: () => {
         const me = store.getState().me;
         if (!me) return;
-        // `userId` é ignorado pelo servidor atual (que atribui a identidade)
-        // e mantido só para compatibilidade com um servidor antigo.
         // Numa retomada o servidor usa o username guardado; o enviado só
         // vale se a identidade não puder ser retomada (ex.: servidor
         // reiniciou) — aí ela é recriada com o mesmo @, se estiver livre.
         transport.send(CLIENT_EVENTS.LOGIN, {
-            userId: me.id,
             userName: me.name,
             username: me.username ?? "",
             ...(resumeToken ? { resumeToken } : {}),

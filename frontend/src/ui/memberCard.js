@@ -80,19 +80,22 @@ export const createMemberCard = ({ getContext, runCommand, prefill, confirm, not
             runCommand(text);
         };
 
+        // Comandos indicam a pessoa pelo @ (o id interno não chega ao navegador).
+        const handle = `@${person.username ?? ""}`;
+
         /** @type {Action[]} */
         const list = [
             {
                 label: strings.memberCard.profile,
                 iconName: "user",
-                run: run(`/profile ${person.id}`),
+                run: run(`/profile ${handle}`),
             },
             {
                 label: strings.memberCard.copyId,
                 iconName: "copy",
                 run: () => {
                     navigator.clipboard
-                        ?.writeText(person.id)
+                        ?.writeText(handle)
                         .then(() => notify(strings.memberCard.copied))
                         .catch(() => notify(strings.memberCard.copyFailed, "error"));
                     if (!navigator.clipboard) notify(strings.memberCard.copyFailed, "error");
@@ -127,12 +130,12 @@ export const createMemberCard = ({ getContext, runCommand, prefill, confirm, not
                 {
                     label: strings.memberCard.mute,
                     iconName: "ban",
-                    run: run(`/mute ${person.id} 10`),
+                    run: run(`/mute ${handle} 10`),
                 },
                 {
                     label: strings.memberCard.unmute,
                     iconName: "check",
-                    run: run(`/unmute ${person.id}`),
+                    run: run(`/unmute ${handle}`),
                 },
                 {
                     label: strings.memberCard.kick,
@@ -145,7 +148,7 @@ export const createMemberCard = ({ getContext, runCommand, prefill, confirm, not
                             body: strings.dialogs.kickBody,
                             confirmLabel: strings.dialogs.kickConfirm,
                         }).then((ok) => {
-                            if (ok) runCommand(`/kick ${person.id}`);
+                            if (ok) runCommand(`/kick ${handle}`);
                         });
                     },
                 },
@@ -240,10 +243,6 @@ export const createMemberCard = ({ getContext, runCommand, prefill, confirm, not
                               ? strings.memberCard.roleHost
                               : strings.memberCard.roleMember
                     } · ${presence}`,
-                }),
-                el("span", {
-                    class: "c-member-card__id",
-                    text: format(strings.memberCard.id, { id: person.id }),
                 }),
             );
 

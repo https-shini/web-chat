@@ -54,9 +54,9 @@ describe("eventos de identidade", () => {
         const { store, handle } = setup();
         handle({
             type: "session",
-            payload: { id: "srv-1", name: "Ana Souza", username: "ana", resumeToken: "t" },
+            payload: { name: "Ana Souza", username: "ana", resumeToken: "t" },
         });
-        assert.deepEqual(store.getState().me, { id: "srv-1", name: "Ana Souza", username: "ana" });
+        assert.deepEqual(store.getState().me, { id: "ana", name: "Ana Souza", username: "ana" });
     });
 
     test("username em uso ou inválido volta para a entrada com o erro no campo do username", () => {
@@ -80,7 +80,7 @@ describe("eventos de identidade", () => {
         handle({
             type: "chat_message",
             id: "m1",
-            payload: { userId: "u1", userName: "Bia", username: "bia", content: "oi" },
+            payload: { userName: "Bia", username: "bia", content: "oi" },
         });
         assert.equal(store.getState().people[0].username, "bia");
         assert.equal(store.getState().messages.at(-1).username, "bia");

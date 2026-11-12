@@ -34,10 +34,13 @@ const anaTalksToBia = (options) => {
 
 describe("busca por @", () => {
     test("acha só pelo @ exato e devolve só nome, @ e id", () => {
-        const { hub, ana, idOf, bia } = people();
+        const { hub, ana } = people();
         const found = hub.lookup(ana, { username: "@BIA" });
         assert.equal(found.ok, true);
-        assert.equal(found.user.id, idOf(bia));
+        assert.deepEqual(found.user && { name: found.user.name, username: found.user.username }, {
+            name: "Bia",
+            username: "bia",
+        });
         for (const query of ["bi", "b", "bia2"]) {
             assert.equal(hub.lookup(ana, { username: query }).user ?? null, null, query);
         }
@@ -77,14 +80,13 @@ describe("busca por @", () => {
 
 describe("abrir e conversar", () => {
     test("quem abre recebe a conversa; a outra pessoa só fica sabendo na primeira mensagem", () => {
-        const { hub, ana, bia, received, idOf } = people();
+        const { hub, ana, bia, received } = people();
         const opened = hub.openDm(ana, { username: "bia" });
         assert.equal(opened.created, true);
         const [mine] = received(ana, "dm_opened");
         assert.equal(mine.conversationId, opened.conversation.id);
         assert.match(mine.conversationId, /^d_/);
         assert.deepEqual(mine.payload.peer, {
-            id: idOf(bia),
             name: "Bia",
             username: "bia",
             online: true,
@@ -104,9 +106,16 @@ describe("abrir e conversar", () => {
         assert.equal(received(bia, "chat_message").at(-1).payload.content, "oi Ana");
     });
 
-    test("abrir pelo id (ex.: do perfil numa sala) também funciona", () => {
-        const { hub, ana, bia, idOf } = people();
-        assert.equal(hub.openDm(ana, { userId: idOf(bia) }).created, true);
+    test("o id interno não abre conversa nem aparece em nenhum quadro", () => {
+        const { hub, ana, bia, idOf, all } = people();
+        assert.equal(hub.openDm(ana, { userId: idOf(bia) }).code, "invalid_user");
+        const { conversation } = hub.openDm(ana, { username: "bia" });
+        hub.post(ana, { conversationId: conversation.id, content: "oi" });
+        hub.post(bia, { conversationId: conversation.id, content: "oi" });
+        hub.typing(bia, { conversationId: conversation.id }, true);
+        hub.lookup(ana, { username: "bia" });
+        const wire = JSON.stringify([...all(ana), ...all(bia)]);
+        assert.ok(!wire.includes(idOf(ana)) && !wire.includes(idOf(bia)));
     });
 
     test("abrir de novo devolve a mesma conversa, dos dois lados", () => {
@@ -122,9 +131,8 @@ describe("abrir e conversar", () => {
         const { hub, ana, bia } = people();
         assert.equal(hub.openDm(ana, { username: "ana" }).code, "dm_self");
         assert.equal(hub.openDm(ana, { username: "ninguem" }).code, "user_unavailable");
-        assert.equal(hub.openDm(ana, { userId: "nao-existe" }).code, "user_unavailable");
         assert.equal(hub.openDm(ana, { username: "a b" }).code, "invalid_user");
-        assert.equal(hub.openDm(ana, { userId: "<script>" }).code, "invalid_user");
+        assert.equal(hub.openDm(ana, { username: "<script>" }).code, "invalid_user");
         hub.disconnect(bia);
         assert.equal(hub.openDm(ana, { username: "bia" }).code, "user_unavailable");
     });
@@ -251,58 +259,58 @@ describe("encerrar", () => {
 
 describe("bloqueio", () => {
     test("bloquear encerra a conversa; a outra pessoa só vê 'encerrada'", () => {
-        const { hub, ana, bia, dm, received, idOf } = anaTalksToBia();
-        const result = hub.block(bia, { userId: idOf(ana) });
-        assert.deepEqual(result.blocked, [{ id: idOf(ana), name: "Ana", username: "ana" }]);
+        const { hub, ana, bia, dm, received } = anaTalksToBia();
+        const result = hub.block(bia, { username: "ana" });
+        assert.deepEqual(result.blocked, [{ name: "Ana", username: "ana" }]);
         assert.equal(received(ana, "dm_closed", dm.id)[0].payload.reason, "closed");
         assert.equal(dm.closed, true);
     });
 
     test("bloqueada não abre conversa, não acha pela busca e não manda nada", () => {
-        const { hub, ana, bia, idOf, dm } = anaTalksToBia();
-        hub.block(bia, { userId: idOf(ana) });
+        const { hub, ana, bia, dm } = anaTalksToBia();
+        hub.block(bia, { username: "ana" });
         assert.equal(
             hub.post(ana, { conversationId: dm.id, content: "ainda?" }).code,
             "conversation_not_found",
         );
         assert.equal(hub.openDm(ana, { username: "bia" }).code, "user_unavailable");
-        assert.equal(hub.openDm(ana, { userId: idOf(bia) }).code, "user_unavailable");
+        assert.equal(hub.openDm(ana, { username: "bia" }).code, "user_unavailable");
         assert.equal(hub.lookup(ana, { username: "bia" }).user, null);
         // Mesmo código de quem não existe: o bloqueio não é revelado.
         assert.equal(hub.openDm(ana, { username: "ninguem" }).code, "user_unavailable");
     });
 
     test("quem bloqueou também não abre, até desbloquear", () => {
-        const { hub, bia, ana, idOf } = people();
-        hub.block(bia, { userId: idOf(ana) });
+        const { hub, bia, ana } = people();
+        hub.block(bia, { username: "ana" });
         assert.equal(hub.openDm(bia, { username: "ana" }).code, "user_unavailable");
-        assert.deepEqual(hub.unblock(bia, { userId: idOf(ana) }).blocked, []);
+        assert.deepEqual(hub.unblock(bia, { username: "ana" }).blocked, []);
         assert.equal(hub.openDm(ana, { username: "bia" }).ok, true);
     });
 
     test("bloqueio vale só para conversas privadas: na sala, a conversa segue", () => {
-        const { hub, ana, bia, idOf, received } = people();
+        const { hub, ana, bia, received } = people();
         const room = hub.createRoom(ana, {}).room;
         hub.joinRoom(bia, { code: room.code });
-        hub.block(bia, { userId: idOf(ana) });
+        hub.block(bia, { username: "ana" });
         hub.post(ana, { conversationId: room.id, content: "na sala" });
         assert.equal(received(bia, "chat_message", room.id).at(-1).payload.content, "na sala");
     });
 
     test("a si mesmo, id inválido, desconhecido e limite", () => {
-        const { hub, ana, bia, caio, idOf } = people({ dmGuard: { maxBlocked: 1 } });
-        assert.equal(hub.block(ana, { userId: idOf(ana) }).code, "invalid_user");
-        assert.equal(hub.block(ana, { userId: "<x>" }).code, "invalid_user");
-        assert.equal(hub.block(ana, { userId: "ninguem" }).code, "user_unavailable");
-        assert.equal(hub.block(ana, { userId: idOf(bia) }).ok, true);
-        assert.equal(hub.block(ana, { userId: idOf(bia) }).ok, true, "repetir não conta");
-        assert.equal(hub.block(ana, { userId: idOf(caio) }).code, "block_limit");
+        const { hub, ana } = people({ dmGuard: { maxBlocked: 1 } });
+        assert.equal(hub.block(ana, { username: "ana" }).code, "invalid_user");
+        assert.equal(hub.block(ana, { username: "<x>" }).code, "invalid_user");
+        assert.equal(hub.block(ana, { username: "ninguem" }).code, "user_unavailable");
+        assert.equal(hub.block(ana, { username: "bia" }).ok, true);
+        assert.equal(hub.block(ana, { username: "bia" }).ok, true, "repetir não conta");
+        assert.equal(hub.block(ana, { username: "caio" }).code, "block_limit");
     });
 
     test("o bloqueio acaba com a sessão de quem bloqueou", () => {
-        const { hub, member, login, ana, bia, idOf, received } = people();
+        const { hub, member, login, ana, bia, received } = people();
         const token = received(bia, "session")[0].payload.resumeToken;
-        hub.block(bia, { userId: idOf(ana) });
+        hub.block(bia, { username: "ana" });
         hub.logout(bia);
         const fresh = member("bia2");
         login(fresh, { userName: "Bia", username: "bia", resumeToken: token });
@@ -320,12 +328,9 @@ describe("queda, retomada e fim da identidade", () => {
             hub.post(ana, { conversationId: dm.id, content: "enquanto você caiu" }).ok,
             true,
         );
-        assert.equal(
-            hub.openDm(ana, { username: "bia" }).ok,
-            false,
-            "busca por @ só acha conectado",
-        );
-        assert.equal(hub.openDm(ana, { userId: dm.peerOf(hub.entryOf(ana).identity).id }).ok, true);
+        assert.equal(hub.lookup(ana, { username: "bia" }).user, null, "busca só acha conectado");
+        assert.equal(hub.openDm(ana, { username: "bia" }).ok, true, "a existente segue acessível");
+        assert.equal(dm.closed, false);
     });
 
     test("retomada: a conversa volta com o histórico, e a outra pessoa vê online", () => {
@@ -425,9 +430,9 @@ describe("limites e memória", () => {
     });
 
     test("logs: ids e conversa, nunca nome, @ ou conteúdo", () => {
-        const { logs, hub, bia, idOf, ana } = anaTalksToBia();
+        const { logs, hub, bia, ana } = anaTalksToBia();
         hub.lookup(ana, { username: "caio" });
-        hub.block(bia, { userId: idOf(ana) });
+        hub.block(bia, { username: "ana" });
         const text = JSON.stringify(logs.filter((l) => /dm|block/.test(l.event)));
         assert.ok(text.includes("dm_opened"));
         for (const secret of ["oi Bia", '"Ana"', '"Bia"', '"bia"', '"caio"']) {

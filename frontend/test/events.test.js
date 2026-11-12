@@ -26,33 +26,68 @@ const setup = () => {
     return { store, toasts, calls, handle };
 };
 
-const chat = (id, userId, content, userName = "Alguém") => ({
+const chat = (
+    id,
+    username,
+    content,
+    userName = "Alguém",
+    timestamp = "2026-11-07T10:00:00.000Z",
+) => ({
     type: "chat_message",
     id,
-    payload: { userId, userName, content, timestamp: "2026-11-07T10:00:00.000Z" },
+    payload: { username, userName, content, timestamp },
 });
 
 describe("identidade", () => {
-    test("session substitui o id provisório e entrega o token de retomada", () => {
+    test("session troca a chave provisória pelo @ e entrega o token de retomada", () => {
         const { store, calls, handle } = setup();
-        handle({ type: "session", payload: { id: "srv-1", name: "Ana", resumeToken: "tok" } });
-        assert.deepEqual(store.getState().me, { id: "srv-1", name: "Ana", username: "" });
+        handle({ type: "session", payload: { username: "ana", name: "Ana", resumeToken: "tok" } });
+        // O servidor não envia id interno: a chave da pessoa na interface é o @.
+        assert.deepEqual(store.getState().me, { id: "ana", name: "Ana", username: "ana" });
         assert.deepEqual(calls.sessions, ["tok"]);
     });
 
-    test("a própria mensagem é reconhecida pelo id do servidor, não pelo local", () => {
+    test("a própria mensagem é reconhecida pelo @, não pela chave provisória", () => {
         const { store, handle } = setup();
-        handle({ type: "session", payload: { id: "srv-1", name: "Ana", resumeToken: "t" } });
-        handle(chat("m1", "srv-1", "minha"));
-        handle(chat("m2", "id-local-provisorio", "forjada com meu id antigo"));
+        handle({ type: "session", payload: { username: "ana", name: "Ana", resumeToken: "t" } });
+        handle(chat("m1", "ana", "minha"));
+        handle(chat("m2", "id-local-provisorio", "com a chave antiga"));
         const [mine, forged] = store.getState().messages;
         assert.equal(mine?.own, true);
         assert.equal(forged?.own, false);
     });
 
+    test("mensagem com o seu @ escrita antes de você existir é de quem usou o @ antes", () => {
+        const { store, handle } = setup();
+        handle({
+            type: "session",
+            payload: {
+                username: "ana",
+                name: "Ana",
+                resumeToken: "t",
+                since: "2026-11-07T10:00:00.000Z",
+            },
+        });
+        handle({
+            type: "message_history",
+            payload: [
+                chat("velha", "ana", "da Ana anterior", "Ana", "2026-11-07T09:59:59.000Z"),
+                chat("nova", "ana", "minha", "Ana", "2026-11-07T10:00:01.000Z"),
+            ],
+        });
+        assert.deepEqual(
+            store.getState().messages.map((m) => [m.content, m.own]),
+            [
+                ["da Ana anterior", false],
+                ["minha", true],
+            ],
+        );
+    });
+
     test("session malformada é ignorada", () => {
         const { store, calls, handle } = setup();
-        handle({ type: "session", payload: { id: 42 } });
+        handle({ type: "session", payload: { username: 42 } });
+        handle({ type: "session", payload: { id: "so-id-sem-username", name: "X" } });
         handle({ type: "session", payload: null });
         assert.equal(store.getState().me?.id, "id-local-provisorio");
         assert.equal(calls.sessions.length, 0);
@@ -112,7 +147,7 @@ describe("identificadores de mensagem", () => {
         const { store, handle } = setup();
         handle({
             type: "chat_message",
-            payload: { userId: "u", userName: "x", content: "sem id" },
+            payload: { username: "u", userName: "x", content: "sem id" },
         });
         assert.equal(typeof store.getState().messages[0]?.id, "string");
     });
@@ -164,11 +199,15 @@ describe("erros com código", () => {
 describe("presença e digitação", () => {
     test("user_list normaliza entradas malformadas", () => {
         const { store, handle } = setup();
-        handle({ type: "user_list", payload: [{ id: "1", name: "Ana" }, null, { id: 2 }] });
+        handle({
+            type: "user_list",
+            // Um `id` vindo da rede é ignorado: a chave da pessoa é o @.
+            payload: [{ username: "ana", name: "Ana", id: "x" }, null, { username: 2 }],
+        });
         assert.deepEqual(store.getState().people, [
-            { id: "1", name: "Ana", username: "", status: "online", role: "member" },
+            { id: "ana", name: "Ana", username: "ana", status: "online", role: "member" },
             { id: "", name: "", username: "", status: "online", role: "member" },
-            { id: "2", name: "", username: "", status: "online", role: "member" },
+            { id: "", name: "", username: "", status: "online", role: "member" },
         ]);
         handle({ type: "user_list", payload: "lixo" });
         assert.deepEqual(store.getState().people, []);
@@ -202,13 +241,16 @@ describe("presença e digitação", () => {
             notifier: { show: () => {} },
             typingTracker: { set: (id, name, isTyping) => typing.push([id, name, isTyping]) },
         });
-        store.actions.enterRoom({ id: "eu", name: "Eu" });
+        store.actions.enterRoom({ id: "eu", name: "Eu", username: "eu" });
         handle({
             type: "user_typing",
-            payload: { userId: "outra", userName: "Bia", isTyping: true },
+            payload: { username: "outra", userName: "Bia", isTyping: true },
         });
-        handle({ type: "user_typing", payload: { userId: "eu", userName: "Eu", isTyping: true } });
-        handle({ type: "user_typing", payload: { userName: "sem id", isTyping: true } });
+        handle({
+            type: "user_typing",
+            payload: { username: "eu", userName: "Eu", isTyping: true },
+        });
+        handle({ type: "user_typing", payload: { userName: "sem @", isTyping: true } });
         assert.deepEqual(typing, [["outra", "Bia", true]]);
     });
 
@@ -221,16 +263,16 @@ describe("presença e digitação", () => {
             notifier: { show: (title, body) => notified.push([title, body]) },
             typingTracker: { set: () => {} },
         });
-        store.actions.enterRoom({ id: "eu", name: "Eu" });
+        store.actions.enterRoom({ id: "eu", name: "Eu", username: "eu" });
         handle({
             type: "chat_message",
             id: "1",
-            payload: { userId: "outra", userName: "Bia", content: "oi" },
+            payload: { username: "outra", userName: "Bia", content: "oi" },
         });
         handle({
             type: "chat_message",
             id: "2",
-            payload: { userId: "eu", userName: "Eu", content: "olá" },
+            payload: { username: "eu", userName: "Eu", content: "olá" },
         });
         assert.deepEqual(notified, [["Bia", "oi"]]);
     });

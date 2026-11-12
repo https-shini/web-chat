@@ -85,7 +85,7 @@ describe("readUsername", () => {
 });
 
 describe("entrada com username", () => {
-    test("id gerado no servidor; nome completo e username chegam na sessão e na lista", () => {
+    test("id gerado no servidor e nunca enviado; nome e username chegam na sessão e na lista", () => {
         const { member, enter, received } = setup();
         const ana = member("ana");
         const result = enter(ana, {
@@ -95,11 +95,14 @@ describe("entrada com username", () => {
         });
         assert.equal(result.ok, true);
         const [session] = received(ana, "session");
-        assert.equal(session.payload.id, "user-1");
+        assert.equal(result.user.id, "user-1", "o id existe no servidor");
+        assert.equal("id" in session.payload, false, "e não sai na sessão");
+        assert.equal(typeof session.payload.since, "string");
         assert.equal(session.payload.name, "Ana Carolina Souza");
         assert.equal(session.payload.username, "anacarolina");
         const [list] = received(ana, "user_list");
         assert.equal(list.payload[0].username, "anacarolina");
+        assert.equal("id" in list.payload[0], false, "nem na lista de pessoas");
     });
 
     test("entrada nova sem username é recusada", () => {

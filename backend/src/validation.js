@@ -207,17 +207,3 @@ export const readConversationId = (raw) =>
     CONVERSATION_ID.test(raw)
         ? raw
         : null;
-
-const USER_ID = /^[A-Za-z0-9_-]{1,64}$/;
-
-/**
- * Id de pessoa vindo do cliente (o mesmo que o servidor emitiu na sessão e
- * nas listas). Só formato; quem chama procura a identidade. Inválido é
- * tratado como ausente.
- * @param {unknown} raw
- * @returns {string | null}
- */
-export const readUserId = (raw) =>
-    typeof raw === "string" && raw.length <= LIMITS.userIdMaxLength && USER_ID.test(raw)
-        ? raw
-        : null;

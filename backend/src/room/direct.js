@@ -94,7 +94,6 @@ export const createDirectConversation = ({
             conversationId: id,
             kind: "dm",
             peer: {
-                id: peer.id,
                 name: peer.name,
                 username: peer.username,
                 online: peer.holder !== null,

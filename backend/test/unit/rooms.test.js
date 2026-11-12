@@ -125,7 +125,7 @@ describe("criação e entrada", () => {
     test("quem cria é anfitrião e recebe o resumo com o código", () => {
         const { member, login, hub, received, capabilityChanges } = setup();
         const ana = member("ana");
-        const { user } = login(ana, { userName: "Ana" });
+        const { user } = login(ana, { userName: "Ana", username: "ana" });
         const result = hub.createRoom(ana, { name: "Estudos" });
         assert.equal(result.ok, true);
         const [joined] = received(ana, "room_joined");
@@ -133,7 +133,8 @@ describe("criação e entrada", () => {
         assert.equal(joined.payload.code, result.room.code);
         assert.equal(joined.payload.name, "Estudos");
         assert.equal(joined.payload.role, "host");
-        assert.equal(joined.payload.hostId, user.id);
+        assert.equal(joined.payload.hostUsername, "ana");
+        assert.equal("hostId" in joined.payload, false);
         assert.equal(joined.payload.created, true);
         assert.deepEqual(capabilityChanges, [user.id], "o catálogo de comandos é reenviado");
     });
@@ -622,5 +623,58 @@ describe("ciclo de vida", () => {
         assert.equal(timers.pending.size, 0);
         listTimers.run({ all: true });
         assert.equal(ctx.received(ctx.ana, "user_left").length, 0);
+    });
+});
+
+describe("id interno: só no servidor, e só administradores o veem", () => {
+    const run = (ctx, member, text, conversationId) => {
+        const results = [];
+        const executor = createCommandExecutor({
+            registry: createDefaultRegistry(),
+            hub: ctx.hub,
+            log: () => {},
+            services: {
+                deliver: (_m, data) => {
+                    const message = JSON.parse(data);
+                    if (message.type === "command_result") results.push(message.payload);
+                },
+                adminAuth: { attempt: () => ({ ok: false, reason: "disabled" }) },
+                version: "teste",
+                startedAt: 0,
+            },
+        });
+        executor.execute(member, { requestId: "r", text, conversationId });
+        return results.at(-1);
+    };
+
+    test("nenhum quadro de sala carrega o id de ninguém", () => {
+        const ctx = twoRooms();
+        const { hub, ana, bia, caio, a, all } = ctx;
+        hub.post(caio, { conversationId: a.id, content: "oi" });
+        hub.typing(caio, { conversationId: a.id }, true);
+        hub.setAway(caio, "volto já");
+        hub.rename(caio, "Caio Reis");
+        hub.leaveRoom(caio, { conversationId: a.id });
+        hub.disconnect(bia);
+        const ids = [ana, caio].map((m) => hub.entryOf(m).identity.id);
+        const wire = JSON.stringify([...all(ana), ...all(bia), ...all(caio)]);
+        for (const id of ids) assert.ok(!wire.includes(id), `id ${id} vazou num quadro`);
+        assert.ok(!/"(userId|hostId|id)":"user-/.test(wire));
+    });
+
+    test("/users, /profile e /id: sem id para participante e anfitrião; com id para administrador", () => {
+        const ctx = twoRooms();
+        const { hub, ana, caio, a } = ctx;
+        const caioId = hub.entryOf(caio).identity.id;
+        // Ana é anfitriã (não administradora): não vê ids.
+        const asHost = [run(ctx, ana, "/users", a.id), run(ctx, ana, "/profile caio", a.id)];
+        assert.ok(!JSON.stringify(asHost).includes(caioId));
+        assert.equal(run(ctx, ana, "/id", a.id).code, "forbidden");
+        assert.equal(run(ctx, ana, `/mute ${caioId}`, a.id).code, "not_found", "nem modera por id");
+
+        hub.entryOf(ana).identity.role = "admin";
+        assert.ok(JSON.stringify(run(ctx, ana, "/users", a.id)).includes(caioId.slice(0, 8)));
+        assert.ok(run(ctx, ana, "/profile caio", a.id).lines.some((l) => l.includes(caioId)));
+        assert.ok(run(ctx, ana, "/id", a.id).text.includes(hub.entryOf(ana).identity.id));
     });
 });

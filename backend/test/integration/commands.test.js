@@ -133,17 +133,17 @@ describe("comandos", () => {
             userName: "Falso",
             role: "admin",
             isAdmin: true,
-            userId: admin.session.id,
+            userId: admin.session.username,
         });
         assert.equal(forged.session.role, "member");
-        assert.notEqual(forged.session.id, admin.session.id);
+        assert.notEqual(forged.session.username, admin.session.username);
         // Comando com papel e id no payload: ignorados.
         forged.client.send("command", {
             requestId: "forjado",
             text: "/kick AdmReal",
             role: "admin",
             isAdmin: true,
-            userId: admin.session.id,
+            userId: admin.session.username,
         });
         const result = await forged.client.take((m) => m.type === "command_result");
         assert.equal(result.payload.code, "forbidden");
@@ -213,9 +213,9 @@ describe("comandos", () => {
         const list = await b.client.take(
             (m) =>
                 m.type === "user_list" &&
-                m.payload.some((p) => p.id === a.session.id && p.status === "away"),
+                m.payload.some((p) => p.username === a.session.username && p.status === "away"),
         );
-        const me = list.payload.find((p) => p.id === a.session.id);
+        const me = list.payload.find((p) => p.username === a.session.username);
         assert.equal(me.name, "Depois Silva");
         assert.equal(me.statusText, "almoçando");
         a.client.close();
@@ -230,8 +230,9 @@ describe("comandos", () => {
         );
         const profile = await run(a.client, "/profile Silencioso");
         assert.equal(profile.lines[0], `Username: @${b.session.username}`);
-        assert.ok(profile.lines.some((line) => line.includes(b.session.id)));
-        assert.ok((await run(a.client, "/id")).text.includes(a.session.id));
+        // Quem não é administrador não vê id interno em lugar nenhum.
+        assert.ok(!profile.lines.some((line) => line.startsWith("Id")));
+        assert.equal((await run(a.client, "/id")).code, "forbidden");
         assert.equal((await run(a.client, "/ping")).text, "pong");
         assert.ok((await run(a.client, "/rules")).lines.length >= 3);
         assert.match((await run(a.client, "/version")).text, /1\.0\.0/);
@@ -298,7 +299,7 @@ describe("moderação", () => {
         for (const c of [admin, witness, target]) c.client.close();
     });
 
-    test("hierarquia: não modera a si mesmo nem outro administrador; alvo ambíguo pede id", async () => {
+    test("hierarquia: não modera a si mesmo nem outro administrador; alvo ambíguo pede o @", async () => {
         const a = await join(server.url, { userName: "Adm1" });
         const b = await join(server.url, { userName: "Adm2" });
         const x1 = await join(server.url, { userName: "Repetido" });
@@ -309,8 +310,15 @@ describe("moderação", () => {
         assert.equal((await run(a.client, "/kick Adm2")).code, "cannot_moderate");
         assert.equal((await run(a.client, "/mute Repetido")).code, "ambiguous_target");
         assert.equal((await run(a.client, "/mute Ninguem")).code, "not_found");
-        const viaId = await run(a.client, `/mute ${x2.session.id.slice(0, 8)} 1`);
-        assert.equal(viaId.code, undefined);
+        const viaHandle = await run(a.client, `/mute @${x2.session.username} 1`);
+        assert.equal(viaHandle.code, undefined);
+        // Administrador vê o id interno em /users e pode usá-lo como alvo.
+        const users = await run(a.client, "/users");
+        const line = users.lines.find((l) => l.includes(`@${x1.session.username}`));
+        const shortId = / id ([0-9a-f]{8})/.exec(line)?.[1];
+        assert.ok(shortId, line);
+        assert.equal((await run(a.client, `/mute ${shortId} 1`)).code, undefined);
+        assert.ok((await run(a.client, "/id")).text.includes("-"));
         for (const c of [a, b, x1, x2]) c.client.close();
     });
 });
@@ -363,7 +371,7 @@ describe("entrega e reconexão", () => {
             userName: "Instável",
             resumeToken: flaky.session.resumeToken,
         });
-        assert.equal(back.session.id, flaky.session.id);
+        assert.equal(back.session.username, flaky.session.username);
         await new Promise((resolve) => setTimeout(resolve, 1800));
         await barrier(back.client, watcher.client);
         assert.equal(watcher.client.count("user_left"), 0);

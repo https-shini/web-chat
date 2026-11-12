@@ -95,7 +95,7 @@ describe("entrar só depois que o servidor aceita", () => {
         store.actions.startJoin({ id: "provisorio", name: "Ana", username: "ana" });
         handle({
             type: "session",
-            payload: { id: "srv-1", name: "Ana", username: "ana", resumeToken: "t" },
+            payload: { name: "Ana", username: "ana", resumeToken: "t" },
         });
         assert.equal(store.getState().screen, "entry", "ainda esperando a sala");
         assert.equal(store.getState().joining, true);
@@ -126,7 +126,7 @@ describe("entrar só depois que o servidor aceita", () => {
         store.actions.enterRoom({ id: "srv-1", name: "Ana", username: "ana" });
         handle({
             type: "session",
-            payload: { id: "srv-1", name: "Ana", username: "ana", resumeToken: "t2" },
+            payload: { name: "Ana", username: "ana", resumeToken: "t2" },
         });
         assert.equal(store.getState().screen, "room");
     });

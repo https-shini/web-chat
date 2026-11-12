@@ -27,7 +27,9 @@ describe("ciclo de vida da conexão", () => {
         assert.equal(joined.payload.userName, "Segunda");
 
         const list = await first.client.take(
-            (m) => m.type === "user_list" && m.payload.some((p) => p.id === session.payload.id),
+            (m) =>
+                m.type === "user_list" &&
+                m.payload.some((p) => p.username === session.payload.username),
         );
         assert.deepEqual(list.payload.map((p) => p.name).sort(), ["Primeira", "Segunda"]);
         // Quem entra não recebe o próprio "entrou na sala".
@@ -77,9 +79,11 @@ describe("ciclo de vida da conexão", () => {
         );
         assert.equal(left.payload.userName, "Sai");
         const list = await stay.client.take(
-            (m) => m.type === "user_list" && !m.payload.some((p) => p.id === leave.session.id),
+            (m) =>
+                m.type === "user_list" &&
+                !m.payload.some((p) => p.username === leave.session.username),
         );
-        assert.ok(list.payload.some((p) => p.id === stay.session.id));
+        assert.ok(list.payload.some((p) => p.username === stay.session.username));
         stay.client.close();
     });
 
@@ -93,7 +97,7 @@ describe("ciclo de vida da conexão", () => {
             userName: "Volta",
             resumeToken: original.session.resumeToken,
         });
-        assert.equal(back.session.id, original.session.id);
+        assert.equal(back.session.username, original.session.username);
         assert.equal(back.session.name, "Volta");
         assert.notEqual(
             back.session.resumeToken,
@@ -102,16 +106,21 @@ describe("ciclo de vida da conexão", () => {
         );
 
         const list = await observer.client.take(
-            (m) => m.type === "user_list" && m.payload.some((p) => p.id === original.session.id),
+            (m) =>
+                m.type === "user_list" &&
+                m.payload.some((p) => p.username === original.session.username),
         );
-        assert.equal(list.payload.filter((p) => p.id === original.session.id).length, 1);
+        assert.equal(
+            list.payload.filter((p) => p.username === original.session.username).length,
+            1,
+        );
 
         // O token antigo deixou de valer depois da rotação.
         const replay = await join(server.url, {
             userName: "Replay",
             resumeToken: original.session.resumeToken,
         });
-        assert.notEqual(replay.session.id, original.session.id);
+        assert.notEqual(replay.session.username, original.session.username);
 
         observer.client.close();
         back.client.close();
@@ -129,15 +138,15 @@ describe("ciclo de vida da conexão", () => {
             userName: "Zumbi",
             resumeToken: stale.session.resumeToken,
         });
-        assert.equal(fresh.session.id, stale.session.id);
+        assert.equal(fresh.session.username, stale.session.username);
         await stale.client.waitClose();
 
         const list = await observer.client.take(
             (m) =>
                 m.type === "user_list" &&
-                m.payload.filter((p) => p.id === stale.session.id).length === 1,
+                m.payload.filter((p) => p.username === stale.session.username).length === 1,
         );
-        assert.ok(list.payload.some((p) => p.id === observer.session.id));
+        assert.ok(list.payload.some((p) => p.username === observer.session.username));
         // Para os outros a pessoa nunca saiu: nem "saiu" nem um novo "entrou".
         await barrier(fresh.client, observer.client);
         const zumbi = (m) => m.payload?.userName === "Zumbi";
@@ -185,7 +194,9 @@ describe("heartbeat", () => {
         const left = await observer.client.take("user_left", 3000);
         assert.equal(left.payload.userName, "Fantasma");
         const list = await observer.client.take(
-            (m) => m.type === "user_list" && !m.payload.some((p) => p.id === ghost.session.id),
+            (m) =>
+                m.type === "user_list" &&
+                !m.payload.some((p) => p.username === ghost.session.username),
         );
         assert.equal(list.payload.length, 1);
         // Quem responde ao ping continua conectado.

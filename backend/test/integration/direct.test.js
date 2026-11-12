@@ -45,7 +45,7 @@ describe("conversas privadas", () => {
         const found = (await ana.client.take("user_lookup")).payload;
         assert.deepEqual(found, {
             found: true,
-            user: { id: bia.me.id, name: "Bia", username: bia.username },
+            user: { name: "Bia", username: bia.username },
             requestId: "b1",
         });
         for (const username of [bia.username.slice(0, 4), "ninguem_aqui"]) {
@@ -54,8 +54,11 @@ describe("conversas privadas", () => {
         }
         ana.client.send("user_lookup", { username: "a b" });
         assert.equal((await ana.client.take("error")).payload.code, "invalid_user");
+        // Espera o servidor perceber a queda de Bia (mais uma sessão pausada no log).
+        const paused = () => server.entries().filter((e) => e.event === "session_paused").length;
+        const before = paused();
         bia.client.ws.terminate();
-        await server.waitForLog((e) => e.event === "session_paused" && e.user === bia.me.id);
+        await server.waitForLog(() => paused() > before);
         ana.client.send("user_lookup", { username: bia.username });
         assert.equal((await ana.client.take("user_lookup")).payload.found, false);
         ana.client.close();
@@ -69,7 +72,11 @@ describe("conversas privadas", () => {
         assert.equal(opened.type, "dm_opened");
         const id = opened.conversationId;
         assert.match(id, /^d_/);
-        assert.equal(opened.payload.peer.id, bia.me.id);
+        assert.deepEqual(opened.payload.peer, {
+            name: "Bia",
+            username: bia.username,
+            online: true,
+        });
         await settle(bia.client);
         assert.equal(bia.client.count("dm_opened"), 0, "abrir não avisa a outra pessoa");
 
@@ -80,7 +87,7 @@ describe("conversas privadas", () => {
         });
         const theirs = await bia.client.take("dm_opened");
         assert.equal(theirs.conversationId, id);
-        assert.equal(theirs.payload.peer.id, ana.me.id);
+        assert.equal(theirs.payload.peer.username, ana.username);
         const history = await bia.client.take("message_history");
         assert.equal(history.conversationId, id);
         assert.equal(history.payload[0].payload.content, "oi Bia");
@@ -90,7 +97,8 @@ describe("conversas privadas", () => {
             (m) => m.type === "chat_message" && m.payload.content === "oi Ana",
         );
         assert.equal(reply.conversationId, id);
-        assert.equal(reply.payload.userId, bia.me.id);
+        assert.equal(reply.payload.username, bia.username);
+        assert.equal("userId" in reply.payload, false);
         bia.client.send("typing_start", { conversationId: id });
         assert.equal((await ana.client.take("user_typing")).conversationId, id);
 
@@ -129,7 +137,7 @@ describe("conversas privadas", () => {
     test("encerrar apaga para as duas; abrir de novo começa vazio", async () => {
         const ana = await person(server.url, "Ana");
         const bia = await person(server.url, "Bia");
-        const { conversationId } = await openDm(ana.client, { userId: bia.me.id });
+        const { conversationId } = await openDm(ana.client, { username: bia.username });
         ana.client.send("chat_message", { conversationId, content: "vai sumir" });
         await bia.client.take("message_history");
         bia.client.send("dm_close", { conversationId });
@@ -140,7 +148,7 @@ describe("conversas privadas", () => {
         }
         ana.client.send("chat_message", { conversationId, content: "ainda?" });
         assert.equal((await ana.client.take("error")).payload.code, "conversation_not_found");
-        const again = await openDm(ana.client, { userId: bia.me.id });
+        const again = await openDm(ana.client, { username: bia.username });
         assert.notEqual(again.conversationId, conversationId);
         await settle(ana.client);
         assert.equal(
@@ -160,19 +168,20 @@ describe("conversas privadas", () => {
         ana.client.send("chat_message", { conversationId, content: "insistente" });
         await bia.client.take("message_history");
 
-        bia.client.send("user_block", { userId: ana.me.id, requestId: "bl" });
+        bia.client.send("user_block", { username: ana.username, requestId: "bl" });
         const blocked = (await bia.client.take("block_list")).payload;
         assert.deepEqual(blocked, {
-            blocked: [{ id: ana.me.id, name: "Ana", username: ana.username }],
+            blocked: [{ name: "Ana", username: ana.username }],
             requestId: "bl",
         });
         assert.equal((await ana.client.take("dm_closed")).payload.reason, "closed");
 
         ana.client.send("chat_message", { conversationId, content: "de novo" });
         assert.equal((await ana.client.take("error")).payload.code, "conversation_not_found");
-        for (const payload of [{ username: bia.username }, { userId: bia.me.id }]) {
-            assert.equal((await openDm(ana.client, payload)).payload.code, "user_unavailable");
-        }
+        assert.equal(
+            (await openDm(ana.client, { username: bia.username })).payload.code,
+            "user_unavailable",
+        );
         ana.client.send("user_lookup", { username: bia.username });
         assert.equal((await ana.client.take("user_lookup")).payload.found, false);
         await settle(bia.client);
@@ -181,7 +190,7 @@ describe("conversas privadas", () => {
             0,
         );
 
-        bia.client.send("user_unblock", { userId: ana.me.id });
+        bia.client.send("user_unblock", { username: ana.username });
         assert.deepEqual((await bia.client.take("block_list")).payload, { blocked: [] });
         assert.equal((await openDm(ana.client, { username: bia.username })).type, "dm_opened");
         ana.client.close();
@@ -203,7 +212,6 @@ describe("conversas privadas", () => {
         const back = await connect(server.url);
         back.send("user_login", { userName: "Bia", resumeToken: bia.me.resumeToken });
         const session = (await back.take("session")).payload;
-        assert.equal(session.id, bia.me.id);
         assert.equal(session.resumed, true);
         const resumed = await back.take("dm_opened");
         assert.equal(resumed.conversationId, conversationId);
@@ -223,7 +231,7 @@ describe("conversas privadas", () => {
         const impostor = await connect(server.url);
         impostor.send("user_login", { userName: "Outra", username: bia.username });
         const fresh = (await impostor.take("session")).payload;
-        assert.notEqual(fresh.id, bia.me.id);
+        assert.equal(fresh.resumed, false);
         impostor.send("chat_message", { conversationId, content: "sou a Bia?" });
         assert.equal((await impostor.take("error")).payload.code, "conversation_not_found");
         const reopened = await openDm(impostor, { username: ana.username });
@@ -251,7 +259,7 @@ describe("conversas privadas", () => {
             ["user_lookup", { username: "alguem" }],
             ["dm_open", { username: "alguem" }],
             ["dm_close", { conversationId: "d_aaaaaaaaaaaaaaaa" }],
-            ["user_block", { userId: "x" }],
+            ["user_block", { username: "alguem" }],
         ]) {
             lurker.send(type, payload);
             assert.equal((await lurker.take("error")).payload.code, "not_logged_in", type);

@@ -38,7 +38,6 @@ import {
     readResumeToken,
     readRoomCode,
     readRoomName,
-    readUserId,
     readUsername,
 } from "../validation.js";
 import { isHost } from "./policy.js";
@@ -153,23 +152,23 @@ export const createHub = ({
     };
 
     /**
-     * Pessoa indicada por `userId` ou `username` no payload.
-     *  - por id: qualquer identidade viva (conectada ou na janela de retomada);
-     *  - por @: só quem está conectado agora, e a busca conta no limite.
+     * Pessoa indicada pelo `@` exato no payload, entre as identidades vivas
+     * (conectadas ou na janela de retomada). O id interno nunca vem do
+     * cliente nem volta para ele. A busca conta no limite, a menos que as
+     * duas já tenham uma conversa privada (aí não revela nada de novo).
      * @param {Identity} identity quem procura
-     * @param {Record<string, unknown>} payload
+     * @param {Record<string, unknown>} payload `{ username }`
      * @returns {{ok: true, target: Identity | null} | Refusal}
      */
     const findTarget = (identity, payload) => {
-        if (payload.userId !== undefined) {
-            const id = readUserId(payload.userId);
-            if (id === null) return { ok: false, code: ERROR_CODES.INVALID_USER };
-            return { ok: true, target: identities.findById(id) };
-        }
         const read = readUsername(payload.username);
         if (!read.ok || !read.username) return { ok: false, code: ERROR_CODES.INVALID_USER };
-        if (!consume("lookup", identity)) return { ok: false, code: ERROR_CODES.LOOKUP_LIMITED };
-        return { ok: true, target: identities.findConnected(read.username) };
+        const target = identities.findByUsername(read.username);
+        const known = target !== null && directs.between(identity, target) !== null;
+        if (!known && !consume("lookup", identity)) {
+            return { ok: false, code: ERROR_CODES.LOOKUP_LIMITED };
+        }
+        return { ok: true, target };
     };
 
     /** Bloqueados da identidade, para `block_list`. @param {Identity} identity */
@@ -414,12 +413,12 @@ export const createHub = ({
         },
 
         /**
-         * Abre (ou retoma) a conversa privada com alguém, por `userId` (de uma
-         * lista de sala ou de uma busca) ou `username` exato. Conversa nova
+         * Abre (ou retoma) a conversa privada com alguém, pelo `@` exato (o
+         * de uma busca, de uma lista de sala ou de um perfil). Conversa nova
          * exige a outra pessoa conectada; uma existente é devolvida mesmo com
          * ela na janela de retomada.
          * @param {unknown} member
-         * @param {Record<string, unknown>} payload `{ userId } | { username }`
+         * @param {Record<string, unknown>} payload `{ username }`
          * @returns {{ok: true, conversation: DirectConversation, created: boolean} | Refusal}
          */
         openDm(member, payload) {
@@ -474,23 +473,25 @@ export const createHub = ({
          * foi bloqueado não é avisado do bloqueio (só vê a conversa encerrada).
          * Vale só para conversas privadas: salas têm moderação própria.
          * @param {unknown} member
-         * @param {Record<string, unknown>} payload `{ userId }`
-         * @returns {{ok: true, blocked: {id: string, name: string, username: string}[]} | Refusal}
+         * @param {Record<string, unknown>} payload `{ username }`
+         * @returns {{ok: true, blocked: {name: string, username: string}[]} | Refusal}
          */
         block(member, payload) {
             const entry = connections.get(member);
             if (!entry) return { ok: false, code: ERROR_CODES.NOT_LOGGED_IN };
             const { identity } = entry;
-            const id = readUserId(payload.userId);
-            if (id === null || id === identity.id)
-                return { ok: false, code: ERROR_CODES.INVALID_USER };
-            if (!identity.blocked.has(id)) {
+            const found = findTarget(identity, payload);
+            if (!found.ok) return found;
+            const { target } = found;
+            if (target === identity) return { ok: false, code: ERROR_CODES.INVALID_USER };
+            if (!target) return { ok: false, code: ERROR_CODES.USER_UNAVAILABLE };
+            if (!identity.blocked.has(target.id)) {
                 if (identity.blocked.size >= guard.maxBlocked) {
                     return { ok: false, code: ERROR_CODES.BLOCK_LIMIT };
                 }
-                const target = identities.findById(id);
-                if (!target) return { ok: false, code: ERROR_CODES.USER_UNAVAILABLE };
-                identity.blocked.set(id, { id, name: target.name, username: target.username });
+                // A chave é o id interno: se a pessoa sair e outra pegar o
+                // mesmo @, a nova não herda o bloqueio.
+                identity.blocked.set(target.id, { name: target.name, username: target.username });
                 const conversation = directs.between(identity, target);
                 if (conversation) directs.close(conversation);
                 log("info", "user_blocked", { user: identity.id });
@@ -499,16 +500,19 @@ export const createHub = ({
         },
 
         /**
+         * Desfaz o bloqueio de quem tinha esse `@` quando foi bloqueado.
          * @param {unknown} member
-         * @param {Record<string, unknown>} payload `{ userId }`
-         * @returns {{ok: true, blocked: {id: string, name: string, username: string}[]} | Refusal}
+         * @param {Record<string, unknown>} payload `{ username }`
+         * @returns {{ok: true, blocked: {name: string, username: string}[]} | Refusal}
          */
         unblock(member, payload) {
             const entry = connections.get(member);
             if (!entry) return { ok: false, code: ERROR_CODES.NOT_LOGGED_IN };
-            const id = readUserId(payload.userId);
-            if (id === null) return { ok: false, code: ERROR_CODES.INVALID_USER };
-            entry.identity.blocked.delete(id);
+            const read = readUsername(payload.username);
+            if (!read.ok || !read.username) return { ok: false, code: ERROR_CODES.INVALID_USER };
+            for (const [id, person] of entry.identity.blocked) {
+                if (person.username === read.username) entry.identity.blocked.delete(id);
+            }
             return { ok: true, blocked: blockedOf(entry.identity) };
         },
 
