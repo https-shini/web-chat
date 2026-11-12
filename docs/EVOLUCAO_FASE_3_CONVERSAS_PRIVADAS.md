@@ -62,7 +62,9 @@ deixa de existir.
 - Com o `@` como única identificação visível, mensagens antigas de uma sala
   escritas por alguém que já saiu aparecem com o mesmo `@` de quem o pegou
   depois. Elas não são marcadas como da pessoa nova, mas os outros participantes
-  não têm como distinguir as duas no histórico.
+  não têm como distinguir as duas no histórico. A solução planejada (número de
+  autor por conversa, sem expor o id interno) está em
+  [`EVOLUCAO_FASE_4_PLANO.md`](./EVOLUCAO_FASE_4_PLANO.md).
 
 - A interface ainda não mostra conversas privadas: o cliente atual ignora os
   eventos de conversas que não são a sala aberta.
