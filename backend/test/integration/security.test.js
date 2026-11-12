@@ -189,3 +189,99 @@ describe("allowlist de origem", () => {
         client.close();
     });
 });
+
+describe("id interno: nunca chega a quem não é administrador", () => {
+    const ADMIN_KEY = "chave-de-integracao-ids-0123456789";
+
+    test("nenhum quadro, erro ou resposta HTTP traz o id de alguém; administrador o vê por comando", async () => {
+        const server = await startServer({ ADMIN_KEY, METRICS_ENABLED: "true" });
+        const host = await join(server.url, { userName: "Anfitriã", username: "anfitria" });
+        const guest = await join(server.url, { userName: "Convidada", username: "convidada" });
+        const admin = await join(server.url, { userName: "Operadora", username: "operadora" });
+
+        let seq = 0;
+        const run = async (client, text) => {
+            const requestId = `ids-${++seq}`;
+            client.send("command", { requestId, text });
+            return (
+                await client.take(
+                    (m) => m.type === "command_result" && m.payload.requestId === requestId,
+                )
+            ).payload;
+        };
+
+        // Uso normal, erros e moderação, vistos por quem não é administrador.
+        guest.client.send("chat_message", { content: "olá", clientMsgId: "g1" });
+        guest.client.send("typing_start", {});
+        guest.client.send("user_lookup", { username: "anfitria" });
+        guest.client.send("dm_open", { username: "anfitria" });
+        const dm = await guest.client.take("dm_opened");
+        guest.client.send("chat_message", {
+            conversationId: dm.conversationId,
+            content: "privado",
+        });
+        await host.client.take("dm_opened");
+        guest.client.send("user_block", { username: "anfitria" });
+        await guest.client.take("block_list");
+        guest.client.send("dm_open", { userId: "qualquer", username: undefined });
+        guest.client.send("chat_message", { conversationId: "r_naoexiste000000", content: "x" });
+        guest.client.send("room_list", {});
+        await guest.client.take("room_list");
+        for (const text of [
+            "/users",
+            "/profile",
+            "/profile @anfitria",
+            "/id",
+            "/rooms",
+            "/invite",
+        ]) {
+            await run(guest.client, text);
+        }
+        await run(host.client, "/users");
+        await run(host.client, "/profile @convidada");
+        await run(host.client, "/mute @convidada 1");
+        await run(host.client, "/kick @convidada");
+        await guest.client.take("room_left");
+
+        // Ids reais, do log do servidor (que fica com quem opera).
+        const ids = [
+            ...new Set(
+                server
+                    .entries()
+                    .filter((e) => e.event === "session_started")
+                    .map((e) => e.user),
+            ),
+        ];
+        assert.equal(ids.length, 3);
+        for (const [who, client] of [
+            ["convidada", guest.client],
+            ["anfitriã", host.client],
+        ]) {
+            const wire = JSON.stringify(client.inbox);
+            for (const id of ids) {
+                assert.ok(!wire.includes(id), `id completo vazou para ${who}`);
+                assert.ok(!wire.includes(id.slice(0, 8)), `id curto vazou para ${who}`);
+            }
+        }
+
+        // Respostas HTTP: só números.
+        for (const path of ["/", "/healthz", "/readyz", "/metrics"]) {
+            const body = await (await fetch(`http://127.0.0.1:${server.port}${path}`)).text();
+            for (const id of ids) assert.ok(!body.includes(id), `id em ${path}`);
+            for (const name of ["anfitria", "convidada", "Convidada"]) {
+                assert.ok(!body.includes(name), `nome ou @ em ${path}`);
+            }
+        }
+
+        // Administradora: vê os ids, e só por comando.
+        const before = JSON.stringify(admin.client.inbox);
+        for (const id of ids) assert.ok(!before.includes(id), "nem a futura admin recebia ids");
+        assert.equal((await run(admin.client, `/admin ${ADMIN_KEY}`)).tone, "admin");
+        const users = await run(admin.client, "/users");
+        assert.ok(users.lines.some((line) => / id [0-9a-f]{8}/.test(line)));
+        assert.match((await run(admin.client, "/id")).text, /[0-9a-f-]{36}/);
+
+        for (const p of [host, guest, admin]) p.client.close();
+        await server.stop();
+    });
+});
