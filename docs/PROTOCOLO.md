@@ -58,7 +58,12 @@ Todo quadro é um objeto JSON:
 | `room_create`  | `{ name?, requestId? }`                         | Exige login. Cria uma sala; quem cria entra como **anfitrião** e recebe `room_joined` com o código. `name`: até 40 caracteres (ausente = "Sala de {nome}").                                                                                                                                      |
 | `room_join`    | `{ code, requestId? }`                          | Exige login. Entra pelo código de convite. Aceita o código com ou sem hífens, em maiúsculas, com espaços ou o link inteiro. Entrar de novo numa sala em que já está só reenvia o estado. Erros contam para a [proteção contra adivinhação](#salas).                                              |
 | `room_leave`   | `{ conversationId, requestId? }`                | Sai de uma sala; a sessão e as outras salas continuam. Quem sai recebe `room_left` (`reason: "left"`).                                                                                                                                                                                           |
-| `room_list`    | `{ requestId? }`                                | As salas de que a sessão participa, em `room_list`.                                                                                                                                                                                                                                              |
+| `room_list`    | `{ requestId? }`                                | As conversas da sessão — salas e conversas privadas —, em `room_list`.                                                                                                                                                                                                                           |
+| `user_lookup`  | `{ username, requestId? }`                      | Exige login. Procura alguém **conectado** pelo `@` exato. Nunca lista, completa nem sugere. Resposta em `user_lookup`. Conta no [limite de buscas](#conversas-privadas).                                                                                                                         |
+| `dm_open`      | `{ userId } \| { username }`, `requestId?`      | Exige login. Abre (ou retoma) a conversa privada com alguém, pelo id (de uma lista de sala ou de uma busca) ou pelo `@` exato. Resposta em `dm_opened`.                                                                                                                                          |
+| `dm_close`     | `{ conversationId, requestId? }`                | Encerra a conversa privada para as duas pessoas; o histórico é descartado.                                                                                                                                                                                                                       |
+| `user_block`   | `{ userId, requestId? }`                        | Bloqueia alguém até o fim da sessão. Resposta em `block_list`.                                                                                                                                                                                                                                   |
+| `user_unblock` | `{ userId, requestId? }`                        | Desfaz o bloqueio. Resposta em `block_list`.                                                                                                                                                                                                                                                     |
 | `chat_message` | `{ conversationId, content, clientMsgId? }`     | Exige participar da conversa. `content`: 1–1000 caracteres. `clientMsgId`: id de correlação (`[A-Za-z0-9_-]`, até 64) — devolvido na mensagem e no erro (`ref`); reenvio com o mesmo id na mesma sala não duplica. `kind`/`format` do cliente são ignorados.                                     |
 | `typing_start` | `{ conversationId }`                            | Conversa inválida é ignorada em silêncio. O cliente envia no máximo a cada 2 s.                                                                                                                                                                                                                  |
 | `typing_stop`  | `{ conversationId }`                            | Idem.                                                                                                                                                                                                                                                                                            |
@@ -77,7 +82,12 @@ Eventos marcados com **◆** pertencem a uma sala e levam `conversationId` no to
 | `room_joined` ◆     | `{ conversationId, kind: "room", code, name, role, hostId, memberCount, historyVersion, created, resumed }`                                | Ao criar, entrar ou voltar (retomada) numa sala. `role`: seu papel **nesta** sala (`host`/`member`). `historyVersion` diferente da conhecida → descartar a conversa local dessa sala. Seguido de `message_history` (se houver) e `user_list`.      |
 | `room_updated` ◆    | mesmo resumo de `room_joined`                                                                                                              | O resumo mudou para você (ex.: você virou anfitrião).                                                                                                                                                                                              |
 | `room_left` ◆       | `{ reason }`                                                                                                                               | Você não está mais na sala: `left` (saiu), `removed` (removido por quem modera; não volta a ela) ou `closed`.                                                                                                                                      |
-| `room_list`         | `{ rooms: RoomSummary[], requestId? }`                                                                                                     | Resposta a `room_list`.                                                                                                                                                                                                                            |
+| `room_list`         | `{ rooms: RoomSummary[], dms: DmSummary[], requestId? }`                                                                                   | Resposta a `room_list`.                                                                                                                                                                                                                            |
+| `user_lookup`       | `{ found, user?: { id, name, username }, requestId? }`                                                                                     | Resposta a `user_lookup`. `found: false` para quem não existe, não está conectado ou bloqueou você — sem distinção.                                                                                                                                |
+| `dm_opened` ◆       | `{ conversationId, kind: "dm", peer: { id, name, username, online }, historyVersion, created, resumed }`                                   | Você está numa conversa privada: ao abrir, ao receber a primeira mensagem de alguém ou ao voltar (retomada). Seguido de `message_history`, se houver.                                                                                              |
+| `dm_updated` ◆      | mesmo resumo de `dm_opened`                                                                                                                | A outra pessoa mudou de nome ou de presença (`peer.online`).                                                                                                                                                                                       |
+| `dm_closed` ◆       | `{ reason }`                                                                                                                               | A conversa privada acabou, com o histórico: `closed` (uma das duas encerrou ou bloqueou) ou `ended` (a identidade da outra pessoa acabou).                                                                                                         |
+| `block_list`        | `{ blocked: Array<{ id, name, username }>, requestId? }`                                                                                   | Quem você bloqueou nesta sessão, depois de bloquear ou desbloquear.                                                                                                                                                                                |
 | `message_history` ◆ | `Array<{ id, type: "chat_message", payload }>`                                                                                             | Após `room_joined`, se houver histórico (até `HISTORY_ON_JOIN`, padrão 50).                                                                                                                                                                        |
 | `chat_message` ◆    | `{ userId, userName, username?, content, timestamp, kind?, format?, clientMsgId? }` + `id`                                                 | A cada mensagem aceita, para quem está na sala (inclusive quem enviou).                                                                                                                                                                            |
 | `user_joined` ◆     | `{ userName, timestamp }`                                                                                                                  | Para os outros da sala, quando alguém entra (não numa volta dentro da janela de retomada).                                                                                                                                                         |
@@ -90,7 +100,7 @@ Eventos marcados com **◆** pertencem a uma sala e levam `conversationId` no to
 | `command_catalog`   | `{ commands: Array<{ name, aliases, category, categoryLabel, description, syntax, examples, permission, scope, requiresRoom, allowed }> }` | Após `session` e quando você passa a moderar alguma sala (ou deixa de). `allowed` é indicativo: a permissão é conferida por sala a cada execução.                                                                                                  |
 | `command_result`    | `{ requestId, tone, text, title?, lines?, code?, data? }`                                                                                  | Exatamente uma por `command`, só para quem executou. `text` vazio = efeito já visível na sala.                                                                                                                                                     |
 
-Só quem participa de uma sala recebe eventos dela.
+Só quem participa de uma conversa — sala ou privada — recebe eventos dela.
 
 ## Salas
 
@@ -120,6 +130,43 @@ Só quem participa de uma sala recebe eventos dela.
   histórico, o código e a lista de removidos. Entrar durante a espera a mantém
   viva.
 
+## Conversas privadas
+
+- **Tipo distinto de conversa.** O `conversationId` começa com `d_` (salas, com
+  `r_`). `chat_message`, `typing_start` e `typing_stop` funcionam igual, com o
+  `conversationId` da conversa privada; os eventos de volta (`chat_message`,
+  `message_history`, `user_typing`) levam o mesmo id no topo. Comandos de sala
+  (`/me`, `/kick`…) não rodam numa conversa privada.
+- **Só as duas pessoas.** Não há como entrar numa conversa privada: ela existe
+  entre duas identidades, e o servidor confere a participação em toda operação.
+  Para qualquer outra pessoa, mesmo sabendo o id, a resposta é
+  `conversation_not_found`.
+- **Ligada aos ids internos, nunca ao `@`.** Uma identidade nova que reutilize o
+  mesmo `@` não encontra nem recupera nada da anterior.
+- **Busca só pelo `@` exato**, e só de quem está conectado agora. Não existe
+  listagem, prefixo nem sugestão. Quem bloqueou você não aparece.
+- **Abrir não avisa ninguém.** Quem abre recebe `dm_opened`; a outra pessoa só
+  recebe o dela junto com a primeira mensagem (que vem no `message_history`).
+  Abrir de novo devolve a mesma conversa. Conversa nova exige a outra pessoa
+  conectada.
+- **Bloqueio** (`user_block`): vale até o fim da sessão de quem bloqueou. Encerra a
+  conversa entre as duas e impede conversa nova nas duas direções. Quem foi
+  bloqueado não é avisado: vê `dm_closed` com `reason: "closed"` e, ao tentar de
+  novo, `user_unavailable` — a mesma resposta de "essa pessoa não existe". Vale só
+  para conversas privadas; salas têm moderação própria.
+- **Ciclo de vida:** queda de conexão não encerra nada — a outra pessoa recebe
+  `dm_updated` com `peer.online: false`, e quem volta com o token em até 2 min
+  recebe as conversas de novo, com o histórico. Quando uma identidade acaba
+  (`user_logout` ou prazo vencido), todas as conversas privadas dela são
+  destruídas com o histórico, e a outra pessoa recebe `dm_closed` com
+  `reason: "ended"`. Reiniciar o servidor apaga todas.
+- **Limites contra abuso**, por identidade: 20 buscas seguidas e depois 1 a cada
+  3 s (`lookup_limited`; `dm_open` por `@` também conta); 10 conversas **novas**
+  seguidas e depois 1 a cada 30 s (`dm_open_limited`; reabrir não conta); até 100
+  bloqueios por sessão (`block_limit`). Por ambiente: `MAX_DMS_PER_USER` (20)
+  conversas abertas por pessoa, `MAX_DMS` (5000) no servidor e `DM_HISTORY_SIZE`
+  (100) mensagens guardadas por conversa.
+
 ## Identidade
 
 - O `id` de cada pessoa é gerado pelo servidor; o cliente nunca o escolhe.
@@ -146,37 +193,45 @@ Só quem participa de uma sala recebe eventos dela.
 
 ## Códigos de erro
 
-| `code`                   | Categoria      | Quando                                                                      |
-| ------------------------ | -------------- | --------------------------------------------------------------------------- |
-| `invalid_message`        | protocolo      | Envelope inválido ou `content` que não é string                             |
-| `unknown_type`           | protocolo      | `type` fora da lista acima                                                  |
-| `invalid_name`           | validação      | Nome vazio, só espaços/controle, ausente ou de tipo errado                  |
-| `invalid_username`       | validação      | Username ausente (entrada nova), fora do formato ou reservado               |
-| `username_taken`         | validação      | Username com outra identidade viva                                          |
-| `empty_message`          | validação      | `content` vazio após normalização                                           |
-| `already_logged_in`      | autorização    | Segundo `user_login` na mesma conexão                                       |
-| `not_logged_in`          | autorização    | Operação que exige sessão antes do login                                    |
-| `rate_limited`           | limite de taxa | `chat_message` ou `command` acima do limite (no máximo 1 aviso por segundo) |
-| `muted`                  | autorização    | Fase 4: quem foi silenciado tentou publicar                                 |
-| `invalid_room_code`      | validação      | `room_join` com código fora do formato `abc-defg-hij`                       |
-| `invalid_room_name`      | validação      | Nome de sala com mais de 40 caracteres ou de tipo errado                    |
-| `room_not_found`         | validação      | Nenhuma sala ativa com o código                                             |
-| `conversation_not_found` | autorização    | Conversa inexistente ou de que a sessão não participa (mesma resposta)      |
-| `removed_from_room`      | autorização    | Tentativa de voltar a uma sala de onde foi removido                         |
-| `room_join_limit`        | autorização    | Já está no número máximo de salas                                           |
-| `room_create_limit`      | autorização    | Já criou o número máximo de salas ativas                                    |
-| `rooms_full`             | limite de taxa | O servidor está no limite de salas                                          |
-| `room_join_locked`       | limite de taxa | Tentativas erradas demais com códigos de sala                               |
-| `internal_error`         | interno        | Defeito do servidor; nenhum detalhe é enviado                               |
+| `code`                   | Categoria      | Quando                                                                                                                               |
+| ------------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `invalid_message`        | protocolo      | Envelope inválido ou `content` que não é string                                                                                      |
+| `unknown_type`           | protocolo      | `type` fora da lista acima                                                                                                           |
+| `invalid_name`           | validação      | Nome vazio, só espaços/controle, ausente ou de tipo errado                                                                           |
+| `invalid_username`       | validação      | Username ausente (entrada nova), fora do formato ou reservado                                                                        |
+| `username_taken`         | validação      | Username com outra identidade viva                                                                                                   |
+| `empty_message`          | validação      | `content` vazio após normalização                                                                                                    |
+| `already_logged_in`      | autorização    | Segundo `user_login` na mesma conexão                                                                                                |
+| `not_logged_in`          | autorização    | Operação que exige sessão antes do login                                                                                             |
+| `rate_limited`           | limite de taxa | `chat_message` ou `command` acima do limite (no máximo 1 aviso por segundo)                                                          |
+| `muted`                  | autorização    | Fase 4: quem foi silenciado tentou publicar                                                                                          |
+| `invalid_room_code`      | validação      | `room_join` com código fora do formato `abc-defg-hij`                                                                                |
+| `invalid_room_name`      | validação      | Nome de sala com mais de 40 caracteres ou de tipo errado                                                                             |
+| `room_not_found`         | validação      | Nenhuma sala ativa com o código                                                                                                      |
+| `conversation_not_found` | autorização    | Conversa inexistente ou de que a sessão não participa (mesma resposta)                                                               |
+| `removed_from_room`      | autorização    | Tentativa de voltar a uma sala de onde foi removido                                                                                  |
+| `room_join_limit`        | autorização    | Já está no número máximo de salas                                                                                                    |
+| `room_create_limit`      | autorização    | Já criou o número máximo de salas ativas                                                                                             |
+| `rooms_full`             | limite de taxa | O servidor está no limite de salas                                                                                                   |
+| `room_join_locked`       | limite de taxa | Tentativas erradas demais com códigos de sala                                                                                        |
+| `invalid_user`           | validação      | `@` ou id de pessoa ausente ou fora do formato                                                                                       |
+| `user_unavailable`       | validação      | Ninguém disponível com esse `@` ou id: não existe, não está conectado, bloqueou você ou está no limite de conversas (mesma resposta) |
+| `dm_self`                | validação      | Conversa privada consigo mesmo                                                                                                       |
+| `dm_limit`               | autorização    | Você já tem o número máximo de conversas privadas                                                                                    |
+| `dms_full`               | limite de taxa | O servidor está no limite de conversas privadas                                                                                      |
+| `lookup_limited`         | limite de taxa | Buscas por `@` demais em pouco tempo                                                                                                 |
+| `dm_open_limited`        | limite de taxa | Conversas novas demais em pouco tempo                                                                                                |
+| `block_limit`            | autorização    | Número máximo de bloqueios da sessão                                                                                                 |
+| `internal_error`         | interno        | Defeito do servidor; nenhum detalhe é enviado                                                                                        |
 
 ## Limites de taxa
 
 Por conexão, dois baldes independentes (padrões configuráveis por ambiente):
 
-| Balde     | Eventos                                                              | Capacidade / reposição | Ao exceder                                                                                          |
-| --------- | -------------------------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------- |
-| Mensagens | `chat_message`, `command`, `user_login`, `room_*`, quadros inválidos | 40 / 8 por s           | `chat_message`, `command`, `room_create` e `room_join` recebem `rate_limited`; o resto é descartado |
-| Sinais    | `typing_start`, `typing_stop`                                        | 40 / 8 por s           | Descartado em silêncio                                                                              |
+| Balde     | Eventos                                                                                                   | Capacidade / reposição | Ao exceder                                                                                                                    |
+| --------- | --------------------------------------------------------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Mensagens | `chat_message`, `command`, `user_login`, `room_*`, `user_lookup`, `dm_*`, `user_block`, quadros inválidos | 40 / 8 por s           | `chat_message`, `command`, `room_create`, `room_join`, `user_lookup` e `dm_open` recebem `rate_limited`; o resto é descartado |
+| Sinais    | `typing_start`, `typing_stop`                                                                             | 40 / 8 por s           | Descartado em silêncio                                                                                                        |
 
 ## Conexão
 

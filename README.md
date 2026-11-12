@@ -56,6 +56,7 @@ Cada item corresponde a código neste repositório.
 | Funcionalidade                                                                                                                                                                                                                                                                                                                            | Onde                                                                                   |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | **Salas criadas pelas pessoas**: quem cria vira anfitrião e recebe um código de convite `abc-defg-hij` (link `…/#/s/código`); quem tem o código entra. Sem sala pública. Uma identidade participa de até 10 salas ao mesmo tempo; cada sala tem participantes, histórico e moderação próprios e acaba (com o histórico) quando fica vazia | `backend/src/room/hub.js`, `backend/src/room/directory.js`, `backend/src/room/room.js` |
+| **Conversas privadas no servidor**: entre duas identidades, abertas pelo `@` exato ou pelo perfil, ligadas aos ids internos (nunca ao `@`); só as duas leem e escrevem; bloqueio até o fim da sessão; acabam, com o histórico, quando uma das duas encerra, bloqueia ou sai                                                               | `backend/src/room/direct.js`, `backend/src/room/hub.js`                                |
 | Entrada com nome completo (até 60 caracteres) e nome de usuário único (`@username`), sem conta nem senha; botão Sair libera a identidade na hora                                                                                                                                                                                          | `frontend/src/ui/entry.js`                                                             |
 | Mensagens em tempo real para quem está na sala (até 1000 caracteres), nunca entregues fora dela                                                                                                                                                                                                                                           | `backend/src/server.js`, `frontend/src/state/events.js`                                |
 | Últimas 50 mensagens da sala enviadas a quem entra nela                                                                                                                                                                                                                                                                                   | `backend/src/server.js`                                                                |
@@ -82,8 +83,9 @@ Cada item corresponde a código neste repositório.
 O servidor mantém em memória, **por sala**, as últimas **200 mensagens** e envia as
 **50 mais recentes** para quem entra. Uma sala sem ninguém é destruída, com o
 histórico, depois de 60 s; uma identidade que cai e não volta em 2 min sai de
-todas as salas. Nada é gravado em disco ou banco: **reiniciar o servidor apaga
-tudo**.
+todas as salas. Cada conversa privada guarda as últimas **100 mensagens** e é
+destruída quando uma das duas pessoas a encerra, bloqueia a outra ou deixa de
+existir. Nada é gravado em disco ou banco: **reiniciar o servidor apaga tudo**.
 
 ## O que não existe
 
@@ -92,7 +94,7 @@ Nenhum destes itens está implementado.
 | Recurso                                  | Situação                                                                                                                                       |
 | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | Banimento e avisos de moderação          | Não implementado: o chat é anônimo; `/kick` e `/mute` valem para a identidade atual naquela sala (quem abre outra aba entra como pessoa nova). |
-| Mensagens privadas                       | Planejado (Fase 3 da evolução).                                                                                                                |
+| Interface das mensagens privadas         | Planejado (Fases 4 e 5). O servidor já tem conversas privadas, busca por `@` e bloqueio; a interface atual ainda não as mostra.                |
 | Navegar entre várias salas na interface  | Planejado (Fases 4 e 5). O servidor já aceita várias salas por pessoa; a interface atual mostra uma por vez.                                   |
 | Excluir, editar ou responder mensagens   | Não implementado (só a limpeza da sala inteira por administrador).                                                                             |
 | Fixar mensagens                          | Não implementado. `localStorage` guarda apenas o tema.                                                                                         |
@@ -242,7 +244,8 @@ no [`.env.example`](./.env.example): `MAX_CONNECTIONS`, `MAX_PAYLOAD_BYTES`,
 `RATE_SIGNALS_PER_SEC`, `HISTORY_SIZE`, `HISTORY_ON_JOIN`, `HEARTBEAT_MAX_MISSED`,
 `MAX_BUFFERED_BYTES`, `LOGIN_TIMEOUT_MS`, `METRICS_ENABLED`, `METRICS_LOG_INTERVAL_MS`
 e os limites de salas: `MAX_ROOMS`, `MAX_ROOMS_PER_USER`, `MAX_ROOMS_CREATED_PER_USER`
-e `ROOM_EMPTY_TTL_MS`.
+`ROOM_EMPTY_TTL_MS` e os das conversas privadas: `MAX_DMS_PER_USER`, `MAX_DMS` e
+`DM_HISTORY_SIZE`.
 
 Comportamento previsível quando algo está errado:
 
