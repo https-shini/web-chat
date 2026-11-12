@@ -107,6 +107,25 @@ describe("eventos de sala", () => {
         assert.deepEqual(store.getState().people, []);
     });
 
+    test("eventos de conversa privada (Fase 3) são ignorados sem afetar a sala aberta", () => {
+        const { store, handle, calls } = setup();
+        const DM = "d_privada000001";
+        handle({
+            type: "dm_opened",
+            conversationId: DM,
+            payload: { kind: "dm", peer: { id: "x", name: "X", username: "x", online: true } },
+        });
+        handle({
+            type: "message_history",
+            conversationId: DM,
+            payload: [{ id: "p1", payload: { userId: "x", userName: "X", content: "privada" } }],
+        });
+        handle({ type: "dm_closed", conversationId: DM, payload: { reason: "closed" } });
+        assert.equal(store.getState().room?.conversationId, ROOM);
+        assert.deepEqual(store.getState().messages, []);
+        assert.deepEqual(calls.left, []);
+    });
+
     test("anfitrião aparece com o papel na lista; resumo atualizado muda o seu papel", () => {
         const { store, handle } = setup();
         handle({
