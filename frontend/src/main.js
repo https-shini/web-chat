@@ -34,6 +34,8 @@ import { inviteHash, readInviteHash } from "./state/invite.js";
 import { createMemberCard } from "./ui/memberCard.js";
 import { createTooltips } from "./ui/tooltip.js";
 import { createUserPanel } from "./ui/userPanel.js";
+import { createHome } from "./ui/home.js";
+import { createConversationNav } from "./ui/conversationNav.js";
 
 /**
  * Raiz de composição. É o único lugar em que transporte, estado e interface
@@ -104,10 +106,21 @@ let resumeToken = null;
  */
 let pendingInvite = readInviteHash(location.hash);
 
-/** Correlação do pedido de sala feito na entrada (criar ou entrar). */
+/** Correlação dos pedidos de sala (criar ou entrar). */
 const ROOM_REQUEST_ID = "entrada-sala";
-/** @type {"create" | "join" | null} */
+/**
+ * Pedido de sala em andamento, feito por você: a sala que chegar em
+ * resposta é aberta na tela. `fromEntry`: veio do link de convite, logo
+ * depois de entrar (recusa leva ao início, com o motivo).
+ * @type {{kind: "create" | "join", fromEntry: boolean} | null}
+ */
 let roomRequest = null;
+
+/** Arroba de quem você pediu para abrir conversa privada (a resposta é aberta). */
+let pendingDm = /** @type {string | null} */ (null);
+
+/** Conversas privadas que VOCÊ encerrou ou bloqueou (o aviso é outro). */
+const closingByMe = new Map();
 
 /**
  * Acrescenta a conversa aberta ao payload: o servidor só aceita mensagem,
@@ -161,6 +174,71 @@ const typingSignal = createTypingSignal({
     interval: TIMING.typingSignalInterval,
     idle: TIMING.typingIdle,
 });
+
+/**
+ * Abre uma conversa da lista. A digitação em curso termina na conversa
+ * anterior, e quem estava "digitando" lá some da tela.
+ * @param {string} conversationId
+ */
+const openConversation = (conversationId) => {
+    if (store.getState().room?.conversationId === conversationId) {
+        store.actions.openConversation(conversationId);
+        return;
+    }
+    typingSignal.stop();
+    typingTracker.clear();
+    memberCard.close({ restoreFocus: false });
+    store.actions.openConversation(conversationId);
+};
+
+/** Volta ao início; as conversas continuam na lista, recebendo mensagens. */
+const goHome = () => {
+    typingSignal.stop();
+    typingTracker.clear();
+    memberCard.close({ restoreFocus: false });
+    store.actions.goHome();
+};
+
+/**
+ * Pede uma sala ao servidor (criar ou entrar). A resposta (`room_joined`)
+ * abre a sala; a recusa volta com o motivo.
+ * @param {"create" | "join"} kind
+ * @param {{name?: string, code?: string}} detail
+ * @param {boolean} [fromEntry]
+ */
+const requestRoom = (kind, detail, fromEntry = false) => {
+    roomRequest = { kind, fromEntry };
+    if (kind === "join") {
+        transport.send(CLIENT_EVENTS.ROOM_JOIN, { code: detail.code, requestId: ROOM_REQUEST_ID });
+    } else {
+        transport.send(CLIENT_EVENTS.ROOM_CREATE, {
+            ...(detail.name ? { name: detail.name } : {}),
+            requestId: ROOM_REQUEST_ID,
+        });
+    }
+};
+
+/**
+ * Pede a conversa privada com alguém pelo @ exato. O servidor responde com
+ * `dm_opened` (aberta na tela) ou com a recusa (pessoa indisponível, limite).
+ * @param {string} username
+ */
+const requestDm = (username) => {
+    if (username === store.getState().me?.username) {
+        home.settle(strings.conversations.homeSelf);
+        return;
+    }
+    const existing = store
+        .getState()
+        .conversations.find((entry) => entry.kind === "dm" && entry.peer?.username === username);
+    if (existing) {
+        home.settle();
+        openConversation(existing.conversationId);
+        return;
+    }
+    pendingDm = username;
+    transport.send(CLIENT_EVENTS.DM_OPEN, { username });
+};
 
 /**
  * Envia uma mensagem comum. Ela aparece na hora como "enviando…" e é
@@ -366,6 +444,9 @@ const endParticipation = ({ announce = strings.logout.done, notice } = {}) => {
     entry.focus();
     pendingInvite = null;
     roomRequest = null;
+    pendingDm = null;
+    closingByMe.clear();
+    home.clear();
     history.replaceState(null, "", location.pathname + location.search);
     if (notice) toasts.show(notice, "error");
     announcer.say(announce, { force: true });
@@ -384,23 +465,112 @@ const logout = async () => {
 };
 
 /**
- * Depois da sessão nova, a sala: a do convite (ou a que estava aberta, se o
- * servidor reiniciou e a identidade é outra) ou uma sala nova. Numa
- * retomada o servidor devolve as salas sozinho.
+ * Depois de uma sessão nova (não retomada): a sala do convite, ou a sala
+ * que estava aberta se o servidor reiniciou e a identidade é outra. Sem
+ * nenhuma das duas, o início — nenhuma sala é criada sem você pedir. Numa
+ * retomada o servidor devolve as conversas sozinho.
  */
-const enterRoom = () => {
-    const code = store.getState().room?.code ?? pendingInvite;
+const afterNewSession = () => {
+    const state = store.getState();
+    const code = (state.room?.kind !== "dm" ? state.room?.code : null) ?? pendingInvite;
     // Identidade nova: a participação anterior não existe mais no servidor.
     store.actions.forgetRoom();
-    roomRequest = code ? "join" : "create";
-    transport.send(
-        code ? CLIENT_EVENTS.ROOM_JOIN : CLIENT_EVENTS.ROOM_CREATE,
-        code ? { code, requestId: ROOM_REQUEST_ID } : { requestId: ROOM_REQUEST_ID },
-    );
+    pendingDm = null;
+    if (code) {
+        requestRoom("join", { code }, state.joining);
+        return;
+    }
+    if (state.joining) store.actions.completeLogin();
+    else store.actions.goHome();
 };
 
 for (const button of document.querySelectorAll('[data-action="logout"]')) {
     button.addEventListener("click", () => void logout());
+}
+
+const home = createHome({
+    onCreate: (name) => requestRoom("create", { name }),
+    onJoin: (code) => requestRoom("join", { code }),
+    onDirect: (username) => requestDm(username),
+});
+
+const conversationNavs = [...document.querySelectorAll("[data-conversation-nav]")].map(
+    (container) =>
+        createConversationNav({
+            container: /** @type {HTMLElement} */ (container),
+            onOpen: (conversationId) => {
+                layout.closeDrawer();
+                openConversation(conversationId);
+                composer.focus();
+            },
+        }),
+);
+
+for (const button of document.querySelectorAll("[data-go-home]")) {
+    button.addEventListener("click", () => {
+        layout.closeDrawer();
+        goHome();
+    });
+}
+
+/** Ações do cabeçalho da conversa aberta. @type {Record<string, () => Promise<void> | void>} */
+const conversationActions = {
+    invite: async () => {
+        const room = store.getState().room;
+        if (!room?.code) return;
+        const link = `${location.origin}${location.pathname}${inviteHash(room.code)}`;
+        try {
+            await navigator.clipboard.writeText(link);
+            toasts.show(strings.conversations.inviteCopied);
+        } catch {
+            toasts.show(format(strings.conversations.inviteCopyFailed, { code: room.code }));
+        }
+    },
+    leave: async () => {
+        const room = store.getState().room;
+        if (!room) return;
+        const dm = room.kind === "dm";
+        const ok = await dialog.confirm(
+            dm
+                ? {
+                      title: format(strings.conversations.closeDmTitle, { name: room.name }),
+                      body: strings.conversations.closeDmBody,
+                      confirmLabel: strings.conversations.closeDmConfirm,
+                  }
+                : {
+                      title: format(strings.conversations.leaveRoomTitle, { name: room.name }),
+                      body: strings.conversations.leaveRoomBody,
+                      confirmLabel: strings.conversations.leaveRoomConfirm,
+                  },
+        );
+        if (!ok) return;
+        typingSignal.stop();
+        if (dm) {
+            closingByMe.set(room.conversationId, "closed");
+            transport.send(CLIENT_EVENTS.DM_CLOSE, { conversationId: room.conversationId });
+        } else {
+            transport.send(CLIENT_EVENTS.ROOM_LEAVE, { conversationId: room.conversationId });
+        }
+    },
+    block: async () => {
+        const room = store.getState().room;
+        if (room?.kind !== "dm" || !room.peer) return;
+        const ok = await dialog.confirm({
+            title: format(strings.conversations.blockTitle, { name: room.name }),
+            body: strings.conversations.blockBody,
+            confirmLabel: strings.conversations.blockConfirm,
+        });
+        if (!ok) return;
+        typingSignal.stop();
+        closingByMe.set(room.conversationId, "blocked");
+        transport.send(CLIENT_EVENTS.USER_BLOCK, { username: room.peer.username });
+    },
+};
+
+for (const button of document.querySelectorAll("[data-conversation-action]")) {
+    const run = conversationActions[button.getAttribute("data-conversation-action") ?? ""];
+    if (!run) continue;
+    button.addEventListener("click", () => void Promise.resolve(run()));
 }
 
 const failure = createFailure({
@@ -433,37 +603,82 @@ handleEvent = createEventHandler({
     typingTracker,
     onSession: (token, resumed) => {
         resumeToken = token;
-        if (!resumed) enterRoom();
+        if (!resumed) afterNewSession();
+        else if (store.getState().joining && store.getState().conversations.length === 0) {
+            // Retomada sem conversa nenhuma: direto para o início.
+            store.actions.completeLogin();
+        }
     },
-    onRoomJoined: (room) => {
+    onRoomJoined: (room, how) => {
         pendingInvite = null;
-        roomRequest = null;
-        // O endereço da página vira o link de convite da sala aberta.
-        history.replaceState(null, "", inviteHash(room.code));
+        if (roomRequest) {
+            // Resposta a um pedido seu (criar, entrar por código ou link).
+            roomRequest = null;
+            home.settle();
+            home.clear();
+            openConversation(room.conversationId);
+        } else if (!how.resumed && store.getState().room === null) {
+            store.actions.completeJoin();
+        }
     },
     onRoomRefused: (code, message) => {
-        if (roomRequest === "join" && store.getState().room === null) {
+        const request = roomRequest;
+        roomRequest = null;
+        if (request?.fromEntry) {
             // Convite que não deu certo (código errado, sala que já acabou,
-            // remoção): a pessoa não fica sem sala — ganha uma nova.
+            // remoção): a pessoa vai para o início, com o motivo.
             pendingInvite = null;
-            toasts.show(format(strings.room.inviteFailed, { reason: message }), "error");
-            roomRequest = "create";
-            transport.send(CLIENT_EVENTS.ROOM_CREATE, { requestId: ROOM_REQUEST_ID });
+            const text = format(strings.room.inviteFailed, { reason: message });
+            store.actions.completeLogin();
+            home.settle(text);
+            toasts.show(text, "error", { announce: false });
             return;
         }
-        if (roomRequest === "create" && store.getState().room === null) {
-            // Nem criar foi possível (servidor no limite): de volta à entrada.
-            endParticipation({ announce: message, notice: message });
-            return;
-        }
-        toasts.show(message, "error");
+        if (store.getState().screen === "home") home.settle(message);
+        else toasts.show(message, "error");
     },
-    onRoomLeft: (reason) => {
-        endParticipation(
-            reason === "removed"
-                ? { announce: strings.room.removed, notice: strings.room.removed }
-                : {},
-        );
+    onRoomLeft: (reason, room) => {
+        if (reason === "removed") {
+            toasts.show(strings.room.removed, "error");
+            announcer.say(strings.room.removed, { force: true });
+        } else if (room) {
+            announcer.say(format(strings.conversations.leftRoom, { name: room.name }), {
+                force: true,
+            });
+        }
+    },
+    onDmOpened: (dm, how) => {
+        if (pendingDm && dm.peer?.username === pendingDm) {
+            pendingDm = null;
+            home.settle();
+            home.clear();
+            openConversation(dm.conversationId);
+            return;
+        }
+        if (!how.resumed && store.getState().room?.conversationId !== dm.conversationId) {
+            // Alguém começou uma conversa com você: aparece na lista, com aviso.
+            toasts.show(format(strings.conversations.dmIncoming, { name: dm.name }));
+        }
+    },
+    onDmClosed: (reason, dm) => {
+        const id = dm?.conversationId ?? "";
+        const mine = closingByMe.get(id);
+        closingByMe.delete(id);
+        const name = dm?.name ?? "";
+        const text =
+            mine === "blocked"
+                ? format(strings.conversations.blocked, { name })
+                : mine === "closed"
+                  ? format(strings.conversations.dmClosedSelf, { name })
+                  : reason === "ended"
+                    ? format(strings.conversations.dmEnded, { name })
+                    : format(strings.conversations.dmClosedByPeer, { name });
+        toasts.show(text);
+    },
+    onDmRefused: (_code, message) => {
+        pendingDm = null;
+        if (store.getState().screen === "home") home.settle(message);
+        else toasts.show(message, "error");
     },
     onCommandResult: (requestId, result) => {
         const request = requestId ? pendingRequests.get(requestId) : undefined;
@@ -529,16 +744,33 @@ const linkAnnouncement = (state) => {
  */
 const render = (state, previous) => {
     const inRoom = state.screen === "room";
+    const inApp = state.screen !== "entry";
+    const isDm = state.room?.kind === "dm";
     const noMessages = state.messages.length === 0;
     const wasEmpty = previous ? previous.messages.length === 0 : null;
 
-    if (changed(state, previous, ["screen"])) {
+    if (changed(state, previous, ["screen", "room"])) {
         shell.dataset.screen = state.screen;
-        entry.setVisible(!inRoom);
+        entry.setVisible(!inApp);
+        home.setVisible(state.screen === "home");
         room.hidden = !inRoom;
         composer.setVisible(inRoom);
-        layout.setInRoom(inRoom);
+        layout.setInRoom(inApp, inRoom && !isDm);
         if (!inRoom) memberCard.close({ restoreFocus: false });
+    }
+    if (changed(state, previous, ["conversations", "room", "screen"])) {
+        const current = inRoom ? (state.room?.conversationId ?? null) : null;
+        for (const nav of conversationNavs) nav.render(state.conversations, current);
+        // O endereço da página é o convite da sala aberta; fora dela, nenhum.
+        if (inApp) {
+            const hash = inRoom && state.room?.code && !isDm ? inviteHash(state.room.code) : "";
+            if (location.hash !== hash) {
+                history.replaceState(null, "", hash || location.pathname + location.search);
+            }
+        }
+    }
+    if (changed(state, previous, ["me", "conversations"])) {
+        home.render(state.me, state.conversations.length);
     }
 
     if (changed(state, previous, ["link", "attempt"])) {
@@ -581,10 +813,25 @@ const render = (state, previous) => {
     if (changed(state, previous, ["link", "queued"])) composer.render(state.link, state.queued);
 
     // Trocar `display` sem mover o foco é bug de acessibilidade: na entrada
-    // da sala o foco vai para o composer e a mudança de contexto é anunciada.
-    if (inRoom && lastScreen !== "room") {
+    // da conversa o foco vai para o composer e a mudança de contexto é
+    // anunciada; no início, o foco vai para o título.
+    const switched =
+        inRoom &&
+        lastScreen === "room" &&
+        previous?.room?.conversationId !== state.room?.conversationId &&
+        state.room !== null;
+    if ((inRoom && lastScreen !== "room") || switched) {
         composer.focus();
-        announcer.say(strings.a11y.enteredRoom, { force: true });
+        announcer.say(
+            switched || lastScreen === "home"
+                ? format(strings.a11y.openedConversation, { name: state.room?.name ?? "" })
+                : strings.a11y.enteredRoom,
+            { force: true },
+        );
+    }
+    if (state.screen === "home" && lastScreen !== "home") {
+        home.focus();
+        announcer.say(strings.a11y.home, { force: true });
     }
     lastScreen = state.screen;
 

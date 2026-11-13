@@ -1,8 +1,9 @@
 # Evolução · Fase 4 — Plano do frontend multiconversa
 
-> Planejamento. Nada daqui está implementado. Começa depois da aprovação da Fase 3
-> ([PR #7](https://github.com/https-shini/web-chat/pull/7)).
-> Branch prevista: `feat/multi-conversation-frontend`.
+> **Estado (13 nov 2026).** Número de autor publicado
+> ([PR #8](https://github.com/https-shini/web-chat/pull/8)). Interface
+> multiconversa implementada na branch `feat/multi-conversation-ui`, em revisão.
+> Ver "Entregue" no fim do documento.
 
 ## Objetivo
 
@@ -99,3 +100,42 @@ prende `@` por tempo indeterminado; por isso não é a recomendada.
 - Nenhum id interno no tráfego nem na tela de quem não é administrador (o teste da
   Fase 3 continua passando).
 - Suítes atuais verdes e novas regressões no navegador.
+
+## Entregue
+
+Interface multiconversa (branch `feat/multi-conversation-ui`). O PR #6 serviu de
+referência de interface; nada dele foi incorporado diretamente. Em particular, não
+há token em `sessionStorage`: o token de retomada continua só em memória.
+
+| Item                | Como ficou                                                                                                                                                                                      |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Estado por conversa | `store.js` guarda cada conversa fechada (mensagens, pessoas, versão do histórico) e a aberta direto no estado. Os componentes existentes continuam desenhando "a conversa aberta", sem mudança. |
+| Eventos             | Tudo o que tem `conversationId` vai para a conversa certa. Conversa fora da lista é ignorada. Digitação só conta na aberta.                                                                     |
+| Não lidas           | Contadas por conversa: mensagens de outras pessoas. As suas, os avisos e o histórico de retomada não contam. A primeira mensagem de quem começa uma privada com você conta.                     |
+| "Você"              | Pelo seu número de autor em cada conversa.                                                                                                                                                      |
+| Início              | Sem convite, entrar leva ao início, e nenhuma sala é criada sem você pedir. Ele oferece três formulários: nova sala, entrar com código ou link, conversa privada pelo `@` exato.                |
+| Barra lateral       | "Início", depois "Salas" e "Privadas", com selo de não lidas e ponto de presença (cheio = online; anel = offline). O rótulo acessível diz tudo.                                                 |
+| Cabeçalho           | Sala: copiar convite e sair da sala. Privada: `@`, presença, bloquear e encerrar. Sair de uma sala não é sair do chat.                                                                          |
+| Endereço            | É o convite da sala aberta. No início e em privadas, nenhum.                                                                                                                                    |
+| Avisos              | Conversa privada nova, encerrada pela outra pessoa, terminada (a pessoa saiu) e bloqueio feito por você. Quem é bloqueado vê só "encerrou".                                                     |
+| Acessibilidade      | Foco no campo de mensagem ao abrir uma conversa e no título no início, com a mudança anunciada. axe (WCAG 2.2 AA) sem violações sérias no início, na privada e no celular.                      |
+| Celular             | O início tem botão de menu, e a gaveta lateral lista as conversas. Sem rolagem horizontal em 375 px.                                                                                            |
+
+Testes: 19 de unidade novos (`frontend/test/conversations.test.js`) e um roteiro no
+navegador com servidor real cobrindo os 44 passos abaixo:
+
+- início;
+- duas salas e não lidas;
+- conversa privada nos dois sentidos;
+- isolamento: um terceiro na mesma sala não recebe nenhum quadro da privada;
+- encerrar e bloquear;
+- recusa;
+- convite;
+- sair da sala;
+- nenhum id interno nos quadros;
+- celular;
+- axe.
+
+Ainda faltam: a marca de "saiu" no histórico, a cor do avatar por autor, o total de
+não lidas no título da aba, o rascunho por conversa e o botão de conversa privada no
+cartão de pessoa.
