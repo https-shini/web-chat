@@ -39,7 +39,12 @@ const siteHeaders = () => {
 const metaPolicy = /http-equiv="Content-Security-Policy"\s*content="([^"]+)"/.exec(html)?.[1];
 
 test("o hash de script da CSP é o do script inline de tema, nos dois lugares", () => {
-    const inline = /<script>([\s\S]*?)<\/script>/.exec(html)?.[1];
+    // Recorte por posição (não por expressão regular): só o primeiro script
+    // inline, sem atributos, exatamente como o index.html o declara.
+    const open = "<script>";
+    const start = html.indexOf(open);
+    const end = start === -1 ? -1 : html.indexOf("</script", start + open.length);
+    const inline = end === -1 ? undefined : html.slice(start + open.length, end);
     assert.ok(inline, "script inline de tema não encontrado");
     const hash = `'sha256-${crypto.createHash("sha256").update(inline).digest("base64")}'`;
     assert.ok(metaPolicy, "CSP do <meta> não encontrada");
