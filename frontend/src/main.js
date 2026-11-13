@@ -9,6 +9,7 @@ import { createAnnouncer } from "./a11y/announce.js";
 import { format, strings } from "./i18n/strings.js";
 import { createEventHandler, noticeMessage } from "./state/events.js";
 import { createStore } from "./state/store.js";
+import { departedAuthors } from "./state/departed.js";
 import { createTypingTracker } from "./state/typing.js";
 import { createTypingSignal } from "./state/typingSignal.js";
 import { changed, createRenderLoop } from "./state/renderLoop.js";
@@ -176,6 +177,37 @@ const typingSignal = createTypingSignal({
 });
 
 /**
+ * Rascunho de cada conversa (só em memória, como todo o resto): trocar de
+ * conversa guarda o que estava escrito e traz o da outra. Assim o texto
+ * nunca "viaja" para a conversa errada.
+ * @type {Map<string, string>}
+ */
+const drafts = new Map();
+
+/** De qual conversa é o texto que está no campo agora. @type {string | null} */
+let composerOwner = null;
+
+/**
+ * Põe no campo o rascunho da conversa `id` (ou nada, fora de conversa),
+ * guardando antes o da conversa dona do texto atual — se ela ainda existe.
+ * Chamado na troca por clique (na hora) e a cada desenho (para trocas que
+ * vêm do servidor, como sair ou ser removido da conversa aberta).
+ * @param {string | null} id
+ */
+const syncDraft = (id) => {
+    if (id === composerOwner) return;
+    if (composerOwner) {
+        const owner = composerOwner;
+        const alive = store.getState().conversations.some((e) => e.conversationId === owner);
+        const text = composer.getValue();
+        if (alive && text) drafts.set(owner, text);
+        else drafts.delete(owner);
+    }
+    composer.restore(id ? (drafts.get(id) ?? "") : "");
+    composerOwner = id;
+};
+
+/**
  * Abre uma conversa da lista. A digitação em curso termina na conversa
  * anterior, e quem estava "digitando" lá some da tela.
  * @param {string} conversationId
@@ -188,7 +220,7 @@ const openConversation = (conversationId) => {
     typingSignal.stop();
     typingTracker.clear();
     memberCard.close({ restoreFocus: false });
-    store.actions.openConversation(conversationId);
+    if (store.actions.openConversation(conversationId)) syncDraft(conversationId);
 };
 
 /** Volta ao início; as conversas continuam na lista, recebendo mensagens. */
@@ -196,6 +228,7 @@ const goHome = () => {
     typingSignal.stop();
     typingTracker.clear();
     memberCard.close({ restoreFocus: false });
+    syncDraft(null);
     store.actions.goHome();
 };
 
@@ -381,6 +414,10 @@ const memberCard = createMemberCard({
     },
     confirm: (options) => dialog.confirm(options),
     notify: (text, kind) => toasts.show(text, kind),
+    openDirect: (username) => {
+        layout.closeDrawer();
+        requestDm(username);
+    },
 });
 
 const roomHeader = createRoomHeader();
@@ -446,6 +483,8 @@ const endParticipation = ({ announce = strings.logout.done, notice } = {}) => {
     roomRequest = null;
     pendingDm = null;
     closingByMe.clear();
+    drafts.clear();
+    composerOwner = null;
     home.clear();
     history.replaceState(null, "", location.pathname + location.search);
     if (notice) toasts.show(notice, "error");
@@ -726,6 +765,9 @@ handleEvent = createEventHandler({
     },
 });
 
+/** Título da aba sem a contagem de não lidas. */
+const baseTitle = document.title;
+
 /** @type {import("./state/store.js").State["screen"]} */
 let lastScreen = "entry";
 /** @type {import("./state/store.js").State["link"]} */
@@ -787,6 +829,11 @@ const render = (state, previous) => {
             }
         }
     }
+    if (changed(state, previous, ["conversations"])) {
+        // Total de não lidas no título da aba: "(3) web-chat · …".
+        const total = state.conversations.reduce((sum, entry) => sum + entry.unread, 0);
+        document.title = total > 0 ? `(${total > 99 ? "99+" : total}) ${baseTitle}` : baseTitle;
+    }
     if (changed(state, previous, ["me", "conversations"])) {
         home.render(state.me, state.conversations.length);
     }
@@ -814,7 +861,13 @@ const render = (state, previous) => {
         );
     }
     if (changed(state, previous, ["typing"])) typing.render(state.typing);
+    if (changed(state, previous, ["screen", "room"])) {
+        syncDraft(inRoom ? (state.room?.conversationId ?? null) : null);
+    }
     if (changed(state, previous, ["messages"])) messageList.render(state.messages);
+    if (changed(state, previous, ["messages", "authorsSeen", "authorsLeft", "room"])) {
+        messageList.setDeparted(departedAuthors(state));
+    }
     if (changed(state, previous, ["people", "me", "link"])) {
         people.render(state.people, state.me?.id ?? null, state.link === "online");
     }
@@ -860,6 +913,13 @@ const render = (state, previous) => {
 };
 
 const renderLoop = createRenderLoop({ getState: () => store.getState(), render });
+
+// Aba escondida: mensagens na conversa aberta contam como não lidas até a
+// pessoa voltar a ela.
+document.addEventListener("visibilitychange", () =>
+    store.actions.setPageVisible(document.visibilityState === "visible"),
+);
+store.actions.setPageVisible(document.visibilityState === "visible");
 store.subscribe(() => renderLoop.request());
 
 // Estado inicial: pinta a tela de entrada sem esperar por nenhum evento.
