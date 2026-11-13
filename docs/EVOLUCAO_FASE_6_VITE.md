@@ -30,16 +30,16 @@ produção não é afetada: 0 avisos nas dependências do frontend e 0 no backen
 Fonte: guia oficial de migração (`docs/guide/migration.md` na tag `v6.4.6` do
 repositório do Vite).
 
-| Mudança                                                                   | Afeta o projeto?                                                  |
-| ------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Padrão de `resolve.conditions` / `ssr.resolve.conditions`                 | Não: não configuramos                                             |
-| `json.stringify` passa a `'auto'`                                         | Não: não importamos JSON no frontend                              |
-| Mais elementos HTML com referência a recurso processada                   | Não: o `index.html` gerado é idêntico, só os nomes com hash mudam |
-| `postcss-load-config` v6                                                  | Não: não há configuração de PostCSS                               |
-| Sass com a API moderna por padrão                                         | Não: não usamos Sass                                              |
-| Nome do CSS em modo biblioteca                                            | Não: não é biblioteca                                             |
-| SSR, `terser`, `commonjsOptions`, globs com intervalos, `fs.cachedChecks` | Não usados                                                        |
-| Node                                                                      | Exige 18, 20 ou ≥ 22; CI e Render usam 22                         |
+| Mudança                                                                   | Afeta o projeto?                                                                                                                 |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Padrão de `resolve.conditions` / `ssr.resolve.conditions`                 | Não: não configuramos                                                                                                            |
+| `json.stringify` passa a `'auto'`                                         | Não: não importamos JSON no frontend                                                                                             |
+| Mais elementos HTML com referência a recurso processada                   | Não: o `index.html` gerado é idêntico, só os nomes com hash mudam                                                                |
+| `postcss-load-config` v6                                                  | Não: não há configuração de PostCSS                                                                                              |
+| Sass com a API moderna por padrão                                         | Não: não usamos Sass                                                                                                             |
+| Nome do CSS em modo biblioteca                                            | Não: não é biblioteca                                                                                                            |
+| SSR, `terser`, `commonjsOptions`, globs com intervalos, `fs.cachedChecks` | Não usados                                                                                                                       |
+| Node                                                                      | Exige 18, 20 ou ≥ 22. O CI usa 22; o build do Render usa **20.12.2** (padrão do Render, conferido nos logs de build). Compatível |
 
 Plugins: o projeto não usa nenhum plugin do Vite.
 
@@ -94,7 +94,7 @@ são o 7.3.8 e o 8.3.8.
 **Recomendação**
 
 - Ficar no **Vite 6.4.6** agora: corrige todos os avisos com o menor risco.
-- O **Vite 7** é um passo pequeno. A condição é confirmar que o build do Render usa Node ≥ 20.19/22.12; o CI já usa 22.
+- O **Vite 7** é um passo pequeno no código, mas **quebraria o build no Render hoje**: o Render usa Node 20.12.2 (conferido nos logs), e o Vite 7 exige 20.19+ ou 22.12+. Antes, seria preciso fixar `NODE_VERSION` no serviço — uma mudança de infraestrutura, fora desta fase.
 - O **Vite 8** merece uma fase própria, com verificação visual (o CSS é minificado por outro motor) e as regressões completas no navegador. Ele não traz correção de segurança que o 6.4.6 já não traga.
 
 ## Depois
