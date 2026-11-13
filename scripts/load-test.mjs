@@ -110,6 +110,14 @@ const createCollector = () => ({
  * Cliente que entra na sala e registra latência das mensagens recebidas
  * (o conteúdo carrega o instante de envio: mesmo processo, mesmo relógio).
  */
+/**
+ * Sala compartilhada de cada servidor de teste. Desde a Fase 2 não há sala
+ * pública: o primeiro cliente de cada servidor cria a sala e os demais
+ * entram pelo código (como pessoas reais com o link de convite).
+ * @type {Map<string, Promise<string>>}
+ */
+const sharedRooms = new Map();
+
 /** Usernames únicos por cliente (exigidos desde a Fase A). */
 let usernameSeq = 0;
 const nextUsername = () => `carga_${(usernameSeq += 1).toString(36)}`;
@@ -125,7 +133,11 @@ const createClient = (url, name, collector, { autoPong = true, resumeToken } = {
             listSize: 0,
             open: false,
             sessionAt: null,
+            resumed: false,
+            conversationId: null,
         };
+        /** O primeiro cliente deste servidor cria a sala; resolve com o código. */
+        let createdRoom = null;
         // Numa retomada o servidor usa o username guardado; o enviado é ignorado.
         const login = {
             userName: name,
@@ -148,9 +160,32 @@ const createClient = (url, name, collector, { autoPong = true, resumeToken } = {
             collector.frames += 1;
             const message = JSON.parse(data.toString());
             if (message.type === "session") {
-                client.id = message.payload.id;
+                // O id interno não sai do servidor: a identidade, aqui, é o @.
+                client.id = message.payload.username;
                 client.token = message.payload.resumeToken;
+                client.resumed = message.payload.resumed === true;
                 client.sessionAt = now();
+                // Retomada: o servidor devolve as salas sozinho (room_joined).
+                if (client.resumed) return;
+                if (!sharedRooms.has(url)) {
+                    sharedRooms.set(
+                        url,
+                        new Promise((resolveCode) => {
+                            createdRoom = resolveCode;
+                        }),
+                    );
+                    ws.send(JSON.stringify({ type: "room_create", payload: { name: "Carga" } }));
+                } else {
+                    void sharedRooms.get(url).then((code) => {
+                        if (ws.readyState === WebSocket.OPEN) {
+                            ws.send(JSON.stringify({ type: "room_join", payload: { code } }));
+                        }
+                    });
+                }
+            } else if (message.type === "room_joined") {
+                client.conversationId = message.conversationId;
+                createdRoom?.(message.payload.code);
+                createdRoom = null;
                 done();
             } else if (message.type === "user_list") {
                 client.listSize = message.payload.length;
@@ -175,7 +210,10 @@ const sendChat = (client) => {
         client.ws.send(
             JSON.stringify({
                 type: "chat_message",
-                payload: { content: `t=${now()} ${client.name}` },
+                payload: {
+                    conversationId: client.conversationId,
+                    content: `t=${now()} ${client.name}`,
+                },
             }),
         );
     }
@@ -183,7 +221,9 @@ const sendChat = (client) => {
 
 const sendTyping = (client, type = "typing_start") => {
     if (client.ws.readyState === WebSocket.OPEN)
-        client.ws.send(JSON.stringify({ type, payload: {} }));
+        client.ws.send(
+            JSON.stringify({ type, payload: { conversationId: client.conversationId } }),
+        );
 };
 
 const percentile = (values, p) => {

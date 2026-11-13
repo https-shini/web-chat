@@ -73,6 +73,46 @@ const messageList = createMessageList({
 });
 const typing = createTyping();
 const notifier = createNotifier();
+
+/**
+ * Botão "Ativar notificações" do painel "você": a única forma de ligar as
+ * notificações do sistema (nada é pedido sozinho).
+ */
+const notifyButton = /** @type {HTMLButtonElement | null} */ (
+    document.querySelector('[data-action="toggle-notifications"]')
+);
+const renderNotifyButton = () => {
+    if (!notifyButton) return;
+    const current = notifier.state();
+    notifyButton.hidden = current === "unsupported";
+    const on = current === "on";
+    const label = on ? strings.notify.disable : strings.notify.enable;
+    notifyButton.setAttribute("aria-pressed", String(on));
+    notifyButton.setAttribute("aria-label", label);
+    notifyButton.dataset.tooltip = label;
+    notifyButton.dataset.state = current;
+};
+notifyButton?.addEventListener("click", async () => {
+    if (notifier.state() === "on") {
+        notifier.disable();
+        renderNotifyButton();
+        announcer.say(strings.notify.disabled, { force: true });
+        return;
+    }
+    const result = await notifier.enable();
+    renderNotifyButton();
+    // Negada: explica uma vez como liberar; não pede de novo sozinho.
+    const text =
+        result === "on"
+            ? strings.notify.enabled
+            : result === "denied"
+              ? strings.notify.denied
+              : result === "unsupported"
+                ? strings.notify.unsupported
+                : strings.notify.disabled;
+    toasts.show(text, result === "on" ? "info" : "error");
+});
+renderNotifyButton();
 const toasts = createToasts();
 
 const typingTracker = createTypingTracker((people) => store.actions.setTyping(people));
@@ -371,7 +411,6 @@ const runLocalCommand = (command, args) => {
 const submit = (content) => {
     // Gesto do usuário: é aqui, e só aqui, que a permissão de
     // notificação pode ser pedida.
-    notifier.requestOnGesture();
     typingSignal.stop();
     const route = routeInput(content, store.getState().catalog);
     if (route.type === "message") {
@@ -482,6 +521,9 @@ for (const button of document.querySelectorAll("[data-action]")) {
  * @param {{announce?: string, notice?: string}} [options]
  */
 const endParticipation = ({ announce = strings.logout.done, notice } = {}) => {
+    // A preferência de notificação é desta participação.
+    notifier.disable();
+    renderNotifyButton();
     typingSignal.stop();
     transport.signal(CLIENT_EVENTS.LOGOUT);
     transport.close();

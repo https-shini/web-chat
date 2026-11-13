@@ -55,6 +55,18 @@ export default [
         rules: { ...js.configs.recommended.rules },
     },
 
+    // Testes no navegador: o roteiro roda em Node, mas os callbacks de
+    // `page.evaluate` rodam na página (document, window, location).
+    {
+        files: ["scripts/e2e.mjs", "e2e/**/*.mjs"],
+        languageOptions: {
+            ecmaVersion: 2022,
+            sourceType: "module",
+            globals: { ...globals.node, ...globals.browser },
+        },
+        rules: { ...js.configs.recommended.rules },
+    },
+
     // Testes: node:test, módulos ES dos dois lados.
     {
         files: ["frontend/test/**/*.js", "backend/test/**/*.js"],

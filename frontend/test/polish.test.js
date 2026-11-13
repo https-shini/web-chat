@@ -356,3 +356,169 @@ describe("ciclo de envio: enviando, enviada, falha, reenvio", () => {
         assert.equal(store.getState().messages[0]?.delivery, "confirmed");
     });
 });
+
+describe("notificação do sistema sem conteúdo", () => {
+    test("leva só onde há mensagem nova: nem texto, nem quem escreveu; uma por conversa", () => {
+        const store = createStore();
+        const shown = [];
+        const handle = createEventHandler({
+            store,
+            toasts: { show: () => {} },
+            notifier: { show: (title, body, tag) => shown.push({ title, body, tag }) },
+            typingTracker: { set: () => {} },
+        });
+        store.actions.startJoin({ id: "eu", name: "Eu", username: "eu" });
+        handle({ type: "session", payload: { username: "eu", name: "Eu", resumeToken: "t" } });
+        handle({
+            type: "room_joined",
+            conversationId: A,
+            payload: {
+                code: "abc-defg-hij",
+                name: "Estudos",
+                role: "member",
+                author: 1,
+                historyVersion: 0,
+            },
+        });
+        handle({
+            type: "dm_opened",
+            conversationId: "d_x",
+            payload: {
+                peer: { name: "Bia", username: "bia", online: true, author: 1 },
+                author: 2,
+                historyVersion: 0,
+            },
+        });
+        const secret = "senha do wifi é 1234";
+        handle({
+            type: "chat_message",
+            id: "m1",
+            conversationId: A,
+            payload: { username: "ana", userName: "Ana", author: 2, content: secret },
+        });
+        handle({
+            type: "chat_message",
+            id: "m2",
+            conversationId: "d_x",
+            payload: { username: "bia", userName: "Bia", author: 1, content: secret },
+        });
+        handle({
+            type: "chat_message",
+            id: "m3",
+            conversationId: A,
+            payload: { username: "eu", userName: "Eu", author: 1, content: "minha" },
+        });
+        assert.deepEqual(shown, [
+            { title: "Estudos", body: "Nova mensagem", tag: A },
+            { title: "Conversa privada", body: "Nova mensagem", tag: "d_x" },
+        ]);
+        assert.ok(
+            !JSON.stringify(shown).includes(secret) && !JSON.stringify(shown).includes("Bia"),
+        );
+    });
+});
+
+describe("limite de mensagens por conversa", () => {
+    test("a conversa guarda as mais recentes; a de fundo também", async () => {
+        const { MAX_MESSAGES_PER_CONVERSATION } = await import("../src/state/store.js");
+        const { store, room, say } = setup();
+        room(A);
+        room(B);
+        const extra = 20;
+        for (let i = 0; i < MAX_MESSAGES_PER_CONVERSATION + extra; i += 1) {
+            say(A, `a${i}`, "bia", 2);
+            say(B, `b${i}`, "bia", 2);
+        }
+        const open = store.getState().messages;
+        assert.equal(open.length, MAX_MESSAGES_PER_CONVERSATION);
+        assert.equal(open[0]?.id, `a${extra}`, "saem as mais antigas");
+        assert.equal(open.at(-1)?.id, `a${MAX_MESSAGES_PER_CONVERSATION + extra - 1}`);
+        store.actions.openConversation(B);
+        assert.equal(store.getState().messages.length, MAX_MESSAGES_PER_CONVERSATION);
+        assert.equal(store.getState().conversations.find((c) => c.conversationId === B)?.unread, 0);
+    });
+});
+
+describe("mensagens recebidas durante a queda", () => {
+    test("retomada: o que chegou numa conversa de fundo conta como não lido, sem duplicar", () => {
+        const { store, handle, room, say } = setup();
+        room(A);
+        room(B);
+        say(B, "b1", "bia", 2);
+        store.actions.openConversation(B);
+        store.actions.openConversation(A);
+        // Queda e volta: o servidor reenvia o resumo (resumed) e o histórico.
+        const resumed = (id) =>
+            handle({
+                type: "room_joined",
+                conversationId: id,
+                payload: {
+                    code: "abc-defg-hij",
+                    name: id,
+                    role: "member",
+                    author: 1,
+                    historyVersion: 0,
+                    resumed: true,
+                },
+            });
+        resumed(A);
+        resumed(B);
+        handle({
+            type: "message_history",
+            conversationId: B,
+            payload: [
+                {
+                    id: "b1",
+                    payload: { username: "bia", userName: "Bia", author: 2, content: "b1" },
+                },
+                {
+                    id: "b2",
+                    payload: {
+                        username: "bia",
+                        userName: "Bia",
+                        author: 2,
+                        content: "durante a queda",
+                    },
+                },
+                {
+                    id: "b3",
+                    payload: { username: "eu", userName: "Eu", author: 1, content: "minha" },
+                },
+            ],
+        });
+        const b = store.getState().conversations.find((c) => c.conversationId === B);
+        assert.equal(b?.unread, 1, "só a mensagem nova de outra pessoa");
+        store.actions.openConversation(B);
+        assert.deepEqual(
+            store.getState().messages.map((m) => m.id),
+            ["b1", "b2", "b3"],
+        );
+    });
+
+    test("primeira entrada numa sala: histórico antigo não conta", () => {
+        const { store, handle, room } = setup();
+        room(A);
+        handle({
+            type: "room_joined",
+            conversationId: B,
+            payload: {
+                code: "abc-defg-hij",
+                name: "B",
+                role: "member",
+                author: 3,
+                historyVersion: 0,
+            },
+        });
+        handle({
+            type: "message_history",
+            conversationId: B,
+            payload: [
+                {
+                    id: "old",
+                    payload: { username: "bia", userName: "Bia", author: 2, content: "antiga" },
+                },
+            ],
+        });
+        assert.equal(store.getState().conversations.find((c) => c.conversationId === B)?.unread, 0);
+    });
+});

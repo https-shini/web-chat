@@ -134,6 +134,20 @@ export const authorKey = (username, author) =>
 
 /** @typedef {(state: State) => void} Listener */
 
+/**
+ * Quantas mensagens cada conversa guarda no navegador. Uma sessão longa
+ * acumularia mensagens sem fim (memória e nós no DOM); acima disso, saem as
+ * mais antigas. O servidor manda só as últimas 50 a quem entra, então isto
+ * é bem mais do que o histórico compartilhado.
+ */
+export const MAX_MESSAGES_PER_CONVERSATION = 500;
+
+/** As mais recentes, no limite. @param {Message[]} list */
+const bounded = (list) =>
+    list.length > MAX_MESSAGES_PER_CONVERSATION
+        ? list.slice(list.length - MAX_MESSAGES_PER_CONVERSATION)
+        : list;
+
 /** Quantas entradas escondidas por /clear são lembradas (para o histórico não trazê-las de volta). */
 const HIDDEN_LIMIT = 2000;
 
@@ -596,14 +610,14 @@ export const createStore = () => {
                     const view = bufferOf(id);
                     if (!view || view.messages.some((existing) => existing.id === message.id))
                         return;
-                    buffers.set(id, { ...view, messages: [...view.messages, message] });
+                    buffers.set(id, { ...view, messages: bounded([...view.messages, message]) });
                     // Só mensagem de alguém conta como não lida; avisos não.
                     bumpUnread(id, message.kind === "chat" && !message.own ? 1 : 0);
                     return;
                 }
                 if (confirm(message)) return;
                 if (state.messages.some((existing) => existing.id === message.id)) return;
-                patch({ messages: [...state.messages, message] });
+                patch({ messages: bounded([...state.messages, message]) });
                 // Aba escondida: a conversa aberta não está sendo lida.
                 const openId = state.room?.conversationId;
                 if (!state.pageVisible && openId && message.kind === "chat" && !message.own) {
@@ -632,7 +646,10 @@ export const createStore = () => {
                         return true;
                     });
                     if (fresh.length) {
-                        buffers.set(id, { ...view, messages: [...view.messages, ...fresh] });
+                        buffers.set(id, {
+                            ...view,
+                            messages: bounded([...view.messages, ...fresh]),
+                        });
                         // Conversa que acabou de chegar (alguém começou a falar
                         // com você): o que veio no histórico ainda não foi lido.
                         if (countUnread) {
@@ -653,7 +670,7 @@ export const createStore = () => {
                     return true;
                 });
                 if (fresh.length === 0) return;
-                patch({ messages: [...state.messages, ...fresh] });
+                patch({ messages: bounded([...state.messages, ...fresh]) });
             },
 
             /**

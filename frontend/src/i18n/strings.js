@@ -205,6 +205,18 @@ export const strings = {
         nowLight: "Tema claro ativado.",
         nowDark: "Tema escuro ativado.",
     },
+    notify: {
+        enable: "Ativar notificações",
+        disable: "Desativar notificações",
+        enabled:
+            "Notificações ativadas. Elas mostram só que há mensagem nova e onde, nunca o texto.",
+        disabled: "Notificações desativadas.",
+        denied: "O navegador está bloqueando as notificações deste site. Para ativar, libere a permissão nas configurações do site.",
+        unsupported: "Este navegador não oferece notificações.",
+        dmTitle: "Conversa privada",
+        roomTitle: "web-chat",
+        body: "Nova mensagem",
+    },
     a11y: {
         skipToRoom: "Ir para a conversa",
         enteredRoom: "Você entrou na sala. O campo de mensagem está em foco.",
