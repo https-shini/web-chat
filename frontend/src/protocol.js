@@ -123,6 +123,7 @@ export const ERROR_CODES = Object.freeze({
     INVALID_USERNAME: "invalid_username",
     USERNAME_TAKEN: "username_taken",
     RATE_LIMITED: "rate_limited",
+    INVALID_MESSAGE: "invalid_message",
     MUTED: "muted",
     INVALID_ROOM_CODE: "invalid_room_code",
     ROOM_NOT_FOUND: "room_not_found",

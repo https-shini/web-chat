@@ -75,6 +75,19 @@ export const createComposer = ({
             input.focus();
         },
 
+        /** O texto no campo agora (rascunho da conversa aberta). */
+        getValue: () => input.value,
+
+        /**
+         * Troca o texto sem mover o foco nem abrir sugestões — usado ao
+         * trocar de conversa (cada uma tem o seu rascunho).
+         * @param {string} text
+         */
+        restore(text) {
+            input.value = text;
+            onInput("", 0);
+        },
+
         /**
          * Substitui o texto do campo (autocomplete) e põe o cursor no fim.
          * @param {string} text

@@ -2,6 +2,7 @@
 
 import { format, strings } from "../i18n/strings.js";
 import { ERROR_CODES, MESSAGE_FORMATS, MESSAGE_KINDS, SERVER_EVENTS, TONES } from "../protocol.js";
+import { authorKey } from "./store.js";
 
 /**
  * Tradutor de eventos: recebe um fato já decodificado e o transforma em
@@ -184,6 +185,8 @@ export const noticeMessage = ({ tone, text: content, title, lines }) => {
  *   onLookup?: (requestId: string | null, user: {name: string, username: string} | null) => void,
  *   onBlockList?: (blocked: {name: string, username: string}[]) => void,
  *   onConversationMessage?: (conversationId: string, message: Message) => void,
+ *   onOwnConfirmed?: (clientMsgId: string) => void,
+ *   onSendRejected?: (clientMsgId: string, code: string, reason: string) => void,
  *   onLoginRejected?: (message: string, field: "name" | "username") => void,
  *   onCommandResult?: (requestId: string | null, result: {tone: string, text: string, title?: string, lines?: string[], code?: string, data?: Record<string, unknown>}) => void,
  * }} deps
@@ -204,6 +207,8 @@ export const createEventHandler = ({
     onLookup = () => {},
     onBlockList = () => {},
     onConversationMessage = () => {},
+    onOwnConfirmed = () => {},
+    onSendRejected = () => {},
     onLoginRejected = () => {},
     onCommandResult = () => {},
 }) => {
@@ -383,6 +388,7 @@ export const createEventHandler = ({
                 // chega, mesmo que o sinal de parada se perca no caminho.
                 if (active) typingTracker.set(message.userId, message.userName, false);
                 store.actions.addMessage(message, scope);
+                if (message.own && message.clientMsgId) onOwnConfirmed(message.clientMsgId);
                 if (!message.own) {
                     notifier.show(message.userName, message.content);
                     if (scope !== null) onConversationMessage(scope, message);
@@ -398,6 +404,11 @@ export const createEventHandler = ({
                         /** @returns {item is Message} */
                         (item) => item !== null,
                     );
+                // Mensagem sua que voltou no histórico (ex.: depois de uma
+                // queda): o servidor recebeu — o rascunho em trânsito some.
+                for (const item of messages) {
+                    if (item.own && item.clientMsgId) onOwnConfirmed(item.clientMsgId);
+                }
                 const countUnread = scope !== null && freshIncoming.delete(scope);
                 store.actions.mergeHistory(messages, scope, { countUnread });
                 break;
@@ -410,6 +421,7 @@ export const createEventHandler = ({
                         id: typeof person?.username === "string" ? person.username : "",
                         name: String(person?.name ?? ""),
                         username: typeof person?.username === "string" ? person.username : "",
+                        author: authorNumber(person?.author),
                         status: person?.status === "away" ? "away" : "online",
                         role:
                             person?.role === "admin"
@@ -440,6 +452,8 @@ export const createEventHandler = ({
             }
 
             case SERVER_EVENTS.USER_JOINED: {
+                const joinedKey = authorKey(payload?.username, authorNumber(payload?.author));
+                if (joinedKey) store.actions.setAuthorPresence(joinedKey, true, scope);
                 store.actions.addMessage(
                     systemMessage(
                         format(strings.system.joined, { name: String(payload?.userName ?? "") }),
@@ -456,6 +470,10 @@ export const createEventHandler = ({
                 if (active && typeof payload?.username === "string") {
                     typingTracker.remove?.(payload.username);
                 }
+                // Quem saiu fica marcado no histórico (pela chave de autor:
+                // outra pessoa com o mesmo @ depois não herda a marca).
+                const leftKey = authorKey(payload?.username, authorNumber(payload?.author));
+                if (leftKey) store.actions.setAuthorPresence(leftKey, false, scope);
                 // Remoção por administrador já gera um `notice` próprio.
                 if (payload?.reason === "removed") break;
                 store.actions.addMessage(
@@ -572,6 +590,7 @@ export const createEventHandler = ({
                 // Recusa de uma mensagem específica: ela fica marcada como não
                 // enviada, com a opção de tentar de novo.
                 const failedOne = ref !== null && store.actions.failMessage(ref, message);
+                if (failedOne && ref !== null && code !== null) onSendRejected(ref, code, message);
                 // Mensagem marcada como falha já é anunciada pela lista; o
                 // toast, nesse caso, é só reforço visual (sem anúncio duplo).
                 if (code === ERROR_CODES.RATE_LIMITED) {

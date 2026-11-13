@@ -30,9 +30,17 @@ import { icon } from "./icons.js";
  *   prefill: (text: string) => void,
  *   confirm: (options: {title: string, body: string, confirmLabel: string}) => Promise<boolean>,
  *   notify: (text: string, kind?: "info" | "error") => void,
+ *   openDirect?: (username: string) => void,
  * }} deps
  */
-export const createMemberCard = ({ getContext, runCommand, prefill, confirm, notify }) => {
+export const createMemberCard = ({
+    getContext,
+    runCommand,
+    prefill,
+    confirm,
+    notify,
+    openDirect,
+}) => {
     const card = /** @type {HTMLElement} */ (must(".c-member-card"));
     const avatar = /** @type {HTMLElement} */ (must(".c-member-card__avatar", card));
     const name = /** @type {HTMLElement} */ (must(".c-member-card__name", card));
@@ -102,6 +110,21 @@ export const createMemberCard = ({ getContext, runCommand, prefill, confirm, not
                 },
             },
         ];
+
+        // Conversa privada pelo @ exato (nunca consigo mesmo). Bloqueio e
+        // disponibilidade são decididos pelo servidor; se já existe uma
+        // conversa com a pessoa, ela é reaberta, não duplicada.
+        if (!own && openDirect && person.username) {
+            const username = person.username;
+            list.unshift({
+                label: strings.memberCard.direct,
+                iconName: "at",
+                run: () => {
+                    close({ restoreFocus: false });
+                    openDirect(username);
+                },
+            });
+        }
 
         if (own) {
             list.push(
@@ -214,6 +237,7 @@ export const createMemberCard = ({ getContext, runCommand, prefill, confirm, not
             avatar.replaceChildren(
                 renderIdentity({
                     id: person.id,
+                    author: person.author ?? null,
                     name: person.name,
                     own,
                     withName: false,

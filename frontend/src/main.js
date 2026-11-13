@@ -1,7 +1,7 @@
 // @ts-check
 
 import { SOCKET_URL, TIMING } from "./config.js";
-import { CLIENT_EVENTS, CLOSE_CODES } from "./protocol.js";
+import { CLIENT_EVENTS, CLOSE_CODES, ERROR_CODES } from "./protocol.js";
 import { routeInput } from "./commands/input.js";
 import { helpReply, timeReply } from "./commands/local.js";
 import { createCommandSuggestions } from "./ui/commandSuggestions.js";
@@ -9,6 +9,7 @@ import { createAnnouncer } from "./a11y/announce.js";
 import { format, strings } from "./i18n/strings.js";
 import { createEventHandler, noticeMessage } from "./state/events.js";
 import { createStore } from "./state/store.js";
+import { departedAuthors } from "./state/departed.js";
 import { createTypingTracker } from "./state/typing.js";
 import { createTypingSignal } from "./state/typingSignal.js";
 import { changed, createRenderLoop } from "./state/renderLoop.js";
@@ -176,6 +177,52 @@ const typingSignal = createTypingSignal({
 });
 
 /**
+ * Rascunho de cada conversa (só em memória, como todo o resto): trocar de
+ * conversa guarda o que estava escrito e traz o da outra. Assim o texto
+ * nunca "viaja" para a conversa errada.
+ * @type {Map<string, string>}
+ */
+const drafts = new Map();
+
+/**
+ * Mensagens suas a caminho: o texto fica guardado até o servidor confirmar.
+ * Se o servidor recusar de vez (silenciado, limite, conteúdo inválido), o
+ * texto volta para o rascunho da conversa certa em vez de se perder.
+ * @type {Map<string, {conversationId: string, text: string}>}
+ */
+const inFlight = new Map();
+
+/** Recusas em que o servidor certamente NÃO guardou a mensagem. @type {Set<string>} */
+const DEFINITE_REJECTIONS = new Set([
+    ERROR_CODES.MUTED,
+    ERROR_CODES.RATE_LIMITED,
+    ERROR_CODES.INVALID_MESSAGE,
+]);
+
+/** De qual conversa é o texto que está no campo agora. @type {string | null} */
+let composerOwner = null;
+
+/**
+ * Põe no campo o rascunho da conversa `id` (ou nada, fora de conversa),
+ * guardando antes o da conversa dona do texto atual — se ela ainda existe.
+ * Chamado na troca por clique (na hora) e a cada desenho (para trocas que
+ * vêm do servidor, como sair ou ser removido da conversa aberta).
+ * @param {string | null} id
+ */
+const syncDraft = (id) => {
+    if (id === composerOwner) return;
+    if (composerOwner) {
+        const owner = composerOwner;
+        const alive = store.getState().conversations.some((e) => e.conversationId === owner);
+        const text = composer.getValue();
+        if (alive && text) drafts.set(owner, text);
+        else drafts.delete(owner);
+    }
+    composer.restore(id ? (drafts.get(id) ?? "") : "");
+    composerOwner = id;
+};
+
+/**
  * Abre uma conversa da lista. A digitação em curso termina na conversa
  * anterior, e quem estava "digitando" lá some da tela.
  * @param {string} conversationId
@@ -188,7 +235,7 @@ const openConversation = (conversationId) => {
     typingSignal.stop();
     typingTracker.clear();
     memberCard.close({ restoreFocus: false });
-    store.actions.openConversation(conversationId);
+    if (store.actions.openConversation(conversationId)) syncDraft(conversationId);
 };
 
 /** Volta ao início; as conversas continuam na lista, recebendo mensagens. */
@@ -196,6 +243,7 @@ const goHome = () => {
     typingSignal.stop();
     typingTracker.clear();
     memberCard.close({ restoreFocus: false });
+    syncDraft(null);
     store.actions.goHome();
 };
 
@@ -249,6 +297,8 @@ const sendChat = (content) => {
     const me = store.getState().me;
     if (!me) return;
     const clientMsgId = crypto.randomUUID();
+    const conversationId = store.getState().room?.conversationId;
+    if (conversationId) inFlight.set(clientMsgId, { conversationId, text: content });
     const sent = transport.send(CLIENT_EVENTS.CHAT_MESSAGE, inRoom({ content, clientMsgId }));
     store.actions.addMessage({
         id: `local:${clientMsgId}`,
@@ -381,6 +431,10 @@ const memberCard = createMemberCard({
     },
     confirm: (options) => dialog.confirm(options),
     notify: (text, kind) => toasts.show(text, kind),
+    openDirect: (username) => {
+        layout.closeDrawer();
+        requestDm(username);
+    },
 });
 
 const roomHeader = createRoomHeader();
@@ -446,6 +500,9 @@ const endParticipation = ({ announce = strings.logout.done, notice } = {}) => {
     roomRequest = null;
     pendingDm = null;
     closingByMe.clear();
+    drafts.clear();
+    inFlight.clear();
+    composerOwner = null;
     home.clear();
     history.replaceState(null, "", location.pathname + location.search);
     if (notice) toasts.show(notice, "error");
@@ -693,6 +750,28 @@ handleEvent = createEventHandler({
                     : format(strings.conversations.dmClosedByPeer, { name });
         toasts.show(text);
     },
+    onOwnConfirmed: (clientMsgId) => {
+        inFlight.delete(clientMsgId);
+    },
+    onSendRejected: (clientMsgId, code, reason) => {
+        const flight = inFlight.get(clientMsgId);
+        if (!flight || !DEFINITE_REJECTIONS.has(code)) return;
+        const state = store.getState();
+        const alive = state.conversations.some(
+            (entry) => entry.conversationId === flight.conversationId,
+        );
+        if (!alive) return;
+        const open = composerOwner === flight.conversationId;
+        const current = open ? composer.getValue() : (drafts.get(flight.conversationId) ?? "");
+        // Só devolve se o rascunho daquela conversa estiver vazio: nunca
+        // apaga o que a pessoa já começou a escrever depois.
+        if (current.trim()) return;
+        inFlight.delete(clientMsgId);
+        store.actions.discardFailed(clientMsgId);
+        if (open) composer.restore(flight.text);
+        else drafts.set(flight.conversationId, flight.text);
+        announcer.say(format(strings.delivery.returned, { reason }), { force: true });
+    },
     onDmRefused: (_code, message) => {
         pendingDm = null;
         if (store.getState().screen === "home") home.settle(message);
@@ -725,6 +804,9 @@ handleEvent = createEventHandler({
         entry.reset(message, field);
     },
 });
+
+/** Título da aba sem a contagem de não lidas. */
+const baseTitle = document.title;
 
 /** @type {import("./state/store.js").State["screen"]} */
 let lastScreen = "entry";
@@ -787,6 +869,11 @@ const render = (state, previous) => {
             }
         }
     }
+    if (changed(state, previous, ["conversations"])) {
+        // Total de não lidas no título da aba: "(3) web-chat · …".
+        const total = state.conversations.reduce((sum, entry) => sum + entry.unread, 0);
+        document.title = total > 0 ? `(${total > 99 ? "99+" : total}) ${baseTitle}` : baseTitle;
+    }
     if (changed(state, previous, ["me", "conversations"])) {
         home.render(state.me, state.conversations.length);
     }
@@ -814,7 +901,13 @@ const render = (state, previous) => {
         );
     }
     if (changed(state, previous, ["typing"])) typing.render(state.typing);
+    if (changed(state, previous, ["screen", "room"])) {
+        syncDraft(inRoom ? (state.room?.conversationId ?? null) : null);
+    }
     if (changed(state, previous, ["messages"])) messageList.render(state.messages);
+    if (changed(state, previous, ["messages", "authorsSeen", "authorsLeft", "room"])) {
+        messageList.setDeparted(departedAuthors(state));
+    }
     if (changed(state, previous, ["people", "me", "link"])) {
         people.render(state.people, state.me?.id ?? null, state.link === "online");
     }
@@ -860,6 +953,13 @@ const render = (state, previous) => {
 };
 
 const renderLoop = createRenderLoop({ getState: () => store.getState(), render });
+
+// Aba escondida: mensagens na conversa aberta contam como não lidas até a
+// pessoa voltar a ela.
+document.addEventListener("visibilitychange", () =>
+    store.actions.setPageVisible(document.visibilityState === "visible"),
+);
+store.actions.setPageVisible(document.visibilityState === "visible");
 store.subscribe(() => renderLoop.request());
 
 // Estado inicial: pinta a tela de entrada sem esperar por nenhum evento.

@@ -113,3 +113,16 @@
     background-color: var(--color-accent-2-soft);
     color: var(--color-accent-2);
 }
+
+/* "saiu": a pessoa não está mais na conversa. Contorno tracejado (forma)
+   além do texto; o selo só aparece quando a marca vale (atributo hidden). */
+.c-badge--departed {
+    border-style: dashed;
+    border-color: var(--color-outline-control);
+    background-color: transparent;
+    color: var(--color-text-2);
+}
+
+.c-badge[hidden] {
+    display: none;
+}

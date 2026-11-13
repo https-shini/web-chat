@@ -205,9 +205,16 @@ describe("presença e digitação", () => {
             payload: [{ username: "ana", name: "Ana", id: "x" }, null, { username: 2 }],
         });
         assert.deepEqual(store.getState().people, [
-            { id: "ana", name: "Ana", username: "ana", status: "online", role: "member" },
-            { id: "", name: "", username: "", status: "online", role: "member" },
-            { id: "", name: "", username: "", status: "online", role: "member" },
+            {
+                id: "ana",
+                name: "Ana",
+                username: "ana",
+                author: null,
+                status: "online",
+                role: "member",
+            },
+            { id: "", name: "", username: "", author: null, status: "online", role: "member" },
+            { id: "", name: "", username: "", author: null, status: "online", role: "member" },
         ]);
         handle({ type: "user_list", payload: "lixo" });
         assert.deepEqual(store.getState().people, []);

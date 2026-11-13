@@ -1,9 +1,10 @@
 // @ts-check
 
-import { strings } from "../i18n/strings.js";
+import { format, strings } from "../i18n/strings.js";
 import { el } from "./dom.js";
 import { icon } from "./icons.js";
 import { badge, renderIdentity } from "./identity.js";
+import { authorKey } from "../state/store.js";
 
 /**
  * Renderização de uma entrada da transcrição. Só `textContent` e
@@ -108,8 +109,15 @@ const renderContent = (message) => {
 const fillStatus = (slot, message, handlers) => {
     slot.replaceChildren();
     if (message.delivery === "pending") {
+        const attempt = message.attempt ?? 1;
         slot.appendChild(
-            el("span", { class: "c-message__status-text", text: strings.delivery.pending }),
+            el("span", {
+                class: "c-message__status-text",
+                text:
+                    attempt > 1
+                        ? format(strings.delivery.retrying, { n: attempt })
+                        : strings.delivery.pending,
+            }),
         );
     } else if (message.delivery === "failed") {
         slot.appendChild(
@@ -128,7 +136,16 @@ const fillStatus = (slot, message, handlers) => {
         retry.addEventListener("click", () => handlers.onRetry?.(message));
         slot.appendChild(retry);
     }
-    slot.hidden = message.delivery === "confirmed";
+    // Enviada: sua mensagem confirmada pelo servidor ganha um ✓ discreto,
+    // com o estado em texto para leitor de tela.
+    if (message.delivery === "confirmed" && message.own && message.kind === "chat") {
+        const mark = el("span", { class: "c-message__sent" });
+        mark.appendChild(icon("check"));
+        mark.appendChild(el("span", { class: "sr-only", text: strings.delivery.sent }));
+        slot.appendChild(mark);
+    }
+    slot.hidden = message.delivery === "confirmed" && !message.own;
+    slot.dataset.state = message.delivery;
 };
 
 /**
@@ -215,6 +232,9 @@ export const renderMessage = (message, handlers = {}, { compact = false } = {}) 
 
     if (message.own) item.classList.add("c-message--self");
     item.dataset.delivery = message.delivery;
+    // Chave de autor (@ + número na conversa): a lista marca "saiu" por ela.
+    const key = message.own ? null : authorKey(message.username, message.author);
+    if (key) item.dataset.authorKey = key;
     const variant = message.variant ?? "text";
     const isAction = variant === "action" || variant === "roll";
     const isCompact = compact && !isAction && variant !== "announcement";
@@ -230,6 +250,7 @@ export const renderMessage = (message, handlers = {}, { compact = false } = {}) 
                 id: message.userId,
                 name: message.userName,
                 own: message.own,
+                author: message.author ?? null,
                 withName: false,
             }),
         );
@@ -264,6 +285,7 @@ export const renderMessage = (message, handlers = {}, { compact = false } = {}) 
                 id: message.userId,
                 name: message.userName,
                 own: message.own,
+                author: message.author ?? null,
                 withMonogram: false,
             }),
         );
@@ -273,6 +295,12 @@ export const renderMessage = (message, handlers = {}, { compact = false } = {}) 
             );
         }
         if (message.own) head.appendChild(badge(strings.room.youBadge));
+        if (key) {
+            // Escondido até a pessoa sair; em texto, não só no tom.
+            const departed = badge(strings.message.departed, "departed");
+            departed.hidden = true;
+            head.appendChild(departed);
+        }
         const time = timeElement(message.timestamp);
         if (time) head.appendChild(time);
         body.appendChild(head);

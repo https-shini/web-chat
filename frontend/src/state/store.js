@@ -18,7 +18,19 @@
  * @property {"online" | "away"} [status]
  * @property {string} [statusText]
  * @property {"member" | "admin" | "host"} [role]  papel NA SALA (admin é global)
+ * @property {number | null} [author]  número de autor NESTA conversa (dado pelo servidor)
  */
+
+/**
+ * Chave de quem escreveu, dentro de uma conversa: o @ mais o número de autor.
+ * Distingue duas pessoas que usaram o mesmo @ em momentos diferentes, sem
+ * nada do id interno.
+ * @param {string | undefined} username
+ * @param {number | null | undefined} author
+ * @returns {string | null}
+ */
+export const authorKey = (username, author) =>
+    username && typeof author === "number" ? `${username}#${author}` : null;
 
 /**
  * A outra pessoa de uma conversa privada.
@@ -74,6 +86,7 @@
  * @property {string | null} [clientMsgId]
  * @property {"confirmed" | "pending" | "failed"} delivery
  * @property {number | null} [sentAt]   quando saiu pela rede (pendentes)
+ * @property {number} [attempt]  tentativa de envio em curso (1 = primeira; 2+ = reenvio)
  * @property {string} [failReason]
  * @property {string} [tone]            notice/system: info, success, warning, error, result, admin
  * @property {string} [title]
@@ -112,6 +125,9 @@
  * @property {number | null} closeCode  Fechamento definitivo (ex.: 4003 removido).
  * @property {CommandInfo[]} catalog
  * @property {number | null} historyVersion
+ * @property {string[]} authorsSeen  quem esteve na conversa enquanto você estava (chaves de autor)
+ * @property {string[]} authorsLeft  quem saiu da conversa (chaves de autor)
+ * @property {boolean} pageVisible  a aba está à vista (mensagem na conversa aberta com a aba escondida conta como não lida)
  * @property {RoomInfo | null} room  a conversa aberta agora
  * @property {ConversationEntry[]} conversations  todas as conversas desta participação
  */
@@ -137,13 +153,16 @@ const initialState = () => ({
     closeCode: null,
     catalog: [],
     historyVersion: null,
+    authorsSeen: [],
+    authorsLeft: [],
+    pageVisible: true,
     room: null,
     conversations: [],
 });
 
 /**
  * O que é de UMA conversa e precisa sobreviver enquanto outra está aberta.
- * @typedef {{messages: Message[], people: Person[], historyVersion: number | null}} View
+ * @typedef {{messages: Message[], people: Person[], historyVersion: number | null, authorsSeen: string[], authorsLeft: string[]}} View
  */
 
 /**
@@ -158,7 +177,23 @@ const summaryOf = (entry) => {
 };
 
 /** @returns {View} */
-const emptyView = () => ({ messages: [], people: [], historyVersion: null });
+const emptyView = () => ({
+    messages: [],
+    people: [],
+    historyVersion: null,
+    authorsSeen: [],
+    authorsLeft: [],
+});
+
+/** Os campos da vista que vivem no estado quando a conversa está aberta. */
+const CLEAR_VIEW = Object.freeze({
+    messages: [],
+    people: [],
+    typing: [],
+    historyVersion: null,
+    authorsSeen: [],
+    authorsLeft: [],
+});
 
 /** Mesma conversa, mesmos dados visíveis? @param {RoomInfo} a @param {RoomInfo} b */
 const sameSummary = (a, b) =>
@@ -268,6 +303,8 @@ export const createStore = () => {
             messages: state.messages,
             people: state.people,
             historyVersion: state.historyVersion,
+            authorsSeen: state.authorsSeen,
+            authorsLeft: state.authorsLeft,
         });
     };
 
@@ -394,20 +431,36 @@ export const createStore = () => {
             },
 
             /**
+             * A aba ficou à vista ou escondida. Ao voltar, a conversa aberta
+             * é a que está sendo lida: as não lidas dela zeram.
+             * @param {boolean} visible
+             */
+            setPageVisible(visible) {
+                if (state.pageVisible === visible) return;
+                const openId =
+                    visible && state.screen === "room" ? state.room?.conversationId : null;
+                patch({
+                    pageVisible: visible,
+                    ...(openId
+                        ? {
+                              conversations: state.conversations.map((entry) =>
+                                  entry.conversationId === openId && entry.unread
+                                      ? { ...entry, unread: 0 }
+                                      : entry,
+                              ),
+                          }
+                        : {}),
+                });
+            },
+
+            /**
              * Tela de início: nenhuma conversa aberta (todas continuam na
              * lista, recebendo mensagens).
              */
             goHome() {
                 if (state.screen === "entry") return;
                 stashActive();
-                patch({
-                    screen: "home",
-                    room: null,
-                    messages: [],
-                    people: [],
-                    typing: [],
-                    historyVersion: null,
-                });
+                patch({ screen: "home", room: null, ...CLEAR_VIEW });
             },
 
             /**
@@ -447,10 +500,7 @@ export const createStore = () => {
                     conversations,
                     screen: state.screen === "entry" ? "entry" : "home",
                     room: null,
-                    messages: [],
-                    people: [],
-                    typing: [],
-                    historyVersion: null,
+                    ...CLEAR_VIEW,
                 });
                 return null;
             },
@@ -462,14 +512,7 @@ export const createStore = () => {
             forgetRoom() {
                 buffers.clear();
                 if (state.room === null && state.conversations.length === 0) return;
-                patch({
-                    room: null,
-                    conversations: [],
-                    messages: [],
-                    people: [],
-                    typing: [],
-                    historyVersion: null,
-                });
+                patch({ room: null, conversations: [], ...CLEAR_VIEW });
             },
 
             /** Sala e sessão aceitas pelo servidor: agora sim, a conversa. */
@@ -535,7 +578,8 @@ export const createStore = () => {
             leaveRoom() {
                 hidden.clear();
                 buffers.clear();
-                patch({ ...initialState() });
+                // A aba continua à vista ou escondida: isso não é da participação.
+                patch({ ...initialState(), pageVisible: state.pageVisible });
             },
 
             /**
@@ -560,6 +604,11 @@ export const createStore = () => {
                 if (confirm(message)) return;
                 if (state.messages.some((existing) => existing.id === message.id)) return;
                 patch({ messages: [...state.messages, message] });
+                // Aba escondida: a conversa aberta não está sendo lida.
+                const openId = state.room?.conversationId;
+                if (!state.pageVisible && openId && message.kind === "chat" && !message.own) {
+                    bumpUnread(openId, 1);
+                }
             },
 
             /**
@@ -649,6 +698,34 @@ export const createStore = () => {
             },
 
             /**
+             * Tira da tela uma mensagem SUA que o servidor recusou de vez (o
+             * texto volta para o rascunho). Só falhas: uma confirmada nunca
+             * some, e uma pendente ainda pode chegar.
+             * @param {string} clientMsgId
+             * @returns {boolean}
+             */
+            discardFailed(clientMsgId) {
+                /** @param {Message} m */
+                const keep = (m) =>
+                    !(m.own && m.clientMsgId === clientMsgId && m.delivery === "failed");
+                let removed = false;
+                for (const [id, view] of buffers) {
+                    const messages = view.messages.filter(keep);
+                    if (messages.length !== view.messages.length) {
+                        removed = true;
+                        buffers.set(id, { ...view, messages });
+                    }
+                }
+                const messages = state.messages.filter(keep);
+                if (messages.length !== state.messages.length) {
+                    patch({ messages });
+                    return true;
+                }
+                if (removed) notify();
+                return removed;
+            },
+
+            /**
              * Reenvio: a mensagem volta a "enviando".
              * @param {string} clientMsgId
              * @param {number | null} sentAt
@@ -662,6 +739,7 @@ export const createStore = () => {
                         delivery: "pending",
                         sentAt,
                         failReason: undefined,
+                        attempt: (message.attempt ?? 1) + 1,
                     }),
                 );
             },
@@ -699,13 +777,56 @@ export const createStore = () => {
              * @param {string | null} [conversationId] outra conversa que não a aberta
              */
             setPeople(people, conversationId = null) {
+                /** @param {string[]} seen @param {string[]} left */
+                const track = (seen, left) => {
+                    const keys = people
+                        .map((person) => authorKey(person.username, person.author))
+                        .filter(/** @returns {key is string} */ (key) => key !== null);
+                    return {
+                        authorsSeen: [...new Set([...seen, ...keys])],
+                        authorsLeft: left.filter((key) => !keys.includes(key)),
+                    };
+                };
                 if (!isActive(conversationId)) {
                     const id = /** @type {string} */ (conversationId);
                     const view = bufferOf(id);
-                    if (view) buffers.set(id, { ...view, people });
+                    if (view) {
+                        buffers.set(id, {
+                            ...view,
+                            people,
+                            ...track(view.authorsSeen, view.authorsLeft),
+                        });
+                    }
                     return;
                 }
-                patch({ people });
+                patch({ people, ...track(state.authorsSeen, state.authorsLeft) });
+            },
+
+            /**
+             * Alguém entrou (ou voltou) ou saiu de uma conversa: quem saiu
+             * aparece marcado no histórico; quem voltou, não mais.
+             * @param {string} key chave de autor (@ + número)
+             * @param {boolean} present
+             * @param {string | null} [conversationId]
+             */
+            setAuthorPresence(key, present, conversationId = null) {
+                /** @param {string[]} seen @param {string[]} left */
+                const next = (seen, left) => ({
+                    authorsSeen: seen.includes(key) ? seen : [...seen, key],
+                    authorsLeft: present
+                        ? left.filter((item) => item !== key)
+                        : left.includes(key)
+                          ? left
+                          : [...left, key],
+                });
+                if (!isActive(conversationId)) {
+                    const id = /** @type {string} */ (conversationId);
+                    const view = bufferOf(id);
+                    if (view)
+                        buffers.set(id, { ...view, ...next(view.authorsSeen, view.authorsLeft) });
+                    return;
+                }
+                patch(next(state.authorsSeen, state.authorsLeft));
             },
 
             /**
