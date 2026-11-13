@@ -294,3 +294,13 @@
     font-size: var(--text-xs);
     color: var(--color-text-3);
 }
+
+/* Mensagem de quem saiu: o nome perde o destaque (continua legível, no tom
+   secundário); a autoria não muda. */
+.c-message--departed .c-identity__name {
+    color: var(--color-text-2);
+}
+
+.c-message--departed .c-identity__monogram {
+    opacity: 0.6;
+}

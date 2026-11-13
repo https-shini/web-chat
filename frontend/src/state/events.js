@@ -2,6 +2,7 @@
 
 import { format, strings } from "../i18n/strings.js";
 import { ERROR_CODES, MESSAGE_FORMATS, MESSAGE_KINDS, SERVER_EVENTS, TONES } from "../protocol.js";
+import { authorKey } from "./store.js";
 
 /**
  * Tradutor de eventos: recebe um fato já decodificado e o transforma em
@@ -410,6 +411,7 @@ export const createEventHandler = ({
                         id: typeof person?.username === "string" ? person.username : "",
                         name: String(person?.name ?? ""),
                         username: typeof person?.username === "string" ? person.username : "",
+                        author: authorNumber(person?.author),
                         status: person?.status === "away" ? "away" : "online",
                         role:
                             person?.role === "admin"
@@ -440,6 +442,8 @@ export const createEventHandler = ({
             }
 
             case SERVER_EVENTS.USER_JOINED: {
+                const joinedKey = authorKey(payload?.username, authorNumber(payload?.author));
+                if (joinedKey) store.actions.setAuthorPresence(joinedKey, true, scope);
                 store.actions.addMessage(
                     systemMessage(
                         format(strings.system.joined, { name: String(payload?.userName ?? "") }),
@@ -456,6 +460,10 @@ export const createEventHandler = ({
                 if (active && typeof payload?.username === "string") {
                     typingTracker.remove?.(payload.username);
                 }
+                // Quem saiu fica marcado no histórico (pela chave de autor:
+                // outra pessoa com o mesmo @ depois não herda a marca).
+                const leftKey = authorKey(payload?.username, authorNumber(payload?.author));
+                if (leftKey) store.actions.setAuthorPresence(leftKey, false, scope);
                 // Remoção por administrador já gera um `notice` próprio.
                 if (payload?.reason === "removed") break;
                 store.actions.addMessage(

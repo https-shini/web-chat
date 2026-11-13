@@ -72,6 +72,7 @@ export const strings = {
     },
     message: {
         announcement: "Aviso",
+        departed: "saiu",
         spoilerShow: "Mostrar spoiler",
         spoilerHide: "Esconder spoiler",
         private: "Só você vê isto",
@@ -102,6 +103,7 @@ export const strings = {
         openCard: "{name}: abrir cartão",
     },
     memberCard: {
+        direct: "Conversa privada",
         roleAdmin: "Administrador",
         roleHost: "Anfitrião da sala",
         roleMember: "Participante",

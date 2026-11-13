@@ -21,6 +21,16 @@ export const hueFor = (id) => {
 };
 
 /**
+ * Cor pelo número de autor da conversa: 1, 2, 3… percorrem a paleta em
+ * ordem, então quem entrou em seguida nunca tem a mesma cor (até a paleta
+ * dar a volta). Vem do servidor, vale só naquela conversa e não tem nada
+ * do id interno.
+ * @param {number} author
+ * @returns {number} de 1 a SENDER_HUES
+ */
+export const hueForAuthor = (author) => ((Math.max(1, Math.trunc(author)) - 1) % SENDER_HUES) + 1;
+
+/**
  * Iniciais para o monograma: no máximo duas letras.
  * @param {string} name
  * @returns {string}
@@ -36,7 +46,8 @@ export const initialsFor = (name) => {
 /**
  * Bloco de identidade: avatar (iniciais sobre a cor da pessoa) + nome.
  *
- * A cor sai do id e é a mesma em toda tela. Ela nunca é o único sinal: o
+ * A cor sai do número de autor da conversa (quando há) ou do arroba, e é a
+ * mesma em toda tela. Ela nunca é o único sinal: o
  * nome está sempre escrito, e quem é você recebe o selo "você" em texto
  * (ver message.js e people.js), não uma cor diferente.
  *
@@ -48,6 +59,7 @@ export const initialsFor = (name) => {
  *   withMonogram?: boolean,
  *   size?: "md" | "lg" | "xl",
  *   presence?: "online" | "away" | null,
+ *   author?: number | null,
  * }} person
  * @returns {HTMLElement}
  */
@@ -59,8 +71,10 @@ export const renderIdentity = ({
     withMonogram = true,
     size = "md",
     presence = null,
+    author = null,
 }) => {
-    const classes = ["c-identity", `c-identity--sender-${hueFor(id)}`];
+    const hue = typeof author === "number" ? hueForAuthor(author) : hueFor(id);
+    const classes = ["c-identity", `c-identity--sender-${hue}`];
     if (own) classes.push("c-identity--self");
     if (size !== "md") classes.push(`c-identity--${size}`);
     const root = el("span", { class: classes.join(" ") });

@@ -54,6 +54,7 @@ export const createPeople = ({ onSelect }) => {
         button.appendChild(
             renderIdentity({
                 id: person.id,
+                author: person.author ?? null,
                 name: person.name,
                 own,
                 withName: false,

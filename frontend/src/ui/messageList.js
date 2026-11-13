@@ -54,6 +54,24 @@ export const createMessageList = (handlers = {}) => {
         root.scrollTop = root.scrollHeight;
     };
 
+    /**
+     * Quem saiu da conversa (chaves de autor). Mensagens dessas pessoas
+     * ganham a marca "saiu" — a autoria continua a mesma, só fica claro que
+     * a pessoa não está mais lá.
+     * @type {Set<string>}
+     */
+    let departed = new Set();
+
+    /** @param {HTMLElement} element */
+    const markDeparted = (element) => {
+        const key = element.dataset.authorKey;
+        if (!key) return;
+        const gone = departed.has(key);
+        element.classList.toggle("c-message--departed", gone);
+        const mark = element.querySelector(".c-badge--departed");
+        if (mark instanceof HTMLElement) mark.hidden = !gone;
+    };
+
     return {
         /**
          * @param {Message[]} messages
@@ -85,12 +103,25 @@ export const createMessageList = (handlers = {}) => {
                 const element = renderMessage(message, handlers, {
                     compact: continuesGroup(messages[index - 1], message),
                 });
+                markDeparted(element);
                 items.appendChild(element);
                 painted.set(message.key, { element, message });
                 added = true;
             }
 
             if (added && stick) scrollToEnd();
+        },
+
+        /**
+         * Atualiza a marca "saiu" sem redesenhar (mudar o item faria a
+         * região `role="log"` anunciá-lo de novo).
+         * @param {Set<string>} keys
+         */
+        setDeparted(keys) {
+            departed = keys;
+            for (const element of items.querySelectorAll("[data-author-key]")) {
+                if (element instanceof HTMLElement) markDeparted(element);
+            }
         },
 
         scrollToEnd,
