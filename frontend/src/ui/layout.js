@@ -32,6 +32,8 @@ export const createLayout = () => {
     const medium = window.matchMedia("(min-width: 48rem)");
 
     let inRoom = false;
+    /** O painel de pessoas faz sentido aqui? (Não no início nem numa privada.) */
+    let membersAvailable = false;
     /** Gaveta aberta agora (só existe em telas estreitas). @type {Panel | null} */
     let drawer = null;
     /** Preferência no desktop: painel de pessoas visível. */
@@ -48,9 +50,13 @@ export const createLayout = () => {
 
     const sync = () => {
         if (drawer && !isDrawer(drawer)) drawer = null;
+        if (drawer === "members" && !membersAvailable) drawer = null;
 
         sidebar.hidden = !inRoom || (isDrawer("sidebar") && drawer !== "sidebar");
-        members.hidden = !inRoom || (isDrawer("members") ? drawer !== "members" : !membersPinned);
+        members.hidden =
+            !inRoom ||
+            !membersAvailable ||
+            (isDrawer("members") ? drawer !== "members" : !membersPinned);
 
         const open = inRoom && drawer !== null;
         scrim.hidden = !open;
@@ -62,6 +68,7 @@ export const createLayout = () => {
         for (const button of openers) {
             const panel = /** @type {Panel} */ (button.dataset.drawerOpen);
             button.setAttribute("aria-expanded", String(!node(panel).hidden));
+            if (panel === "members") button.hidden = !membersAvailable;
         }
         for (const listener of listeners) listener();
     };
@@ -111,9 +118,13 @@ export const createLayout = () => {
     medium.addEventListener("change", sync);
 
     return {
-        /** @param {boolean} value */
-        setInRoom(value) {
+        /**
+         * @param {boolean} value  dentro do chat (início ou conversa): há barra lateral
+         * @param {boolean} [members]  há painel de pessoas (sala aberta)
+         */
+        setInRoom(value, members = value) {
             inRoom = value;
+            membersAvailable = value && members;
             if (!value) drawer = null;
             sync();
         },

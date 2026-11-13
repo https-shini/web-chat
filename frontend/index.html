@@ -78,7 +78,7 @@
         -->
         <div class="c-app" data-screen="entry">
             <!-- ─── Barra lateral: a sala, atalhos reais e você ─────────── -->
-            <nav class="c-sidebar" id="barra-lateral" aria-label="Sala e atalhos" hidden>
+            <nav class="c-sidebar" id="barra-lateral" aria-label="Conversas e atalhos" hidden>
                 <div class="c-sidebar__top">
                     <span class="c-brand">
                         <span class="c-brand__logo" data-icon="logo"></span>
@@ -95,12 +95,13 @@
                 </div>
 
                 <div class="c-sidebar__scroll js-scroll">
-                    <section class="c-nav-section" aria-labelledby="secao-sala">
-                        <h2 class="c-nav-section__title" id="secao-sala">Sala</h2>
-                        <a class="c-nav-item" href="#conteudo" aria-current="page">
-                            <span class="c-nav-item__icon" data-icon="hash"></span>
-                            <span class="c-nav-item__label" data-room-name>sala</span>
-                        </a>
+                    <section class="c-nav-section" aria-labelledby="secao-conversas">
+                        <h2 class="c-nav-section__title" id="secao-conversas">Conversas</h2>
+                        <button type="button" class="c-nav-item" data-go-home>
+                            <span class="c-nav-item__icon" data-icon="home"></span>
+                            <span class="c-nav-item__label">Início</span>
+                        </button>
+                        <div class="c-conversation-nav" data-conversation-nav></div>
                     </section>
 
                     <section class="c-nav-section" aria-labelledby="secao-atalhos">
@@ -172,8 +173,8 @@
                         type="button"
                         class="c-icon-button c-user-panel__logout"
                         data-action="logout"
-                        aria-label="Sair da sala"
-                        data-tooltip="Sair da sala"
+                        aria-label="Sair do chat"
+                        data-tooltip="Sair do chat"
                     >
                         <span data-icon="logout"></span>
                     </button>
@@ -377,6 +378,120 @@
                 </section>
 
                 <!-- ─── Sala ────────────────────────────────────────────── -->
+                <!-- ─── Início: sem conversa aberta ─────────────────────── -->
+                <section class="c-home" aria-labelledby="inicio-titulo" hidden>
+                    <header class="c-home__bar">
+                        <button
+                            type="button"
+                            class="c-icon-button c-home__menu"
+                            data-drawer-open="sidebar"
+                            aria-controls="barra-lateral"
+                            aria-expanded="false"
+                            aria-label="Abrir barra lateral"
+                        >
+                            <span data-icon="menu"></span>
+                        </button>
+                        <span class="c-brand">
+                            <span class="c-brand__logo" data-icon="logo"></span>
+                            <span class="c-brand__name">web-chat</span>
+                        </span>
+                    </header>
+                    <div class="c-home__scroll js-scroll">
+                        <div class="c-home__content">
+                            <p class="c-home__eyebrow">Início</p>
+                            <h1 class="c-home__title" id="inicio-titulo" tabindex="-1">Olá!</h1>
+                            <p class="c-home__lead">
+                                Abra uma sala, entre com um código ou fale em particular com alguém
+                                pelo @. Nada fica guardado depois que você sai.
+                            </p>
+
+                            <p class="c-home__feedback" role="status" aria-live="polite"></p>
+
+                            <div class="c-home__actions">
+                                <form class="c-home-card" data-home-form="create" novalidate>
+                                    <span class="c-home-card__icon" data-icon="plus"></span>
+                                    <h2 class="c-home-card__title">Nova sala</h2>
+                                    <p class="c-home-card__body">
+                                        Você vira anfitrião e recebe um link para convidar.
+                                    </p>
+                                    <label class="c-home-card__label" for="inicio-nome-sala"
+                                        >Nome da sala (opcional)</label
+                                    >
+                                    <input
+                                        class="c-field__input"
+                                        id="inicio-nome-sala"
+                                        name="nome"
+                                        type="text"
+                                        maxlength="40"
+                                        autocomplete="off"
+                                    />
+                                    <button type="submit" class="c-button c-button--primary">
+                                        Criar sala
+                                    </button>
+                                </form>
+
+                                <form class="c-home-card" data-home-form="join" novalidate>
+                                    <span class="c-home-card__icon" data-icon="hash"></span>
+                                    <h2 class="c-home-card__title">Entrar com código</h2>
+                                    <p class="c-home-card__body">
+                                        Cole o código (abc-defg-hij) ou o link do convite.
+                                    </p>
+                                    <label class="c-home-card__label" for="inicio-codigo"
+                                        >Código ou link</label
+                                    >
+                                    <input
+                                        class="c-field__input"
+                                        id="inicio-codigo"
+                                        name="codigo"
+                                        type="text"
+                                        autocomplete="off"
+                                        autocapitalize="none"
+                                        spellcheck="false"
+                                    />
+                                    <button type="submit" class="c-button c-button--secondary">
+                                        Entrar
+                                    </button>
+                                </form>
+
+                                <form class="c-home-card" data-home-form="dm" novalidate>
+                                    <span class="c-home-card__icon" data-icon="at"></span>
+                                    <h2 class="c-home-card__title">Conversa privada</h2>
+                                    <p class="c-home-card__body">
+                                        Só pelo @ exato de quem está conectado. Ninguém mais lê.
+                                    </p>
+                                    <label class="c-home-card__label" for="inicio-arroba"
+                                        >@ da pessoa</label
+                                    >
+                                    <input
+                                        class="c-field__input"
+                                        id="inicio-arroba"
+                                        name="arroba"
+                                        type="text"
+                                        maxlength="21"
+                                        autocomplete="off"
+                                        autocapitalize="none"
+                                        spellcheck="false"
+                                    />
+                                    <button type="submit" class="c-button c-button--secondary">
+                                        Conversar
+                                    </button>
+                                </form>
+                            </div>
+
+                            <section class="c-home__list" aria-labelledby="inicio-conversas">
+                                <h2 class="c-home__subtitle" id="inicio-conversas">
+                                    Suas conversas
+                                </h2>
+                                <p class="c-home__empty">
+                                    Nenhuma conversa aberta ainda. As que você abrir aparecem aqui e
+                                    na barra lateral.
+                                </p>
+                                <div class="c-conversation-nav" data-conversation-nav></div>
+                            </section>
+                        </div>
+                    </div>
+                </section>
+
                 <div class="c-room" hidden>
                     <header class="c-header">
                         <button
@@ -389,10 +504,39 @@
                         >
                             <span data-icon="menu"></span>
                         </button>
-                        <span class="c-header__icon" data-icon="hash"></span>
+                        <span class="c-header__icon" data-icon="hash" data-room-icon></span>
                         <h1 class="c-header__title" data-room-name>sala</h1>
                         <p class="c-header__topic" data-room-topic>Sala efêmera e anônima</p>
                         <span class="c-header__spacer"></span>
+                        <button
+                            type="button"
+                            class="c-icon-button"
+                            data-conversation-action="invite"
+                            aria-label="Copiar link de convite"
+                            data-tooltip="Copiar convite"
+                            hidden
+                        >
+                            <span data-icon="copy"></span>
+                        </button>
+                        <button
+                            type="button"
+                            class="c-icon-button"
+                            data-conversation-action="block"
+                            aria-label="Bloquear"
+                            data-tooltip="Bloquear"
+                            hidden
+                        >
+                            <span data-icon="ban"></span>
+                        </button>
+                        <button
+                            type="button"
+                            class="c-icon-button"
+                            data-conversation-action="leave"
+                            aria-label="Sair da sala"
+                            data-tooltip="Sair da sala"
+                        >
+                            <span data-icon="logout"></span>
+                        </button>
                         <p class="c-status-pill" data-state="connecting" aria-hidden="true">
                             <span class="c-status-pill__dot"></span>
                             <span class="c-status-pill__label">conectando…</span>
