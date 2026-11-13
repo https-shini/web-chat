@@ -38,11 +38,11 @@ try {
     process.exit(1);
 }
 
-// Sem allowlist o servidor aceita qualquer origem — comportamento histórico,
-// preservado porque o domínio de produção não está definido (V03). Fica
-// registrado em toda inicialização; em produção, como aviso.
+// Sem allowlist (só possível fora de produção: lá a configuração recusa) o
+// servidor aceita qualquer origem, para o desenvolvimento local. Fica
+// registrado em toda inicialização.
 if (config.allowedOrigins.length === 0) {
-    log(config.production ? "warn" : "info", "allowed_origins_disabled", {
+    log("info", "allowed_origins_disabled", {
         message: "ALLOWED_ORIGINS vazia: conexões de qualquer origem serão aceitas.",
     });
 }

@@ -261,7 +261,7 @@ cp .env.example .env
 | Variável          | Usada por                    | Para quê                                                                                                                 | Padrão                          |
 | ----------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
 | `VITE_SOCKET_URL` | Frontend (embutida no build) | Endereço do servidor WebSocket; precisa ser `ws://` ou `wss://`                                                          | `ws(s)://<host da página>:8080` |
-| `ALLOWED_ORIGINS` | Backend                      | Origens autorizadas a conectar, separadas por vírgula. **Configure em produção.**                                        | vazio = qualquer origem         |
+| `ALLOWED_ORIGINS` | Backend                      | Origens autorizadas a conectar, separadas por vírgula. **Obrigatória em produção.**                                      | vazio = qualquer origem (dev)   |
 | `PORT`            | Backend                      | Porta HTTP/WebSocket                                                                                                     | `8080`                          |
 | `HEARTBEAT_MS`    | Backend                      | Intervalo do ping que detecta conexões mortas (mínimo 50)                                                                | `30000`                         |
 | `ADMIN_KEY`       | Backend                      | Chave secreta para `/admin` (16–200 caracteres, sem espaços). Vazia: administração desativada. Nunca use prefixo `VITE_` | vazio                           |
@@ -283,8 +283,10 @@ Comportamento previsível quando algo está errado:
   a explicação, em vez de gerar um bundle que nunca conecta.
 - `ALLOWED_ORIGINS` ou `PORT` inválidas impedem o servidor de subir, com uma linha
   de log `config_invalid` dizendo qual variável corrigir.
-- Sem `ALLOWED_ORIGINS`, o servidor sobe e registra `allowed_origins_disabled`
-  (como aviso quando `NODE_ENV=production`).
+- Em produção (`NODE_ENV=production`), `ALLOWED_ORIGINS` é **obrigatória**: sem
+  ela o servidor não sobe (`config_invalid`). Fora de produção, vazia aceita
+  qualquer origem e registra `allowed_origins_disabled`. Curinga (`*`) é recusado
+  sempre.
 - Só variáveis com prefixo `VITE_` chegam ao navegador; as do backend no mesmo
   arquivo nunca são expostas.
 

@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { ConfigError, DEFAULTS, loadConfig } from "../../src/config.js";
 
@@ -46,6 +46,7 @@ test("variáveis válidas são aplicadas", () => {
         HISTORY_SIZE: "200",
         HISTORY_ON_JOIN: "20",
         NODE_ENV: "production",
+        ALLOWED_ORIGINS: "https://chat.example",
     });
     assert.equal(config.maxConnections, 100);
     assert.equal(config.messageRate.capacity, 10);
@@ -100,4 +101,45 @@ test("ADMIN_KEY válida é aceita e nunca aparece na mensagem de erro de outra v
     } catch (error) {
         assert.ok(!error.message.includes("segredo-curto"));
     }
+});
+
+describe("ALLOWED_ORIGINS em produção", () => {
+    test("ausente ou vazia impede a inicialização", () => {
+        for (const value of [undefined, "", " ", " , "]) {
+            assert.throws(
+                () => loadConfig({ NODE_ENV: "production", ALLOWED_ORIGINS: value }),
+                (error) => error instanceof ConfigError && error.variable === "ALLOWED_ORIGINS",
+                String(value),
+            );
+        }
+    });
+
+    test("curinga e entradas que não são origem são recusados em qualquer ambiente", () => {
+        for (const NODE_ENV of ["production", "development"]) {
+            for (const value of [
+                "*",
+                "https://*.example.com",
+                "chat.example",
+                "https://chat.example/caminho",
+            ]) {
+                assert.throws(
+                    () => loadConfig({ NODE_ENV, ALLOWED_ORIGINS: value }),
+                    (error) => error instanceof ConfigError && error.variable === "ALLOWED_ORIGINS",
+                    `${NODE_ENV}: ${value}`,
+                );
+            }
+        }
+    });
+
+    test("com a origem oficial, sobe normalmente", () => {
+        const config = loadConfig({
+            NODE_ENV: "production",
+            ALLOWED_ORIGINS: "https://chat-frontend-g42t.onrender.com",
+        });
+        assert.deepEqual(config.allowedOrigins, ["https://chat-frontend-g42t.onrender.com"]);
+    });
+
+    test("fora de produção, vazia continua permitida (desenvolvimento local)", () => {
+        assert.deepEqual(loadConfig({ NODE_ENV: "development" }).allowedOrigins, []);
+    });
 });

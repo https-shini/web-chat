@@ -14,6 +14,8 @@ import { readFile } from "node:fs/promises";
 const root = new URL("../../", import.meta.url);
 const html = await readFile(new URL("frontend/index.html", root), "utf8");
 const blueprint = await readFile(new URL("render.yaml", root), "utf8");
+// Blueprint mínimo aplicado em produção: só os cabeçalhos do site.
+const applied = await readFile(new URL("infra/render-frontend-headers.yaml", root), "utf8");
 
 /** Diretivas de uma CSP: nome → lista de fontes. @param {string} policy */
 const directives = (policy) =>
@@ -26,11 +28,11 @@ const directives = (policy) =>
     );
 
 /** Cabeçalhos declarados para `path: /*` no site estático. */
-const siteHeaders = () => {
+const siteHeaders = (source = blueprint) => {
     const found = {};
     const pattern =
         /-\s+path:\s*\/\*\s*\n\s*name:\s*([\w-]+)\s*\n\s*value:\s*(?:"([^"]*)"|([^\n]+))/g;
-    for (const match of blueprint.matchAll(pattern)) {
+    for (const match of source.matchAll(pattern)) {
         found[match[1]] = (match[2] ?? match[3]).trim();
     }
     return found;
@@ -91,5 +93,19 @@ test("o backend aceita WebSocket só da origem oficial do frontend (sem curinga)
             /^https:\/\/[a-z0-9.-]+$/,
             `origem inválida ou com curinga: ${origin}`,
         );
+    }
+});
+
+test("o Blueprint aplicado em produção declara os mesmos cabeçalhos do render.yaml", () => {
+    const expected = siteHeaders();
+    const actual = siteHeaders(applied);
+    for (const name of [
+        "Content-Security-Policy",
+        "X-Frame-Options",
+        "X-Content-Type-Options",
+        "Referrer-Policy",
+        "Permissions-Policy",
+    ]) {
+        assert.equal(actual[name], expected[name], `${name} diverge entre os dois arquivos`);
     }
 });

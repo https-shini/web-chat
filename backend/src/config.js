@@ -143,6 +143,9 @@ const readOrigins = (raw) =>
                 url !== null &&
                 (url.protocol === "http:" || url.protocol === "https:") &&
                 url.pathname === "/" &&
+                // Curinga não existe: "https://*.x.com" seria aceito pelo
+                // parser como host literal e nunca casaria — melhor recusar.
+                !url.hostname.includes("*") &&
                 !url.search &&
                 !url.hash &&
                 !url.username &&
@@ -160,7 +163,7 @@ const readOrigins = (raw) =>
 /**
  * @typedef {object} Config
  * @property {number} port
- * @property {string[]} allowedOrigins  vazio = qualquer origem
+ * @property {string[]} allowedOrigins  vazio = qualquer origem (só fora de produção)
  * @property {number} heartbeatMs
  * @property {number} maxConnections
  * @property {number} maxPayloadBytes
@@ -202,9 +205,24 @@ export const loadConfig = (env) => {
         );
     }
 
+    const production = env.NODE_ENV === "production";
+    const allowedOrigins = readOrigins(env.ALLOWED_ORIGINS);
+    // Em produção a lista é obrigatória: sem ela, qualquer site poderia abrir
+    // um WebSocket em nome de quem o visita (CSWSH). Sem a variável o servidor
+    // nem sobe — o Render mantém a versão anterior no ar e o erro aparece no
+    // log, em vez de um backend aberto passar despercebido. Curinga (`*`) não
+    // existe: não é uma origem válida e já é recusado acima.
+    if (production && allowedOrigins.length === 0) {
+        throw new ConfigError(
+            "ALLOWED_ORIGINS",
+            "ALLOWED_ORIGINS é obrigatória em produção (NODE_ENV=production): informe a origem " +
+                "do frontend, ex.: https://chat-frontend-g42t.onrender.com.",
+        );
+    }
+
     return {
         port: readInteger("PORT", env.PORT, { fallback: DEFAULTS.port, min: 0, max: 65535 }),
-        allowedOrigins: readOrigins(env.ALLOWED_ORIGINS),
+        allowedOrigins,
         heartbeatMs: readInteger("HEARTBEAT_MS", env.HEARTBEAT_MS, {
             fallback: DEFAULTS.heartbeatMs,
             min: 50,
@@ -319,6 +337,6 @@ export const loadConfig = (env) => {
             }),
         },
         adminKey: readAdminKey(env.ADMIN_KEY),
-        production: env.NODE_ENV === "production",
+        production,
     };
 };

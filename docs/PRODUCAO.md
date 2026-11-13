@@ -1,16 +1,16 @@
 # Produção · web-chat
 
-> Estado em 12 nov 2026, depois da Fase 3 da evolução (conversas privadas e id
+> Estado em 13 nov 2026, depois da Fase 3 da evolução (conversas privadas e id
 > interno fora do protocolo). Detalhes do Render em
 > [`DEPLOY_RENDER.md`](./DEPLOY_RENDER.md).
 
 ## Como o projeto vai para o ar
 
-| Peça     | Onde                                  | Como publica                                                        |
-| -------- | ------------------------------------- | ------------------------------------------------------------------- |
-| Backend  | Render, serviço web `chat-backend`    | A cada commit na `main`: `npm ci --omit=dev` e `npm start`          |
-| Frontend | Render, site estático `chat-frontend` | A cada commit na `main`: `npm ci && npm run build`, publica `dist/` |
-| CI       | GitHub Actions (`.github/workflows/`) | Lint, tipos, contraste, testes e build em todo push e PR            |
+| Peça     | Onde                                  | Como publica                                                             |
+| -------- | ------------------------------------- | ------------------------------------------------------------------------ |
+| Backend  | Render, serviço web `chat-backend`    | A cada commit na `main`: `npm install` e `npm start`                     |
+| Frontend | Render, site estático `chat-frontend` | A cada commit na `main`: `npm install && npm run build`, publica `dist/` |
+| CI       | GitHub Actions (`.github/workflows/`) | Lint, tipos, contraste, testes e build em todo push e PR                 |
 
 **Mesclar um PR na `main` é publicar.** Não há etapa manual entre o merge e o
 deploy.
@@ -25,19 +25,34 @@ deploy.
   "reconectando", entram de novo como identidades novas e precisam de uma sala nova.
   Publique em horário de pouco uso.
 
-## Pendências antes de considerar a produção protegida
+## Proteção da produção (aplicada em 13 nov 2026)
 
-Estas duas dependem de mudar a configuração do Render, o que só é feito com
-autorização de quem é dono da conta. Foram conferidas por leitura em 12 nov 2026.
+Aplicada com autorização de quem é dono da conta.
 
-| Pendência                                                         | Situação conferida                                                                  | Como resolver                                                                                               |
-| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| **`ALLOWED_ORIGINS` no `chat-backend`**                           | Não definida: o servidor aceitou WebSocket vindo de uma origem qualquer (HTTP 101)  | Painel do Render → `chat-backend` → Environment → `ALLOWED_ORIGINS=https://chat-frontend-g42t.onrender.com` |
-| **Cabeçalhos de segurança do site** (CSP, `X-Frame-Options` etc.) | Só `X-Content-Type-Options` é enviado: o Blueprint (`render.yaml`) não foi aplicado | Aplicar o Blueprint ou cadastrar os cabeçalhos no painel (ver `DEPLOY_RENDER.md`)                           |
+| Item                                | Antes                                                    | Depois                                                                                                                               | Evidência                                                                                                                              |
+| ----------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `ALLOWED_ORIGINS` no `chat-backend` | Ausente (log `allowedOrigins: []` em toda inicialização) | `https://chat-frontend-g42t.onrender.com`                                                                                            | Handshake real: origem oficial → 101; `https://intruso.example`, `http://` do oficial, domínio parecido, `null` e **sem Origin** → 403 |
+| Cabeçalhos do `chat-frontend`       | Só `X-Content-Type-Options` (e HSTS do Render)           | CSP com `frame-ancestors 'none'` e `connect-src` só para o backend, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy` | `curl -I` e navegador no site real: sem violação de CSP, fonte carregada, sala criada, entrada por link e mensagem entregue            |
 
-Sem a primeira, qualquer página de terceiros pode abrir conexões com o servidor
-usando o navegador de quem a visita. Sem a segunda, a página pode ser embutida em
-outro site (clickjacking); a CSP do `<meta>` continua valendo para scripts.
+Como foi feito:
+
+- A variável foi definida pela API do Render (mescla, sem tocar nas outras), o que
+  dispara um deploy do backend.
+- Os cabeçalhos vêm do Blueprint mínimo `infra/render-frontend-headers.yaml`
+  (branch `ops/render-frontend-headers`), que descreve só o `chat-frontend`, igual
+  ao que já estava configurado, mais `headers`. O plano revisado antes da aprovação
+  tinha só duas ações: adotar o serviço e incluir os cabeçalhos. O Blueprint está
+  com **sincronização automática desligada**: mudanças futuras nesse arquivo só
+  valem depois de planejar e aprovar de novo.
+- **Se o script de tema do `index.html` mudar**, o hash da CSP muda: atualize o
+  `index.html`, o `render.yaml` e o `infra/render-frontend-headers.yaml` juntos e
+  sincronize o Blueprint antes (ou junto) do deploy, senão o cabeçalho bloqueia o
+  script. O teste `frontend/test/headers.test.js` confere os três.
+
+Desfazer: remover `ALLOWED_ORIGINS` não é mais possível sem quebrar o backend, que
+passa a exigi-la em produção; para trocar o domínio, edite o valor. Os cabeçalhos
+saem apagando-os no painel do `chat-frontend` (Settings → Headers) ou removendo-os
+do arquivo e sincronizando o Blueprint.
 
 Outras pendências, não bloqueantes:
 
@@ -53,13 +68,13 @@ Outras pendências, não bloqueantes:
 
 Todas têm padrão seguro; nenhuma variável nova desta fase precisa ser definida.
 
-| Variável                                                      | Serviço  | Obrigatória em produção | Observação                                              |
-| ------------------------------------------------------------- | -------- | ----------------------- | ------------------------------------------------------- |
-| `ALLOWED_ORIGINS`                                             | backend  | **Sim**                 | Origem exata do frontend; sem ela, qualquer origem vale |
-| `ADMIN_KEY`                                                   | backend  | Não                     | Segredo; 16 a 200 caracteres; só no painel              |
-| `NODE_ENV=production`                                         | backend  | Recomendada             | Faz a falta de `ALLOWED_ORIGINS` virar aviso no log     |
-| `VITE_SOCKET_URL`                                             | frontend | **Sim**                 | `wss://…` do backend; embutida no build (pública)       |
-| `MAX_ROOMS`, `MAX_ROOMS_PER_USER`, `MAX_DMS`, `HISTORY_SIZE`… | backend  | Não                     | Limites; ver `.env.example`                             |
+| Variável                                                      | Serviço  | Obrigatória em produção | Observação                                             |
+| ------------------------------------------------------------- | -------- | ----------------------- | ------------------------------------------------------ |
+| `ALLOWED_ORIGINS`                                             | backend  | **Sim**                 | Origem exata do frontend; sem ela, o servidor não sobe |
+| `ADMIN_KEY`                                                   | backend  | Não                     | Segredo; 16 a 200 caracteres; só no painel             |
+| `NODE_ENV=production`                                         | backend  | Recomendada             | Faz a falta de `ALLOWED_ORIGINS` virar aviso no log    |
+| `VITE_SOCKET_URL`                                             | frontend | **Sim**                 | `wss://…` do backend; embutida no build (pública)      |
+| `MAX_ROOMS`, `MAX_ROOMS_PER_USER`, `MAX_DMS`, `HISTORY_SIZE`… | backend  | Não                     | Limites; ver `.env.example`                            |
 
 O `.env` nunca é versionado (`.gitignore`); o `.env.example` não contém segredos.
 
