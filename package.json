@@ -16,6 +16,7 @@
         "test:back": "npm --prefix backend test",
         "load-test": "node scripts/load-test.mjs",
         "test:e2e": "node scripts/e2e.mjs",
+        "test:memory": "node scripts/memory-test.mjs",
         "check:types": "tsc -p jsconfig.json",
         "check:contrast": "node scripts/check-contrast.mjs",
         "lint:js": "eslint .",

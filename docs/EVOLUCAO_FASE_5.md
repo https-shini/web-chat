@@ -110,6 +110,52 @@ Ponto a acompanhar: a memória do servidor no cenário C cresce porque cada
 identidade fica guardada 2 minutos depois de sair, que é a janela de retomada (por
 desenho). Um teste mais longo deve confirmar que ela é liberada depois disso.
 
+## 5b. Teste prolongado de memória e de ciclo de vida
+
+Executado com `npm run test:memory -- --cycles 3 --churn 90 --rest 160 --rate 8`.
+
+**Metodologia**
+
+- **Ambiente:**
+    - backend próprio em `127.0.0.1`, numa porta livre;
+    - `METRICS_ENABLED=true`, para ler identidades, conexões, salas e privadas em `/metrics`;
+    - janela de retomada **real**, de 2 min;
+    - nenhum outro teste rodando ao mesmo tempo.
+- **3 ciclos de 90 s de rotatividade e 160 s de repouso.** O repouso é mais longo que a janela de retomada, para a limpeza agir.
+- **Rotatividade, a cada segundo:**
+    - 8 pessoas entram na sala compartilhada pelo código e mandam 2 mensagens cada;
+    - cada uma só sai depois de o servidor confirmar a própria mensagem;
+    - as saídas se dividem em três jeitos: queda sem logout (fica retomável até expirar), logout (liberada na hora) e queda seguida de retomada com o token 3 s depois;
+    - na retomada, o teste confere o mesmo `@` e a sala de volta.
+- **Privadas:** a cada 5 s, um par abre uma conversa privada e cai sem encerrar.
+- **Perda de mensagens:** um observador fixo conta cada mensagem enviada contra cada mensagem recebida.
+- **Amostragem a cada 5 s:** RSS do processo (lido de `/proc`) e os contadores de `/metrics`.
+
+**Resultado (13 nov 2026)**
+
+| Critério                           | Resultado                                                     |
+| ---------------------------------- | ------------------------------------------------------------- |
+| Servidor no ar até o fim           | Sim                                                           |
+| Identidades ao fim de cada repouso | 2 / 2 / 2 (os residentes; pico de 308 durante a rotatividade) |
+| Conversas privadas órfãs           | 0 / 0 / 0 (54 abertas e abandonadas)                          |
+| Salas                              | 1 (a compartilhada)                                           |
+| Retomadas                          | 540 de 540 com o mesmo `@` e a sala de volta                  |
+| Mensagens                          | 4.320 enviadas, 4.320 recebidas: **nenhuma perdida**          |
+| Erros                              | 0                                                             |
+| RSS ao fim de cada repouso         | 88,0 → 92,3 → 93,6 MB                                         |
+
+**Leitura**
+
+- As identidades e as privadas são liberadas depois da janela de retomada, e não sobra nada órfão.
+- A memória cresce cada vez menos de um ciclo para outro (+4,3 MB, depois +1,3 MB), o que é compatível com o heap do V8 se acomodando e não com um vazamento. O critério (≤ 10 % ou 8 MB entre o 1º e o último repouso) passou.
+- Ainda vale uma execução ainda mais longa, de horas, num ambiente dedicado, para afirmar a ausência de vazamento lento.
+
+**Observação**
+
+- Numa execução anterior, feita em paralelo com outras suítes que encerram servidores de teste, o servidor parou no meio. Repetida sozinha, ele ficou no ar até o fim.
+- O script agora registra o código e o sinal de saída se o servidor parar, e o critério "servidor no ar" faz o teste falhar.
+- **No CI:** o job `estabilidade` roda uma versão curta (1 ciclo, 20 s de rotatividade e 140 s de repouso) em todo PR, isolado.
+
 ## 6. Automação dos testes no navegador
 
 `npm run test:e2e`, também no CI (job `navegador`):
@@ -127,7 +173,7 @@ desenho). Um teste mais longo deve confirmar que ela é liberada depois disso.
 
 ## 7. Pendências
 
-1. Autorizar o pedido explícito de permissão de notificação (seção 4).
-2. Atualizar o Vite para zerar os avisos de dependências de desenvolvimento (Fase 6).
-3. Teste de memória de longa duração no servidor: liberação das identidades depois da janela de retomada.
-4. Verificação manual com leitores de tela (NVDA, VoiceOver, TalkBack): o axe e os testes de teclado não substituem.
+1. ~~Autorizar o pedido explícito de permissão de notificação~~: autorizado e implementado (botão "Ativar notificações", começa desligado, permissão negada sem insistência). Ver `e2e/06-notificacoes.mjs`.
+2. Atualizar o Vite para zerar os avisos de dependências de desenvolvimento: em andamento no PR #12 (Fase 6, Vite 6.4.6).
+3. ~~Teste de memória de longa duração~~: feito (seção 5b). Fica a sugestão de uma execução de horas num ambiente dedicado.
+4. Verificação manual com leitores de tela (NVDA, VoiceOver, TalkBack): roteiro pronto em [`ACESSIBILIDADE_TESTES_MANUAIS.md`](./ACESSIBILIDADE_TESTES_MANUAIS.md), ainda não executado. O axe e os testes de teclado não substituem.
