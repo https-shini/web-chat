@@ -44,11 +44,13 @@ export const createTranscript = ({
          * original em `duplicate`, sem registrar de novo.
          * @param {Identity} identity
          * @param {{content: string, kind?: string, format?: string | null, clientMsgId?: string | null}} message
+         * @param {number} [author] número de autor de quem escreve nesta conversa
          * @returns {{message: ChatMessage, duplicate: boolean}}
          */
         append(
             identity,
             { content, kind = MESSAGE_KINDS.TEXT, format = null, clientMsgId = null },
+            author,
         ) {
             const recentKey = clientMsgId ? prefix + clientMsgId : null;
             if (recentKey) {
@@ -59,7 +61,9 @@ export const createTranscript = ({
             }
             const message = serverMessage.chat({
                 id: newMessageId(),
-                user: identity,
+                // A autoria fica gravada na mensagem: nome, @ e número de
+                // autor de QUANDO foi escrita, mesmo que a pessoa saia depois.
+                user: { name: identity.name, username: identity.username, author },
                 content,
                 timestamp: now().toISOString(),
                 kind,

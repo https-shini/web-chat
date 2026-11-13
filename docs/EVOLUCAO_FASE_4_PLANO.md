@@ -50,7 +50,9 @@ Problema: com o `@` como única identificação visível, quando alguém sai e o
 pessoa pega o mesmo `@`, as mensagens antigas no histórico da sala ficam
 indistinguíveis das novas para os outros participantes.
 
-Solução proposta (decisão a confirmar antes de implementar):
+Solução (servidor e regra de "você" no cliente **implementados** na branch
+`feat/conversation-authors`; a marca visual de "saiu" e a cor por autor ficam
+para a entrega da interface multiconversa):
 
 - **No servidor**, cada participação numa conversa ganha um **número de autor**
   local àquela conversa (`author: 1, 2, 3…`), atribuído na entrada. Não é o id

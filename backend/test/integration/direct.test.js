@@ -76,7 +76,9 @@ describe("conversas privadas", () => {
             name: "Bia",
             username: bia.username,
             online: true,
+            author: 2,
         });
+        assert.equal(opened.payload.author, 1, "quem abre é o autor 1");
         await settle(bia.client);
         assert.equal(bia.client.count("dm_opened"), 0, "abrir não avisa a outra pessoa");
 

@@ -179,6 +179,9 @@ const sendChat = (content) => {
         userId: me.id,
         userName: me.name,
         ...(me.username ? { username: me.username } : {}),
+        ...(typeof store.getState().room?.author === "number"
+            ? { author: /** @type {number} */ (store.getState().room?.author) }
+            : {}),
         content,
         timestamp: new Date().toISOString(),
         own: true,

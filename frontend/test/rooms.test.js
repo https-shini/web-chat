@@ -69,6 +69,56 @@ describe("eventos de sala", () => {
         return { store, handle, calls };
     };
 
+    test("número de autor: a sua mensagem é a do SEU número, não só a do seu @", () => {
+        const { store, handle } = setup();
+        handle({
+            type: "room_updated",
+            conversationId: ROOM,
+            payload: {
+                code: "abc-defg-hij",
+                name: "Sala",
+                role: "member",
+                author: 3,
+                historyVersion: 0,
+            },
+        });
+        assert.equal(store.getState().room?.author, 3);
+        const say = (id, author, content) =>
+            handle({
+                type: "chat_message",
+                id,
+                conversationId: ROOM,
+                payload: { username: "eu", userName: "Eu", author, content },
+            });
+        say("antes", 1, "de quem usou o @ antes");
+        say("minha", 3, "minha");
+        assert.deepEqual(
+            store.getState().messages.map((m) => [m.content, m.author, m.own]),
+            [
+                ["de quem usou o @ antes", 1, false],
+                ["minha", 3, true],
+            ],
+        );
+    });
+
+    test("número de autor inválido é descartado", () => {
+        const { store, handle } = setup();
+        for (const [id, author] of [
+            ["a", 0],
+            ["b", -1],
+            ["c", 1.5],
+            ["d", "2"],
+        ]) {
+            handle({
+                type: "chat_message",
+                id,
+                conversationId: ROOM,
+                payload: { username: "x", userName: "X", author, content: id },
+            });
+        }
+        assert.ok(store.getState().messages.every((m) => m.author === undefined));
+    });
+
     test("a sessão diz se foi retomada (as salas voltam sozinhas) ou é nova", () => {
         const { handle, calls } = setup();
         handle({

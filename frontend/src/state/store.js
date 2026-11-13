@@ -28,6 +28,7 @@
  * @property {string} code      código de convite
  * @property {string} name
  * @property {"member" | "host"} role  seu papel nesta sala
+ * @property {number | null} [author]  seu número de autor nesta sala (dado pelo servidor)
  */
 
 /**
@@ -47,6 +48,7 @@
  * @property {string} userId
  * @property {string} userName
  * @property {string} [username]
+ * @property {number} [author]  número de autor na conversa (dado pelo servidor)
  * @property {string} content
  * @property {string} timestamp
  * @property {boolean} own
@@ -215,7 +217,8 @@ export const createStore = () => {
                     current.conversationId === room.conversationId &&
                     current.code === room.code &&
                     current.name === room.name &&
-                    current.role === room.role
+                    current.role === room.role &&
+                    (current.author ?? null) === (room.author ?? null)
                 )
                     return;
                 const switched = current !== null && current.conversationId !== room.conversationId;

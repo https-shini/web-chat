@@ -74,6 +74,14 @@ export const createDirectConversation = ({
 
     /** @param {Identity} identity */
     const has = (identity) => identity === a || identity === b;
+    /** Número de autor: quem abriu é 1, a outra pessoa é 2. @param {Identity} identity */
+    const authorOf = (identity) => (identity === a ? 1 : 2);
+    /** @param {Identity} identity */
+    const persona = (identity) => ({
+        name: identity.name,
+        username: identity.username,
+        author: authorOf(identity),
+    });
     /** @param {Identity} identity */
     const peerOf = (identity) => (identity === a ? b : a);
 
@@ -97,7 +105,9 @@ export const createDirectConversation = ({
                 name: peer.name,
                 username: peer.username,
                 online: peer.holder !== null,
+                author: authorOf(peer),
             },
+            author: authorOf(identity),
             historyVersion: transcript.version,
         };
     };
@@ -129,10 +139,11 @@ export const createDirectConversation = ({
     const publish = (identity, input) => {
         if (closed || !has(identity))
             return { ok: false, code: ERROR_CODES.CONVERSATION_NOT_FOUND };
-        const { message, duplicate } = transcript.append(identity, {
-            kind: MESSAGE_KINDS.TEXT,
-            ...input,
-        });
+        const { message, duplicate } = transcript.append(
+            identity,
+            { kind: MESSAGE_KINDS.TEXT, ...input },
+            authorOf(identity),
+        );
         const scopedMessage = scoped(id, message);
         if (duplicate) {
             sendTo(identity, scopedMessage);
@@ -190,7 +201,7 @@ export const createDirectConversation = ({
             if (closed || !has(identity)) return;
             const peer = peerOf(identity);
             if (announced.has(peer)) {
-                sendTo(peer, scoped(id, serverMessage.typing(identity, isTyping)));
+                sendTo(peer, scoped(id, serverMessage.typing(persona(identity), isTyping)));
             }
         },
 

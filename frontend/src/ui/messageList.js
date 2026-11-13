@@ -20,6 +20,10 @@ const GROUP_WINDOW_MS = 5 * 60 * 1000;
 export const continuesGroup = (previous, message) => {
     if (!previous || previous.kind !== "chat" || message.kind !== "chat") return false;
     if (previous.userId !== message.userId) return false;
+    // Mesmo @, autores diferentes: eram duas pessoas (o @ foi reaproveitado).
+    if (previous.author !== undefined && message.author !== undefined) {
+        if (previous.author !== message.author) return false;
+    }
     const plain = (/** @type {Message} */ m) => (m.variant ?? "text") === "text";
     if (!plain(previous) || !plain(message)) return false;
     const gap = Date.parse(message.timestamp) - Date.parse(previous.timestamp);

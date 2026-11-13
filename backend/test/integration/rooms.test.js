@@ -41,6 +41,31 @@ describe("várias salas", () => {
         client.close();
     });
 
+    test("número de autor por sala: dado pelo servidor, sem forja e sem ligar salas", async () => {
+        const ana = await session(server.url, "Ana");
+        const bia = await session(server.url, "Bia");
+        const roomA = await createRoom(ana.client, "Autores A");
+        const roomB = await createRoom(bia.client, "Autores B");
+        assert.equal(roomA.payload.author, 1);
+        const joinedA = await joinRoom(bia.client, roomA.payload.code);
+        const joinedB = await joinRoom(ana.client, roomB.payload.code);
+        assert.equal(joinedA.payload.author, 2, "Bia é a 2ª na sala A");
+        assert.equal(joinedB.payload.author, 2, "Ana é a 2ª na sala B: outra contagem");
+        bia.client.send("chat_message", {
+            conversationId: roomA.conversationId,
+            content: "tentando ser a 1",
+            author: 1,
+            username: ana.me.username,
+        });
+        const chat = await ana.client.take(
+            (m) => m.type === "chat_message" && m.conversationId === roomA.conversationId,
+        );
+        assert.equal(chat.payload.author, 2);
+        assert.equal(chat.payload.username, bia.me.username);
+        ana.client.close();
+        bia.client.close();
+    });
+
     test("duas salas, uma pessoa nas duas: cada mensagem só na sua sala", async () => {
         const ana = await session(server.url, "Ana");
         const bia = await session(server.url, "Bia");

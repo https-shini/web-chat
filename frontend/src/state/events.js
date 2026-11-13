@@ -31,11 +31,12 @@ const text = (value) => (typeof value === "string" ? value : "");
  * interno de ninguém. `userId`, aqui no cliente, é só a chave da pessoa na
  * interface: o próprio username.
  *
- * Uma mensagem é "sua" se tem o seu username E foi escrita depois de a sua
- * identidade nascer (`since`): quem usou o mesmo username antes de você era outra
- * pessoa.
+ * Uma mensagem é "sua" se tem o seu username e o SEU número de autor na
+ * conversa (`author`, dado pelo servidor). Servidor antigo, sem `author`:
+ * vale o seu username E ter sido escrita depois de a sua identidade nascer
+ * (`since`) — quem usou o mesmo username antes de você era outra pessoa.
  * @param {any} raw `{ id, payload }`
- * @param {{username: string | null, since: number}} me
+ * @param {{username: string | null, since: number, author: number | null}} me
  * @returns {Message | null}
  */
 const toMessage = (raw, me) => {
@@ -45,6 +46,11 @@ const toMessage = (raw, me) => {
     const username = typeof payload.username === "string" ? payload.username : "";
     const timestamp = String(payload.timestamp ?? new Date().toISOString());
     const written = Date.parse(timestamp);
+    const author = Number.isInteger(payload.author) && payload.author > 0 ? payload.author : null;
+    const sameAuthor =
+        author !== null && me.author !== null
+            ? author === me.author
+            : Number.isNaN(written) || written >= me.since;
     return {
         id,
         key: id,
@@ -52,12 +58,10 @@ const toMessage = (raw, me) => {
         userId: username,
         userName: String(payload.userName ?? ""),
         ...(username ? { username } : {}),
+        ...(author !== null ? { author } : {}),
         content: payload.content,
         timestamp,
-        own:
-            Boolean(me.username) &&
-            username === me.username &&
-            (Number.isNaN(written) || written >= me.since),
+        own: Boolean(me.username) && username === me.username && sameAuthor,
         variant: VARIANTS.has(payload.kind) ? payload.kind : "text",
         format: FORMATS.has(payload.format) ? payload.format : null,
         clientMsgId: typeof payload.clientMsgId === "string" ? payload.clientMsgId : null,
@@ -155,7 +159,11 @@ export const createEventHandler = ({
     return (event) => {
         const state = store.getState();
         const meId = state.me?.id ?? null;
-        const me = { username: state.me?.username ?? null, since };
+        const me = {
+            username: state.me?.username ?? null,
+            since,
+            author: state.room?.author ?? null,
+        };
         const payload = /** @type {any} */ (event.payload);
 
         // Eventos de uma conversa trazem `conversationId` no envelope. A
@@ -213,6 +221,10 @@ export const createEventHandler = ({
                     code: payload.code,
                     name: payload.name,
                     role: payload.role === "host" ? "host" : "member",
+                    author:
+                        Number.isInteger(payload.author) && payload.author > 0
+                            ? payload.author
+                            : null,
                 };
                 store.actions.setRoom(room);
                 if (typeof payload.historyVersion === "number") {
