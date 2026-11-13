@@ -70,6 +70,33 @@ Plugins: o projeto não usa nenhum plugin do Vite.
 gerado é equivalente, nenhum ajuste de produção é necessário em nenhuma das
 duas direções.
 
+## Avaliação do Vite 7 e do Vite 8 (sem aplicar)
+
+Fontes: os guias oficiais de migração `docs/guide/migration.md` nas tags
+`v7.3.1` e `v8.3.8` do repositório do Vite. Os últimos lançamentos de cada linha
+são o 7.3.8 e o 8.3.8.
+
+|                       | Vite 7                                                                                                               | Vite 8                                                                                 |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Node exigido          | 20.19+ ou 22.12+ (o 18 sai)                                                                                          | 20.19+ ou 22.12+                                                                       |
+| Empacotador           | Rollup e esbuild (como no 6)                                                                                         | **Rolldown e Oxc** no lugar de Rollup e esbuild; CSS minificado pelo **Lightning CSS** |
+| `build.target` padrão | Muda para `baseline-widely-available`                                                                                | Navegadores ainda mais novos                                                           |
+| O que nos afeta       | Nada no código: fixamos `build.target: "es2022"`, não usamos Sass, `splitVendorChunkPlugin` nem `transformIndexHtml` | Nenhuma opção de esbuild a migrar, mas a saída gerada muda                             |
+
+**Experimento com o Vite 8.3.8, numa cópia descartável e sem commit:**
+
+- O build passa, e o `npm audit` continua em 0.
+- O `index.html` é idêntico, com o mesmo hash de CSP.
+- O JS passa de 82,6 para 81,1 KB.
+- O CSS mantém os 9 `color-mix` e as 19 `@media`; o Lightning CSS reescreve as cores em `rgb()` e acrescenta 3 prefixos `-webkit-`.
+- A validação no navegador está registrada no PR.
+
+**Recomendação**
+
+- Ficar no **Vite 6.4.6** agora: corrige todos os avisos com o menor risco.
+- O **Vite 7** é um passo pequeno. A condição é confirmar que o build do Render usa Node ≥ 20.19/22.12; o CI já usa 22.
+- O **Vite 8** merece uma fase própria, com verificação visual (o CSS é minificado por outro motor) e as regressões completas no navegador. Ele não traz correção de segurança que o 6.4.6 já não traga.
+
 ## Depois
 
 Vite 7 e 8 (Rolldown) entram como avaliação separada, quando houver ganho
