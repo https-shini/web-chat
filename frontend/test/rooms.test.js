@@ -157,7 +157,7 @@ describe("eventos de sala", () => {
         assert.deepEqual(store.getState().people, []);
     });
 
-    test("eventos de conversa privada (Fase 3) são ignorados sem afetar a sala aberta", () => {
+    test("conversa privada que chega e acaba não mexe na sala aberta", () => {
         const { store, handle, calls } = setup();
         const DM = "d_privada000001";
         handle({

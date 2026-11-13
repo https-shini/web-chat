@@ -69,6 +69,47 @@ const toMessage = (raw, me) => {
     };
 };
 
+/** Recusas de pedidos de conversa privada (buscar, abrir, bloquear). */
+const DM_REFUSALS = new Set([
+    ERROR_CODES.INVALID_USER,
+    ERROR_CODES.USER_UNAVAILABLE,
+    ERROR_CODES.DM_SELF,
+    ERROR_CODES.DM_LIMIT,
+    ERROR_CODES.DMS_FULL,
+    ERROR_CODES.LOOKUP_LIMITED,
+    ERROR_CODES.DM_OPEN_LIMITED,
+    ERROR_CODES.BLOCK_LIMIT,
+]);
+
+/** Número de autor válido (inteiro positivo) ou null. @param {unknown} value */
+const authorNumber = (value) =>
+    typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
+
+/**
+ * Resumo de conversa privada (`dm_opened`/`dm_updated`) no formato da lista.
+ * @param {string} conversationId
+ * @param {any} payload
+ * @returns {import("./store.js").RoomInfo | null}
+ */
+const dmSummary = (conversationId, payload) => {
+    const peer = payload?.peer;
+    if (typeof peer?.username !== "string" || peer.username === "") return null;
+    const name = typeof peer.name === "string" && peer.name ? peer.name : peer.username;
+    return {
+        conversationId,
+        kind: "dm",
+        name,
+        role: "member",
+        author: authorNumber(payload.author),
+        peer: {
+            name,
+            username: peer.username,
+            online: peer.online === true,
+            author: authorNumber(peer.author),
+        },
+    };
+};
+
 /** Recusas de pedidos de sala (entrar, criar). */
 const ROOM_REFUSALS = new Set([
     ERROR_CODES.INVALID_ROOM_CODE,
@@ -134,9 +175,15 @@ export const noticeMessage = ({ tone, text: content, title, lines }) => {
  *   notifier: {show: (title: string, body: string) => void},
  *   typingTracker: {set: (id: string, name: string, isTyping: boolean) => void, remove?: (id: string) => void},
  *   onSession?: (resumeToken: string | null, resumed: boolean) => void,
- *   onRoomJoined?: (room: import("./store.js").RoomInfo) => void,
- *   onRoomLeft?: (reason: string) => void,
+ *   onRoomJoined?: (room: import("./store.js").RoomInfo, how: {created: boolean, resumed: boolean}) => void,
+ *   onRoomLeft?: (reason: string, room: import("./store.js").RoomInfo | null) => void,
  *   onRoomRefused?: (code: string, message: string) => void,
+ *   onDmOpened?: (dm: import("./store.js").RoomInfo, how: {created: boolean, resumed: boolean}) => void,
+ *   onDmClosed?: (reason: string, dm: import("./store.js").RoomInfo | null) => void,
+ *   onDmRefused?: (code: string, message: string) => void,
+ *   onLookup?: (requestId: string | null, user: {name: string, username: string} | null) => void,
+ *   onBlockList?: (blocked: {name: string, username: string}[]) => void,
+ *   onConversationMessage?: (conversationId: string, message: Message) => void,
  *   onLoginRejected?: (message: string, field: "name" | "username") => void,
  *   onCommandResult?: (requestId: string | null, result: {tone: string, text: string, title?: string, lines?: string[], code?: string, data?: Record<string, unknown>}) => void,
  * }} deps
@@ -151,29 +198,54 @@ export const createEventHandler = ({
     onRoomJoined = () => {},
     onRoomLeft = () => {},
     onRoomRefused = () => {},
+    onDmOpened = () => {},
+    onDmClosed = () => {},
+    onDmRefused = () => {},
+    onLookup = () => {},
+    onBlockList = () => {},
+    onConversationMessage = () => {},
     onLoginRejected = () => {},
     onCommandResult = () => {},
 }) => {
     /** Quando a identidade desta sessão nasceu (ms), vindo de `session.since`. */
     let since = 0;
+    /**
+     * Conversas privadas que alguém acabou de começar com você e que não
+     * estão na tela: a primeira mensagem chega no histórico logo depois do
+     * `dm_opened`, e conta como não lida.
+     * @type {Set<string>}
+     */
+    const freshIncoming = new Set();
     return (event) => {
         const state = store.getState();
         const meId = state.me?.id ?? null;
-        const me = {
-            username: state.me?.username ?? null,
-            since,
-            author: state.room?.author ?? null,
-        };
         const payload = /** @type {any} */ (event.payload);
 
         // Eventos de uma conversa trazem `conversationId` no envelope. A
-        // interface mostra uma sala por vez: o que for de outra conversa é
-        // ignorado (as próximas fases trazem a navegação entre várias).
+        // conversa aberta recebe direto; as outras guardam o que chegar
+        // (com contagem de não lidas) até a pessoa voltar a elas. Conversa
+        // que não está na lista é ignorada — exceto os resumos, que a criam.
         const scope = typeof event.conversationId === "string" ? event.conversationId : null;
         const current = state.room?.conversationId ?? null;
-        if (scope !== null && event.type !== SERVER_EVENTS.ROOM_JOINED && scope !== current) {
-            return;
-        }
+        const entry =
+            scope === null
+                ? null
+                : (state.conversations.find((item) => item.conversationId === scope) ??
+                  (scope === current ? state.room : null));
+        const creates =
+            event.type === SERVER_EVENTS.ROOM_JOINED ||
+            event.type === SERVER_EVENTS.ROOM_UPDATED ||
+            event.type === SERVER_EVENTS.DM_OPENED ||
+            event.type === SERVER_EVENTS.DM_UPDATED;
+        if (scope !== null && entry === null && !creates) return;
+        /** Evento da conversa aberta (ou sem conversa: vai para a tela atual). */
+        const active = scope === null || scope === current;
+        // "Você" numa conversa: o seu número de autor NAQUELA conversa.
+        const me = {
+            username: state.me?.username ?? null,
+            since,
+            author: entry?.author ?? null,
+        };
 
         switch (event.type) {
             case SERVER_EVENTS.SESSION: {
@@ -212,37 +284,95 @@ export const createEventHandler = ({
                 ) {
                     break;
                 }
-                // Outra sala chegando com uma já aberta (ex.: retomada de uma
-                // identidade em várias salas): fica para as próximas fases.
-                if (current !== null && scope !== current) break;
                 /** @type {import("./store.js").RoomInfo} */
                 const room = {
                     conversationId: scope,
+                    kind: "room",
                     code: payload.code,
                     name: payload.name,
                     role: payload.role === "host" ? "host" : "member",
-                    author:
-                        Number.isInteger(payload.author) && payload.author > 0
-                            ? payload.author
-                            : null,
+                    author: authorNumber(payload.author),
                 };
+                // Entra na lista; vira a aberta só se nenhuma estiver aberta.
                 store.actions.setRoom(room);
                 if (typeof payload.historyVersion === "number") {
                     // A sala foi limpa enquanto você estava fora: a conversa
                     // local deixa de valer antes do histórico novo chegar.
-                    store.actions.syncHistoryVersion(payload.historyVersion);
+                    store.actions.syncHistoryVersion(payload.historyVersion, scope);
                 }
                 if (event.type === SERVER_EVENTS.ROOM_JOINED) {
-                    // Primeira sala desta entrada: só agora a pessoa sai da
-                    // tela de entrada (numa reconexão já está na sala).
-                    store.actions.completeJoin();
-                    onRoomJoined(room);
+                    // Primeira conversa desta entrada: só agora a pessoa sai
+                    // da tela de entrada (numa reconexão já está nela).
+                    if (store.getState().room?.conversationId === scope) {
+                        store.actions.completeJoin();
+                    }
+                    onRoomJoined(room, {
+                        created: payload.created === true,
+                        resumed: payload.resumed === true,
+                    });
                 }
                 break;
             }
 
-            case SERVER_EVENTS.ROOM_LEFT: {
-                onRoomLeft(typeof payload?.reason === "string" ? payload.reason : "left");
+            case SERVER_EVENTS.DM_OPENED:
+            case SERVER_EVENTS.DM_UPDATED: {
+                if (scope === null) break;
+                const dm = dmSummary(scope, payload);
+                if (!dm) break;
+                store.actions.setRoom(dm);
+                if (typeof payload.historyVersion === "number") {
+                    store.actions.syncHistoryVersion(payload.historyVersion, scope);
+                }
+                if (event.type === SERVER_EVENTS.DM_OPENED) {
+                    if (store.getState().room?.conversationId === scope) {
+                        store.actions.completeJoin();
+                    } else if (payload.created === true) {
+                        freshIncoming.add(scope);
+                    }
+                    onDmOpened(dm, {
+                        created: payload.created === true,
+                        resumed: payload.resumed === true,
+                    });
+                }
+                break;
+            }
+
+            case SERVER_EVENTS.ROOM_LEFT:
+            case SERVER_EVENTS.DM_CLOSED: {
+                // Sem conversa no envelope (servidor antigo): é a aberta.
+                const id = scope ?? current;
+                const gone =
+                    (id ? state.conversations.find((item) => item.conversationId === id) : null) ??
+                    state.room;
+                const reason = typeof payload?.reason === "string" ? payload.reason : "left";
+                if (id) store.actions.removeConversation(id);
+                if (event.type === SERVER_EVENTS.ROOM_LEFT) onRoomLeft(reason, gone ?? null);
+                else onDmClosed(reason, gone ?? null);
+                break;
+            }
+
+            case SERVER_EVENTS.USER_LOOKUP: {
+                const user = payload?.found === true ? payload.user : null;
+                onLookup(
+                    typeof payload?.requestId === "string" ? payload.requestId : null,
+                    typeof user?.username === "string"
+                        ? { name: String(user.name ?? user.username), username: user.username }
+                        : null,
+                );
+                break;
+            }
+
+            case SERVER_EVENTS.BLOCK_LIST: {
+                /** @type {any[]} */
+                const list = Array.isArray(payload?.blocked) ? payload.blocked : [];
+                onBlockList(
+                    list
+                        .filter((item) => typeof item?.username === "string")
+                        .map((item) => ({
+                            name: String(item.name ?? item.username),
+                            username: item.username,
+                        })),
+                );
                 break;
             }
 
@@ -251,10 +381,11 @@ export const createEventHandler = ({
                 if (!message) break;
                 // Quem envia para de "digitar" no instante em que a mensagem
                 // chega, mesmo que o sinal de parada se perca no caminho.
-                typingTracker.set(message.userId, message.userName, false);
-                store.actions.addMessage(message);
+                if (active) typingTracker.set(message.userId, message.userName, false);
+                store.actions.addMessage(message, scope);
                 if (!message.own) {
                     notifier.show(message.userName, message.content);
+                    if (scope !== null) onConversationMessage(scope, message);
                 }
                 break;
             }
@@ -267,7 +398,8 @@ export const createEventHandler = ({
                         /** @returns {item is Message} */
                         (item) => item !== null,
                     );
-                store.actions.mergeHistory(messages);
+                const countUnread = scope !== null && freshIncoming.delete(scope);
+                store.actions.mergeHistory(messages, scope, { countUnread });
                 break;
             }
 
@@ -289,13 +421,15 @@ export const createEventHandler = ({
                             ? { statusText: person.statusText }
                             : {}),
                     })),
+                    scope,
                 );
                 break;
             }
 
             case SERVER_EVENTS.USER_TYPING: {
                 const id = String(payload?.username ?? "");
-                if (id && id !== meId) {
+                // Digitação só importa na conversa que está na tela.
+                if (active && id && id !== meId) {
                     typingTracker.set(
                         id,
                         String(payload?.userName ?? ""),
@@ -312,13 +446,14 @@ export const createEventHandler = ({
                         String(payload?.timestamp ?? new Date().toISOString()),
                         { event: "join" },
                     ),
+                    scope,
                 );
                 break;
             }
 
             case SERVER_EVENTS.USER_LEFT: {
                 // Quem saiu deixa de "digitar" na hora.
-                if (typeof payload?.username === "string") {
+                if (active && typeof payload?.username === "string") {
                     typingTracker.remove?.(payload.username);
                 }
                 // Remoção por administrador já gera um `notice` próprio.
@@ -329,6 +464,7 @@ export const createEventHandler = ({
                         String(payload?.timestamp ?? new Date().toISOString()),
                         { event: "leave" },
                     ),
+                    scope,
                 );
                 break;
             }
@@ -344,6 +480,7 @@ export const createEventHandler = ({
                             tone: KNOWN_TONES.has(payload.tone) ? payload.tone : TONES.INFO,
                         },
                     ),
+                    scope,
                 );
                 break;
             }
@@ -358,6 +495,7 @@ export const createEventHandler = ({
                         String(payload?.timestamp ?? new Date().toISOString()),
                         { tone: TONES.ADMIN },
                     ),
+                    scope,
                 );
                 break;
             }
@@ -424,6 +562,11 @@ export const createEventHandler = ({
                 // Pedido de sala recusado (código, limite, remoção).
                 if (code !== null && ROOM_REFUSALS.has(code)) {
                     onRoomRefused(code, message);
+                    break;
+                }
+                // Busca, abertura ou bloqueio de conversa privada recusado.
+                if (code !== null && DM_REFUSALS.has(code)) {
+                    onDmRefused(code, message);
                     break;
                 }
                 // Recusa de uma mensagem específica: ela fica marcada como não

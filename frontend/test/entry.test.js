@@ -108,6 +108,7 @@ describe("entrar só depois que o servidor aceita", () => {
         assert.equal(store.getState().joining, false);
         assert.deepEqual(store.getState().room, {
             conversationId: "r_sala00000001",
+            kind: "room",
             code: "abc-defg-hij",
             name: "Sala de Ana",
             role: "host",

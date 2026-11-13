@@ -21,14 +21,31 @@
  */
 
 /**
- * Sala aberta agora (Fase 2 da evolução: a interface mostra uma sala por
- * vez; a navegação entre várias chega nas próximas fases).
+ * A outra pessoa de uma conversa privada.
+ * @typedef {object} Peer
+ * @property {string} name
+ * @property {string} username
+ * @property {boolean} online
+ * @property {number | null} author  número de autor dela na conversa
+ */
+
+/**
+ * Resumo de uma conversa (sala ou privada), como o servidor descreve.
+ * `room` no estado é a conversa ABERTA agora; `conversations` são todas as
+ * de que você participa, na ordem em que apareceram.
  * @typedef {object} RoomInfo
  * @property {string} conversationId
- * @property {string} code      código de convite
- * @property {string} name
+ * @property {"room" | "dm"} [kind]  ausente = sala
+ * @property {string} [code]   código de convite (só salas)
+ * @property {string} name     nome da sala, ou o nome da outra pessoa (privada)
  * @property {"member" | "host"} role  seu papel nesta sala
- * @property {number | null} [author]  seu número de autor nesta sala (dado pelo servidor)
+ * @property {number | null} [author]  seu número de autor nesta conversa (dado pelo servidor)
+ * @property {Peer} [peer]     a outra pessoa (só conversas privadas)
+ */
+
+/**
+ * Conversa na lista lateral: o resumo mais as mensagens não lidas.
+ * @typedef {RoomInfo & {unread: number}} ConversationEntry
  */
 
 /**
@@ -81,7 +98,7 @@
 
 /**
  * @typedef {object} State
- * @property {"entry" | "room"} screen
+ * @property {"entry" | "home" | "room"} screen  entrada, início (sem conversa aberta) ou conversa
  * @property {boolean} joining  pediu para entrar e espera o servidor confirmar (na tela de entrada)
  * @property {Person | null} me
  * @property {"member" | "admin"} role
@@ -95,7 +112,8 @@
  * @property {number | null} closeCode  Fechamento definitivo (ex.: 4003 removido).
  * @property {CommandInfo[]} catalog
  * @property {number | null} historyVersion
- * @property {RoomInfo | null} room
+ * @property {RoomInfo | null} room  a conversa aberta agora
+ * @property {ConversationEntry[]} conversations  todas as conversas desta participação
  */
 
 /** @typedef {(state: State) => void} Listener */
@@ -120,7 +138,37 @@ const initialState = () => ({
     catalog: [],
     historyVersion: null,
     room: null,
+    conversations: [],
 });
+
+/**
+ * O que é de UMA conversa e precisa sobreviver enquanto outra está aberta.
+ * @typedef {{messages: Message[], people: Person[], historyVersion: number | null}} View
+ */
+
+/**
+ * O resumo da conversa, sem a contagem de não lidas (que é da lista).
+ * @param {ConversationEntry} entry
+ * @returns {RoomInfo}
+ */
+const summaryOf = (entry) => {
+    const room = { ...entry };
+    delete (/** @type {Partial<ConversationEntry>} */ (room).unread);
+    return room;
+};
+
+/** @returns {View} */
+const emptyView = () => ({ messages: [], people: [], historyVersion: null });
+
+/** Mesma conversa, mesmos dados visíveis? @param {RoomInfo} a @param {RoomInfo} b */
+const sameSummary = (a, b) =>
+    a.conversationId === b.conversationId &&
+    (a.kind ?? "room") === (b.kind ?? "room") &&
+    a.code === b.code &&
+    a.name === b.name &&
+    a.role === b.role &&
+    (a.author ?? null) === (b.author ?? null) &&
+    JSON.stringify(a.peer ?? null) === JSON.stringify(b.peer ?? null);
 
 export const createStore = () => {
     /** @type {State} */
@@ -128,6 +176,17 @@ export const createStore = () => {
 
     /** Ids escondidos por /clear: o histórico do servidor não os traz de volta. */
     const hidden = new Set();
+
+    /**
+     * Conversas que não estão abertas: as mensagens, a lista de pessoas e a
+     * versão do histórico ficam aqui até a pessoa voltar a elas. A aberta
+     * vive direto no estado (`messages`, `people`, `historyVersion`).
+     * @type {Map<string, View>}
+     */
+    const buffers = new Map();
+
+    /** @param {string | null | undefined} id */
+    const isActive = (id) => !id || id === state.room?.conversationId;
 
     /** @type {Set<Listener>} */
     const listeners = new Set();
@@ -145,19 +204,71 @@ export const createStore = () => {
     };
 
     /**
-     * Troca as mensagens que satisfazem `match` por `update(mensagem)`.
+     * Troca as mensagens que satisfazem `match` por `update(mensagem)`, na
+     * conversa aberta e nas guardadas (uma mensagem sua pode ser confirmada
+     * ou falhar depois que você trocou de conversa).
      * @param {(message: Message) => boolean} match
      * @param {(message: Message) => Message} update
+     * @param {string | null} [only] limita a uma conversa
      */
-    const updateWhere = (match, update) => {
+    const updateWhere = (match, update, only = null) => {
         let changed = false;
-        const messages = state.messages.map((message) => {
-            if (!match(message)) return message;
-            changed = true;
-            return update(message);
-        });
-        if (changed) patch({ messages });
+        /** @param {Message[]} list */
+        const apply = (list) => {
+            let touched = false;
+            const next = list.map((message) => {
+                if (!match(message)) return message;
+                touched = true;
+                return update(message);
+            });
+            if (touched) changed = true;
+            return touched ? next : list;
+        };
+        for (const [id, view] of buffers) {
+            if (only && id !== only) continue;
+            const messages = apply(view.messages);
+            if (messages !== view.messages) buffers.set(id, { ...view, messages });
+        }
+        const messages = !only || isActive(only) ? apply(state.messages) : state.messages;
+        if (messages !== state.messages) patch({ messages });
+        else if (changed) notify();
         return changed;
+    };
+
+    /**
+     * Conversa guardada (não aberta) que existe na lista.
+     * @param {string} id
+     */
+    const bufferOf = (id) => {
+        if (!state.conversations.some((entry) => entry.conversationId === id)) return null;
+        let view = buffers.get(id);
+        if (!view) {
+            view = emptyView();
+            buffers.set(id, view);
+        }
+        return view;
+    };
+
+    /** @param {string} id @param {number} delta */
+    const bumpUnread = (id, delta) => {
+        patch({
+            conversations: state.conversations.map((entry) =>
+                entry.conversationId === id
+                    ? { ...entry, unread: delta === 0 ? 0 : entry.unread + delta }
+                    : entry,
+            ),
+        });
+    };
+
+    /** Guarda a conversa aberta e esvazia a vista. */
+    const stashActive = () => {
+        const id = state.room?.conversationId;
+        if (!id) return;
+        buffers.set(id, {
+            messages: state.messages,
+            people: state.people,
+            historyVersion: state.historyVersion,
+        });
     };
 
     /**
@@ -165,12 +276,14 @@ export const createStore = () => {
      * `clientMsgId`): mantém a posição e a `key`, assume o `id` e o horário
      * do servidor.
      * @param {Message} incoming
+     * @param {string | null} [only] limita a uma conversa
      */
-    const confirm = (incoming) =>
+    const confirm = (incoming, only = null) =>
         incoming.clientMsgId
             ? updateWhere(
                   (message) => message.clientMsgId === incoming.clientMsgId && message.own,
                   (message) => ({ ...incoming, key: message.key, delivery: "confirmed" }),
+                  only,
               )
             : false;
 
@@ -206,42 +319,173 @@ export const createStore = () => {
             },
 
             /**
-             * A sala aberta (resumo do servidor). Trocar de sala descarta a
-             * conversa da anterior.
+             * Resumo de uma conversa vindo do servidor: entra na lista (ou a
+             * atualiza). Se nenhuma conversa está aberta, ela passa a ser a
+             * aberta; se é a aberta, o resumo dela é atualizado. As demais
+             * ficam na lista, sem mudar o que está na tela.
              * @param {RoomInfo} room
              */
             setRoom(room) {
-                const current = state.room;
-                if (
-                    current &&
-                    current.conversationId === room.conversationId &&
-                    current.code === room.code &&
-                    current.name === room.name &&
-                    current.role === room.role &&
-                    (current.author ?? null) === (room.author ?? null)
-                )
-                    return;
-                const switched = current !== null && current.conversationId !== room.conversationId;
-                patch(
-                    switched
-                        ? { room, messages: [], people: [], typing: [], historyVersion: null }
-                        : { room },
+                const index = state.conversations.findIndex(
+                    (entry) => entry.conversationId === room.conversationId,
                 );
+                const known = index === -1 ? null : state.conversations[index];
+                const conversations =
+                    known && sameSummary(known, room)
+                        ? state.conversations
+                        : index === -1
+                          ? [...state.conversations, { ...room, unread: 0 }]
+                          : state.conversations.map((entry, i) =>
+                                i === index ? { ...room, unread: entry.unread } : entry,
+                            );
+                const opensNow = state.room === null && state.screen !== "home";
+                const isOpen = state.room?.conversationId === room.conversationId;
+                if (!opensNow && !isOpen) {
+                    if (conversations !== state.conversations) patch({ conversations });
+                    return;
+                }
+                if (isOpen && state.room && sameSummary(state.room, room)) {
+                    if (conversations !== state.conversations) patch({ conversations });
+                    return;
+                }
+                if (opensNow) {
+                    const view = buffers.get(room.conversationId) ?? emptyView();
+                    buffers.delete(room.conversationId);
+                    patch({ conversations, room, ...view, typing: [] });
+                    return;
+                }
+                patch({ conversations, room });
             },
 
             /**
-             * A sala aberta deixou de valer (identidade nova depois de o
-             * servidor reiniciar): conversa e lista dela são descartadas.
+             * Abre uma conversa da lista: a aberta é guardada como está e a
+             * escolhida volta com tudo o que chegou enquanto estava fechada.
+             * @param {string} id
+             * @returns {boolean} false se a conversa não existe
+             */
+            openConversation(id) {
+                const entry = state.conversations.find((item) => item.conversationId === id);
+                if (!entry) return false;
+                if (state.room?.conversationId === id) {
+                    if (state.screen !== "room" || entry.unread) {
+                        patch({
+                            screen: "room",
+                            conversations: state.conversations.map((item) =>
+                                item === entry ? { ...item, unread: 0 } : item,
+                            ),
+                        });
+                    }
+                    return true;
+                }
+                stashActive();
+                const view = buffers.get(id) ?? emptyView();
+                buffers.delete(id);
+                const room = summaryOf(entry);
+                patch({
+                    screen: "room",
+                    room,
+                    ...view,
+                    typing: [],
+                    conversations: state.conversations.map((item) =>
+                        item === entry ? { ...item, unread: 0 } : item,
+                    ),
+                });
+                return true;
+            },
+
+            /**
+             * Tela de início: nenhuma conversa aberta (todas continuam na
+             * lista, recebendo mensagens).
+             */
+            goHome() {
+                if (state.screen === "entry") return;
+                stashActive();
+                patch({
+                    screen: "home",
+                    room: null,
+                    messages: [],
+                    people: [],
+                    typing: [],
+                    historyVersion: null,
+                });
+            },
+
+            /**
+             * A conversa acabou para você (saiu, foi removido, a outra
+             * pessoa encerrou). Se era a aberta, abre a próxima da lista ou
+             * volta ao início.
+             * @param {string} id
+             * @returns {string | null} a conversa aberta agora
+             */
+            removeConversation(id) {
+                buffers.delete(id);
+                const conversations = state.conversations.filter(
+                    (entry) => entry.conversationId !== id,
+                );
+                if (state.room?.conversationId !== id) {
+                    if (conversations.length !== state.conversations.length) {
+                        patch({ conversations });
+                    }
+                    return state.room?.conversationId ?? null;
+                }
+                const next = conversations.at(-1) ?? null;
+                if (next) {
+                    const view = buffers.get(next.conversationId) ?? emptyView();
+                    buffers.delete(next.conversationId);
+                    const room = summaryOf(next);
+                    patch({
+                        conversations: conversations.map((entry) =>
+                            entry === next ? { ...entry, unread: 0 } : entry,
+                        ),
+                        room,
+                        ...view,
+                        typing: [],
+                    });
+                    return next.conversationId;
+                }
+                patch({
+                    conversations,
+                    screen: state.screen === "entry" ? "entry" : "home",
+                    room: null,
+                    messages: [],
+                    people: [],
+                    typing: [],
+                    historyVersion: null,
+                });
+                return null;
+            },
+
+            /**
+             * As conversas deixaram de valer (identidade nova depois de o
+             * servidor reiniciar): todas são descartadas.
              */
             forgetRoom() {
-                if (state.room === null) return;
-                patch({ room: null, messages: [], people: [], typing: [], historyVersion: null });
+                buffers.clear();
+                if (state.room === null && state.conversations.length === 0) return;
+                patch({
+                    room: null,
+                    conversations: [],
+                    messages: [],
+                    people: [],
+                    typing: [],
+                    historyVersion: null,
+                });
             },
 
             /** Sala e sessão aceitas pelo servidor: agora sim, a conversa. */
             completeJoin() {
                 if (!state.joining) return;
                 patch({ screen: "room", joining: false });
+            },
+
+            /**
+             * Sessão aceita sem conversa a abrir (sem convite): a pessoa vai
+             * para o início, de onde cria uma sala, entra por código ou
+             * procura alguém pelo arroba.
+             */
+            completeLogin() {
+                if (!state.joining) return;
+                patch({ screen: "home", joining: false });
             },
 
             /**
@@ -265,8 +509,20 @@ export const createStore = () => {
              * fora (a sala foi limpa), a conversa local é descartada.
              * @param {number} version
              * @returns {boolean} true se a conversa foi descartada
+             * @param {string | null} [conversationId] outra conversa que não a aberta
              */
-            syncHistoryVersion(version) {
+            syncHistoryVersion(version, conversationId = null) {
+                if (!isActive(conversationId)) {
+                    const view = bufferOf(/** @type {string} */ (conversationId));
+                    if (!view) return false;
+                    const old = view.historyVersion !== null && view.historyVersion !== version;
+                    buffers.set(/** @type {string} */ (conversationId), {
+                        ...view,
+                        historyVersion: version,
+                        messages: old ? [] : view.messages,
+                    });
+                    return old;
+                }
                 const stale = state.historyVersion !== null && state.historyVersion !== version;
                 if (!stale && state.historyVersion === version) return false;
                 patch(
@@ -278,6 +534,7 @@ export const createStore = () => {
             /** Volta para a tela de entrada (o servidor recusou a entrada). */
             leaveRoom() {
                 hidden.clear();
+                buffers.clear();
                 patch({ ...initialState() });
             },
 
@@ -285,9 +542,21 @@ export const createStore = () => {
              * Acrescenta uma entrada. Id repetido é ignorado; mensagem que
              * confirma uma enviada por você atualiza a original.
              * @param {Message} message
+             * @param {string | null} [conversationId] outra conversa que não a aberta
              */
-            addMessage(message) {
+            addMessage(message, conversationId = null) {
                 if (hidden.has(message.id)) return;
+                if (!isActive(conversationId)) {
+                    const id = /** @type {string} */ (conversationId);
+                    if (confirm(message, id)) return;
+                    const view = bufferOf(id);
+                    if (!view || view.messages.some((existing) => existing.id === message.id))
+                        return;
+                    buffers.set(id, { ...view, messages: [...view.messages, message] });
+                    // Só mensagem de alguém conta como não lida; avisos não.
+                    bumpUnread(id, message.kind === "chat" && !message.own ? 1 : 0);
+                    return;
+                }
                 if (confirm(message)) return;
                 if (state.messages.some((existing) => existing.id === message.id)) return;
                 patch({ messages: [...state.messages, message] });
@@ -298,8 +567,35 @@ export const createStore = () => {
              * ordem do servidor, só as mensagens que não estão na tela (nem
              * foram escondidas por /clear); pendentes suas são confirmadas.
              * @param {Message[]} history
+             * @param {string | null} [conversationId] outra conversa que não a aberta
+             * @param {{countUnread?: boolean}} [options] conta como não lidas (conversa nova)
              */
-            mergeHistory(history) {
+            mergeHistory(history, conversationId = null, { countUnread = false } = {}) {
+                if (!isActive(conversationId)) {
+                    const id = /** @type {string} */ (conversationId);
+                    for (const message of history) confirm(message, id);
+                    const view = bufferOf(id);
+                    if (!view) return;
+                    const seen = new Set(view.messages.map((message) => message.id));
+                    const fresh = history.filter((message) => {
+                        if (seen.has(message.id) || hidden.has(message.id)) return false;
+                        seen.add(message.id);
+                        return true;
+                    });
+                    if (fresh.length) {
+                        buffers.set(id, { ...view, messages: [...view.messages, ...fresh] });
+                        // Conversa que acabou de chegar (alguém começou a falar
+                        // com você): o que veio no histórico ainda não foi lido.
+                        if (countUnread) {
+                            bumpUnread(
+                                id,
+                                fresh.filter((message) => message.kind === "chat" && !message.own)
+                                    .length,
+                            );
+                        }
+                    }
+                    return;
+                }
                 for (const message of history) confirm(message);
                 const known = new Set(state.messages.map((message) => message.id));
                 const fresh = history.filter((message) => {
@@ -327,8 +623,16 @@ export const createStore = () => {
              * A sala foi limpa por um administrador (`chat_cleared`).
              * @param {number} version
              * @param {Message} notice aviso a exibir no lugar da conversa
+             * @param {string | null} [conversationId] outra conversa que não a aberta
              */
-            roomCleared(version, notice) {
+            roomCleared(version, notice, conversationId = null) {
+                if (!isActive(conversationId)) {
+                    const id = /** @type {string} */ (conversationId);
+                    const view = bufferOf(id);
+                    if (view)
+                        buffers.set(id, { ...view, historyVersion: version, messages: [notice] });
+                    return;
+                }
                 patch({ historyVersion: version, messages: [notice] });
             },
 
@@ -392,8 +696,15 @@ export const createStore = () => {
 
             /**
              * @param {Person[]} people
+             * @param {string | null} [conversationId] outra conversa que não a aberta
              */
-            setPeople(people) {
+            setPeople(people, conversationId = null) {
+                if (!isActive(conversationId)) {
+                    const id = /** @type {string} */ (conversationId);
+                    const view = bufferOf(id);
+                    if (view) buffers.set(id, { ...view, people });
+                    return;
+                }
                 patch({ people });
             },
 
