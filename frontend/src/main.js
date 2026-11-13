@@ -508,6 +508,22 @@ const conversationNavs = [...document.querySelectorAll("[data-conversation-nav]"
         }),
 );
 
+// Link de convite colado nesta aba com o chat já aberto: só o `#` muda, a
+// página não recarrega. Se é de uma sala que você já tem, ela é aberta; se
+// não, é pedida ao servidor como "entrar com código".
+window.addEventListener("hashchange", () => {
+    const code = readInviteHash(location.hash);
+    const state = store.getState();
+    if (!code || state.screen === "entry") return;
+    if (state.room?.code === code) return;
+    const known = state.conversations.find((entry) => entry.code === code);
+    if (known) {
+        openConversation(known.conversationId);
+        return;
+    }
+    requestRoom("join", { code });
+});
+
 for (const button of document.querySelectorAll("[data-go-home]")) {
     button.addEventListener("click", () => {
         layout.closeDrawer();
