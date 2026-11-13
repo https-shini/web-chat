@@ -14,7 +14,11 @@
  * entregue a quem está na sala e nunca vai para o log.
  *
  * Pessoas: quem conversa se identifica pelo `@username` — é ele que vai em
- * mensagens, listas, digitação e conversas privadas. O id interno de uma
+ * mensagens, listas, digitação e conversas privadas. Junto vai o `author`:
+ * um número que o servidor dá a cada participante DENTRO de uma conversa
+ * (1, 2, 3…), fixo para a vida da conversa. Ele distingue duas pessoas que
+ * usaram o mesmo @ em momentos diferentes, sem revelar nada fora daquela
+ * conversa: o mesmo número em outra conversa é outra contagem. O id interno de uma
  * identidade NUNCA sai num evento: fica no servidor (índices, logs) e só
  * administradores o veem, pelos comandos `/users`, `/profile` e `/id`.
  *
@@ -241,6 +245,12 @@ export const errorCodeForEnvelope = (reason) =>
 export const scoped = (conversationId, message) => ({ ...message, conversationId });
 
 /**
+ * Número de autor no payload, quando existe.
+ * @param {{author?: number}} user
+ */
+const authorOf = (user) => (typeof user.author === "number" ? { author: user.author } : {});
+
+/**
  * @typedef {object} RoomSummary
  * @property {string} conversationId
  * @property {"room"} kind
@@ -248,6 +258,7 @@ export const scoped = (conversationId, message) => ({ ...message, conversationId
  * @property {string} name
  * @property {string} role      papel de quem recebe NESTA sala
  * @property {string | null} hostUsername  @ de quem é anfitrião agora
+ * @property {number | null} author   o SEU número de autor nesta sala
  * @property {number} memberCount
  * @property {number} historyVersion
  */
@@ -256,7 +267,8 @@ export const scoped = (conversationId, message) => ({ ...message, conversationId
  * @typedef {object} DmSummary
  * @property {string} conversationId
  * @property {"dm"} kind
- * @property {{name: string, username: string, online: boolean}} peer a outra pessoa
+ * @property {{name: string, username: string, online: boolean, author: number}} peer a outra pessoa
+ * @property {number} author  o SEU número de autor nesta conversa
  * @property {number} historyVersion
  */
 
@@ -383,6 +395,7 @@ export const serverMessage = Object.freeze({
         payload: {
             userName: user.name,
             username: user.username ?? "",
+            ...authorOf(user),
             content,
             timestamp,
             ...(kind !== MESSAGE_KINDS.TEXT ? { kind } : {}),
@@ -394,7 +407,12 @@ export const serverMessage = Object.freeze({
     /** @param {{name: string, username?: string}} user @param {string} timestamp */
     joined: (user, timestamp) => ({
         type: SERVER_EVENTS.USER_JOINED,
-        payload: { userName: user.name, username: user.username ?? "", timestamp },
+        payload: {
+            userName: user.name,
+            username: user.username ?? "",
+            ...authorOf(user),
+            timestamp,
+        },
     }),
 
     /**
@@ -404,7 +422,13 @@ export const serverMessage = Object.freeze({
      */
     left: (user, timestamp, reason = "left") => ({
         type: SERVER_EVENTS.USER_LEFT,
-        payload: { userName: user.name, username: user.username ?? "", timestamp, reason },
+        payload: {
+            userName: user.name,
+            username: user.username ?? "",
+            ...authorOf(user),
+            timestamp,
+            reason,
+        },
     }),
 
     /**
@@ -418,6 +442,7 @@ export const serverMessage = Object.freeze({
         payload: users.map((user) => ({
             name: user.name,
             username: user.username ?? "",
+            ...authorOf(user),
             status: user.away === null || user.away === undefined ? PRESENCE.ONLINE : PRESENCE.AWAY,
             role: user.role ?? ROLES.MEMBER,
             ...(user.away ? { statusText: user.away } : {}),
@@ -427,7 +452,12 @@ export const serverMessage = Object.freeze({
     /** @param {{name: string, username?: string}} user @param {boolean} isTyping */
     typing: (user, isTyping) => ({
         type: SERVER_EVENTS.USER_TYPING,
-        payload: { userName: user.name, username: user.username ?? "", isTyping },
+        payload: {
+            userName: user.name,
+            username: user.username ?? "",
+            ...authorOf(user),
+            isTyping,
+        },
     }),
 
     /**

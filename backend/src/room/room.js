@@ -116,6 +116,31 @@ export const createRoom = ({
     let quiet = false;
     /** Ids removidos por moderação: não voltam enquanto a sala existir. */
     const banned = new Set();
+    /**
+     * Números de autor desta sala (id interno → número), dados na primeira
+     * entrada e guardados até a sala acabar: quem sai e volta mantém o
+     * número; uma identidade nova com o mesmo @ recebe outro.
+     * @type {Map<string, number>}
+     */
+    const authors = new Map();
+    let nextAuthor = 1;
+    /** @param {Identity} identity */
+    const authorOf = (identity) => {
+        let author = authors.get(identity.id);
+        if (author === undefined) {
+            author = nextAuthor;
+            nextAuthor += 1;
+            authors.set(identity.id, author);
+        }
+        return author;
+    };
+    /** Como a pessoa aparece nos quadros desta sala. @param {Identity} identity */
+    const persona = (identity) => ({
+        name: identity.name,
+        username: identity.username,
+        author: authorOf(identity),
+    });
+
     /** Quem é anfitrião agora. @type {Identity | null} */
     let host = null;
 
@@ -148,8 +173,7 @@ export const createRoom = ({
         broadcast(
             serverMessage.userList(
                 present().map(([identity, membership]) => ({
-                    name: identity.name,
-                    username: identity.username,
+                    ...persona(identity),
                     away: identity.away,
                     role: identity.role === ROLES.ADMIN ? ROLES.ADMIN : membership.role,
                 })),
@@ -183,7 +207,7 @@ export const createRoom = ({
         if (quiet) return;
         broadcast(
             serverMessage.left(
-                identity,
+                persona(identity),
                 timestamp(),
                 reason === REMOVAL_REASONS.REMOVED ? "removed" : "left",
             ),
@@ -202,6 +226,7 @@ export const createRoom = ({
         name,
         role: members.get(identity)?.role ?? ROLES.MEMBER,
         hostUsername: host?.username ?? null,
+        author: authors.get(identity.id) ?? null,
         memberCount: members.size,
         historyVersion: transcript.version,
     });
@@ -276,12 +301,11 @@ export const createRoom = ({
 
         // Reenvio da mesma mensagem (retentativa do cliente): a original volta
         // só para quem enviou, sem duplicar na sala.
-        const { message, duplicate } = transcript.append(identity, {
-            content,
-            kind,
-            format,
-            clientMsgId,
-        });
+        const { message, duplicate } = transcript.append(
+            identity,
+            { content, kind, format, clientMsgId },
+            authorOf(identity),
+        );
         if (duplicate) {
             sendTo(identity, message);
             return { ok: true, duplicate: true };
@@ -354,6 +378,7 @@ export const createRoom = ({
                 pendingLeave: null,
             });
             identity.rooms.add(id);
+            authorOf(identity);
             if (asHost) host = identity;
             log("info", "room_member_joined", {
                 conversation: id,
@@ -361,7 +386,7 @@ export const createRoom = ({
                 host: asHost,
             });
             sendState(identity, { created });
-            broadcast(serverMessage.joined(identity, timestamp()), identity);
+            broadcast(serverMessage.joined(persona(identity), timestamp()), identity);
             broadcastUserList();
             return { ok: true, already: false };
         },
@@ -403,7 +428,8 @@ export const createRoom = ({
             membership.connected = true;
             const silentReturn = wasConnected || cancelPendingLeave(membership);
             sendState(identity, { resumed: true });
-            if (!silentReturn) broadcast(serverMessage.joined(identity, timestamp()), identity);
+            if (!silentReturn)
+                broadcast(serverMessage.joined(persona(identity), timestamp()), identity);
             broadcastUserList();
         },
 
@@ -436,7 +462,7 @@ export const createRoom = ({
          */
         typing(identity, isTyping) {
             if (!members.get(identity)?.connected) return;
-            broadcast(serverMessage.typing(identity, isTyping), identity);
+            broadcast(serverMessage.typing(persona(identity), isTyping), identity);
         },
 
         /**
@@ -616,6 +642,7 @@ export const createRoom = ({
             for (const identity of members.keys()) identity.rooms.delete(id);
             members.clear();
             banned.clear();
+            authors.clear();
             host = null;
             log("info", "room_destroyed", { conversation: id });
         },

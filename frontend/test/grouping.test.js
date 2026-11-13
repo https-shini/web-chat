@@ -46,3 +46,15 @@ describe("agrupamento de mensagens", () => {
         assert.equal(continuesGroup(chat(), chat({ timestamp: "2026-11-07T09:59:00Z" })), false);
     });
 });
+
+describe("mesmo @, autores diferentes", () => {
+    test("o @ reaproveitado por outra pessoa não emenda na mensagem de quem o usou antes", () => {
+        const before = chat({ author: 2 });
+        assert.equal(continuesGroup(before, chat({ author: 4, id: "b" })), false);
+        assert.equal(continuesGroup(before, chat({ author: 2, id: "b" })), true);
+    });
+
+    test("sem número de autor (servidor antigo), vale só o @", () => {
+        assert.equal(continuesGroup(chat(), chat({ author: 3, id: "b" })), true);
+    });
+});

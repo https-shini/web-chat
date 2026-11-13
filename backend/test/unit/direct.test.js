@@ -90,7 +90,9 @@ describe("abrir e conversar", () => {
             name: "Bia",
             username: "bia",
             online: true,
+            author: 2,
         });
+        assert.equal(mine.payload.author, 1, "quem abre é o autor 1");
         assert.equal(mine.payload.kind, "dm");
         assert.equal(received(bia, "dm_opened").length, 0, "abrir não avisa ninguém");
 
