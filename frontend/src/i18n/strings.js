@@ -205,6 +205,11 @@ export const strings = {
         nowLight: "Tema claro ativado.",
         nowDark: "Tema escuro ativado.",
     },
+    notify: {
+        dmTitle: "Conversa privada",
+        roomTitle: "web-chat",
+        body: "Nova mensagem",
+    },
     a11y: {
         skipToRoom: "Ir para a conversa",
         enteredRoom: "Você entrou na sala. O campo de mensagem está em foco.",

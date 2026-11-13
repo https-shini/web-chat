@@ -281,7 +281,8 @@ describe("presença e digitação", () => {
             id: "2",
             payload: { username: "eu", userName: "Eu", content: "olá" },
         });
-        assert.deepEqual(notified, [["Bia", "oi"]]);
+        // Sem o texto nem quem escreveu (privacidade da central de notificações).
+        assert.deepEqual(notified, [["web-chat", "Nova mensagem"]]);
     });
 
     test("tipo desconhecido é ignorado (compatível com servidor mais novo)", () => {
