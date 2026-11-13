@@ -476,12 +476,14 @@ const afterNewSession = () => {
     // Identidade nova: a participação anterior não existe mais no servidor.
     store.actions.forgetRoom();
     pendingDm = null;
+    // Já dentro do chat (o servidor reiniciou): o início fica na tela até a
+    // sala voltar — se ela não voltar, a pessoa não fica numa conversa vazia.
+    if (!state.joining) store.actions.goHome();
     if (code) {
         requestRoom("join", { code }, state.joining);
         return;
     }
     if (state.joining) store.actions.completeLogin();
-    else store.actions.goHome();
 };
 
 for (const button of document.querySelectorAll('[data-action="logout"]')) {
