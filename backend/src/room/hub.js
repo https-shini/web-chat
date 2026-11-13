@@ -57,11 +57,21 @@ import { REMOVAL_REASONS, RENAME_COOLDOWN_MS } from "./room.js";
  *  - conversas NOVAS: 10 seguidas, depois 1 a cada 30 s — reabrir uma
  *    conversa existente não conta;
  *  - bloqueios: até 100 por sessão.
+ *
+ * E no servidor inteiro (`global`): cada conexão nova pode criar uma
+ * identidade nova, com baldes cheios. Sem o teto global, abrir muitas
+ * conexões contornaria o limite por identidade e permitiria varrer quem
+ * está online. Esgotado o global, buscas e conversas novas são recusadas por
+ * um instante para todos — inclusive para quem acertaria o @.
  */
 export const DM_GUARD_DEFAULTS = Object.freeze({
     lookup: Object.freeze({ capacity: 20, refillPerSecond: 1 / 3 }),
     newConversation: Object.freeze({ capacity: 10, refillPerSecond: 1 / 30 }),
     maxBlocked: 100,
+    global: Object.freeze({
+        lookup: Object.freeze({ capacity: 100, refillPerSecond: 5 }),
+        newConversation: Object.freeze({ capacity: 60, refillPerSecond: 2 }),
+    }),
 });
 
 /**
@@ -97,18 +107,32 @@ export const createHub = ({
     /** @param {unknown} member */
     const entryOf = (member) => connections.get(member) ?? null;
 
-    const guard = { ...DM_GUARD_DEFAULTS, ...dmGuard };
+    const guard = {
+        ...DM_GUARD_DEFAULTS,
+        ...dmGuard,
+        global: { ...DM_GUARD_DEFAULTS.global, ...dmGuard.global },
+    };
     /** Baldes por identidade; somem junto com ela. */
     const buckets = {
         lookup: new WeakMap(),
         newConversation: new WeakMap(),
     };
+    /** Baldes do servidor inteiro. */
+    const shared = {
+        lookup: createRateLimiter({ ...guard.global.lookup, now }),
+        newConversation: createRateLimiter({ ...guard.global.newConversation, now }),
+    };
     /**
-     * Consome uma ficha do balde da identidade.
+     * Consome uma ficha do balde do servidor e uma do balde da identidade.
+     * O global vem primeiro: se ele está esgotado, a identidade não perde nada.
      * @param {"lookup" | "newConversation"} kind
      * @param {Identity} identity
      */
     const consume = (kind, identity) => {
+        if (!shared[kind]()) {
+            log("warn", "dm_guard_global_limit", { kind });
+            return false;
+        }
         let take = buckets[kind].get(identity);
         if (!take) {
             take = createRateLimiter({ ...guard[kind], now });

@@ -440,3 +440,45 @@ describe("limites e memória", () => {
         }
     });
 });
+
+describe("limite global contra varredura de @", () => {
+    test("muitas identidades novas não contornam o limite de buscas", () => {
+        const ctx = setup({
+            dmGuard: { global: { lookup: { capacity: 5, refillPerSecond: 0.001 } } },
+        });
+        const results = [];
+        for (let i = 0; i < 8; i += 1) {
+            const m = ctx.member(`varre${i}`);
+            ctx.login(m, { userName: `Varre ${i}`, username: `varre${i}` });
+            // Cada identidade nova tem o balde próprio cheio; o global, não.
+            results.push(ctx.hub.lookup(m, { username: "alvo" }).code ?? "ok");
+        }
+        assert.deepEqual(results, [
+            "ok",
+            "ok",
+            "ok",
+            "ok",
+            "ok",
+            ...Array(3).fill("lookup_limited"),
+        ]);
+        assert.ok(ctx.logs.some((l) => l.event === "dm_guard_global_limit" && l.kind === "lookup"));
+    });
+
+    test("o mesmo vale para conversas novas; o limite global volta com o tempo", () => {
+        const ctx = setup({
+            dmGuard: { global: { newConversation: { capacity: 1, refillPerSecond: 1 } } },
+        });
+        const { member, login, hub } = ctx;
+        const ana = member("ana");
+        const bia = member("bia");
+        const caio = member("caio");
+        login(ana, { userName: "Ana", username: "ana" });
+        login(bia, { userName: "Bia", username: "bia" });
+        login(caio, { userName: "Caio", username: "caio" });
+        assert.equal(hub.openDm(ana, { username: "bia" }).ok, true);
+        assert.equal(hub.openDm(caio, { username: "bia" }).code, "dm_open_limited");
+        assert.equal(hub.openDm(ana, { username: "bia" }).ok, true, "reabrir não conta");
+        ctx.tick(1000);
+        assert.equal(hub.openDm(caio, { username: "bia" }).ok, true);
+    });
+});
