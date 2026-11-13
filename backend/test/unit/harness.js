@@ -2,6 +2,7 @@
 // simples, `deliver` grava o que cada uma receberia, o relógio é manual e os
 // agendadores só disparam quando o teste manda (`runTimers`).
 
+import { createDirectConversation, createDirectDirectory } from "../../src/room/direct.js";
 import { createRoomDirectory } from "../../src/room/directory.js";
 import { createHub } from "../../src/room/hub.js";
 import { createJoinGuard } from "../../src/room/joinGuard.js";
@@ -45,6 +46,8 @@ export const manualScheduler = (clock) => {
  *   coalesce?: boolean,
  *   limits?: Record<string, number>,
  *   joinGuard?: Parameters<typeof createJoinGuard>[0],
+ *   dmGuard?: Record<string, unknown>,
+ *   dmLimits?: Record<string, number>,
  *   ttlMs?: number,
  * }} [options]
  */
@@ -55,6 +58,8 @@ export const setup = ({
     coalesce = false,
     limits = {},
     joinGuard = {},
+    dmGuard = {},
+    dmLimits = {},
     ttlMs,
 } = {}) => {
     let clock = 0;
@@ -113,9 +118,30 @@ export const setup = ({
                 onPresenceChange: (identity) => hub?.refreshEverywhere(identity),
             }),
     });
+    let dmCounter = 0;
+    const directs = createDirectDirectory({
+        log,
+        limits: dmLimits,
+        newId: () => `d_dm${String(++dmCounter).padStart(10, "0")}`,
+        makeConversation: ({ id, a, b }) =>
+            createDirectConversation({
+                id,
+                a,
+                b,
+                log,
+                historySize: dmLimits.historySize ?? 100,
+                historyOnJoin,
+                deliver,
+                now: () => new Date(Date.UTC(2026, 10, 7, 10, 0, 0) + clock),
+                newMessageId: () => `msg-${++nextId}`,
+                onPresenceChange: (identity) => hub?.refreshEverywhere(identity),
+            }),
+    });
     hub = createHub({
         identities,
         directory,
+        directs,
+        dmGuard: /** @type {any} */ (dmGuard),
         joinGuard: createJoinGuard({ now, ...joinGuard }),
         deliver,
         log,
@@ -161,6 +187,7 @@ export const setup = ({
         hub,
         identities,
         directory,
+        directs,
         inbox,
         logs,
         member,

@@ -43,6 +43,9 @@ export const MAX_RELEASED_IDENTITIES = 2000;
  * @property {"member" | "admin"} role   papel global: `admin` vale em todas as salas
  * @property {string | null} away        texto de ausência, ou null se presente
  * @property {Set<string>} rooms          conversas (salas) de que participa
+ * @property {Set<string>} dms            conversas privadas de que participa
+ * @property {Map<string, {name: string, username: string}>} blocked
+ *   quem esta identidade bloqueou nesta sessão (chave: id interno, que não sai daqui)
  * @property {number} joinedAt
  * @property {number} messageCount
  * @property {number} lastRenameAt
@@ -123,6 +126,8 @@ export const createIdentityStore = ({
                 role: "member",
                 away: null,
                 rooms: new Set(),
+                dms: new Set(),
+                blocked: new Map(),
                 joinedAt: now(),
                 messageCount: 0,
                 lastRenameAt: -Infinity,
@@ -131,6 +136,33 @@ export const createIdentityStore = ({
             };
             usernames.set(username, identity);
             return identity;
+        },
+
+        /**
+         * Identidade viva com o username exato (conectada ou na janela de
+         * retomada), ou null. Expirada é encerrada aqui mesmo.
+         * @param {string} username já normalizado (sem @, minúsculo)
+         * @returns {Identity | null}
+         */
+        findByUsername(username) {
+            const identity = usernames.get(username);
+            if (!identity) return null;
+            if (expired(identity, now())) {
+                retire(identity);
+                return null;
+            }
+            return identity;
+        },
+
+        /**
+         * Identidade CONECTADA agora com o username exato, ou null. Quem está
+         * só na janela de retomada não aparece: só se acha quem está aqui.
+         * @param {string} username já normalizado (sem @, minúsculo)
+         * @returns {Identity | null}
+         */
+        findConnected(username) {
+            const identity = usernames.get(username);
+            return identity && identity.holder !== null ? identity : null;
         },
 
         /**

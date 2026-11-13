@@ -66,9 +66,7 @@ describe("logs do servidor", () => {
         client.send("chat_message", { content: "conteudo-privado-123" });
         await client.take("chat_message");
         client.close();
-        await server.waitForLog(
-            (entry) => entry.event === "session_paused" && entry.user === session.id,
-        );
+        await server.waitForLog((entry) => entry.event === "session_paused");
 
         const all = server.lines.join("\n");
         assert.ok(!all.includes("conteudo-privado-123"));

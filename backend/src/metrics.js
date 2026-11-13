@@ -43,6 +43,11 @@ export const createMetrics = ({ now = () => Date.now(), startedAt = Date.now() }
         roomsCreated: 0,
         roomJoins: 0,
         roomLeaves: 0,
+        // Conversas privadas (Fase 3 da evolução)
+        userLookups: 0,
+        dmsOpened: 0,
+        dmsClosed: 0,
+        blocks: 0,
     };
 
     const buckets = new Array(PROCESSING_BUCKETS_MS.length + 1).fill(0);
@@ -83,7 +88,7 @@ export const createMetrics = ({ now = () => Date.now(), startedAt = Date.now() }
          * Fotografia atual. `reset` zera as janelas (CPU, atraso do event
          * loop, máximo de processamento) — usado pelo log periódico, para que
          * cada linha descreva o intervalo desde a anterior.
-         * @param {{connections: number, users: number, identities: number, rooms?: number}} gauges
+         * @param {{connections: number, users: number, identities: number, rooms?: number, dms?: number}} gauges
          * @param {{reset?: boolean}} [options]
          */
         snapshot(gauges, { reset = false } = {}) {

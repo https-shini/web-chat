@@ -12,9 +12,9 @@
 
 /**
  * @typedef {object} Person
- * @property {string} id
+ * @property {string} id  chave da pessoa na interface: o próprio username (o id interno do servidor nunca chega ao navegador)
  * @property {string} name
- * @property {string} [username]  sem o arroba, minúsculo; único na sala
+ * @property {string} [username]  sem o arroba, minúsculo; único entre quem está conectado
  * @property {"online" | "away"} [status]
  * @property {string} [statusText]
  * @property {"member" | "admin" | "host"} [role]  papel NA SALA (admin é global)

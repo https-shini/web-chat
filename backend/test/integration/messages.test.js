@@ -22,7 +22,7 @@ describe("mensagens", () => {
                 (m) => m.type === "chat_message" && m.payload.content === "olá, sala",
             );
             assert.match(message.id, /^[0-9a-f-]{36}$/);
-            assert.equal(message.payload.userId, a.session.id);
+            assert.equal(message.payload.username, a.session.username);
             assert.equal(message.payload.userName, "Ana");
             assert.ok(!Number.isNaN(Date.parse(message.payload.timestamp)));
         }
@@ -95,7 +95,7 @@ describe("mensagens", () => {
         const delivered = await observer.client.take(
             (m) => m.type === "chat_message" && m.payload.content === "mensagem importante",
         );
-        assert.equal(delivered.payload.userId, typist.session.id);
+        assert.equal(delivered.payload.username, typist.session.username);
         assert.equal(
             typist.client.count((m) => m.type === "error"),
             0,

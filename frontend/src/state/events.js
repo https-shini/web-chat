@@ -26,26 +26,38 @@ const text = (value) => (typeof value === "string" ? value : "");
  * Converte uma mensagem de chat em fato de domínio. O `id` é o atribuído
  * pelo servidor — o mesmo nas mensagens ao vivo e no histórico. Só um
  * servidor antigo, que não o envia, faz cair no id local.
+ *
+ * Quem escreveu é identificado pelo username: o servidor nunca envia o id
+ * interno de ninguém. `userId`, aqui no cliente, é só a chave da pessoa na
+ * interface: o próprio username.
+ *
+ * Uma mensagem é "sua" se tem o seu username E foi escrita depois de a sua
+ * identidade nascer (`since`): quem usou o mesmo username antes de você era outra
+ * pessoa.
  * @param {any} raw `{ id, payload }`
- * @param {string | null} meId
+ * @param {{username: string | null, since: number}} me
  * @returns {Message | null}
  */
-const toMessage = (raw, meId) => {
+const toMessage = (raw, me) => {
     const payload = raw?.payload;
     if (!payload || typeof payload.content !== "string") return null;
     const id = typeof raw.id === "string" && raw.id !== "" ? raw.id : crypto.randomUUID();
+    const username = typeof payload.username === "string" ? payload.username : "";
+    const timestamp = String(payload.timestamp ?? new Date().toISOString());
+    const written = Date.parse(timestamp);
     return {
         id,
         key: id,
         kind: "chat",
-        userId: String(payload.userId ?? ""),
+        userId: username,
         userName: String(payload.userName ?? ""),
-        ...(typeof payload.username === "string" && payload.username
-            ? { username: payload.username }
-            : {}),
+        ...(username ? { username } : {}),
         content: payload.content,
-        timestamp: String(payload.timestamp ?? new Date().toISOString()),
-        own: Boolean(meId) && payload.userId === meId,
+        timestamp,
+        own:
+            Boolean(me.username) &&
+            username === me.username &&
+            (Number.isNaN(written) || written >= me.since),
         variant: VARIANTS.has(payload.kind) ? payload.kind : "text",
         format: FORMATS.has(payload.format) ? payload.format : null,
         clientMsgId: typeof payload.clientMsgId === "string" ? payload.clientMsgId : null,
@@ -126,22 +138,24 @@ export const noticeMessage = ({ tone, text: content, title, lines }) => {
  * }} deps
  * @returns {(event: {type: string, payload: unknown, id?: string, conversationId?: string}) => void}
  */
-export const createEventHandler =
-    ({
-        store,
-        toasts,
-        notifier,
-        typingTracker,
-        onSession = () => {},
-        onRoomJoined = () => {},
-        onRoomLeft = () => {},
-        onRoomRefused = () => {},
-        onLoginRejected = () => {},
-        onCommandResult = () => {},
-    }) =>
-    (event) => {
+export const createEventHandler = ({
+    store,
+    toasts,
+    notifier,
+    typingTracker,
+    onSession = () => {},
+    onRoomJoined = () => {},
+    onRoomLeft = () => {},
+    onRoomRefused = () => {},
+    onLoginRejected = () => {},
+    onCommandResult = () => {},
+}) => {
+    /** Quando a identidade desta sessão nasceu (ms), vindo de `session.since`. */
+    let since = 0;
+    return (event) => {
         const state = store.getState();
         const meId = state.me?.id ?? null;
+        const me = { username: state.me?.username ?? null, since };
         const payload = /** @type {any} */ (event.payload);
 
         // Eventos de uma conversa trazem `conversationId` no envelope. A
@@ -157,18 +171,18 @@ export const createEventHandler =
             case SERVER_EVENTS.SESSION: {
                 // Identidade atribuída pelo servidor (P01). Chega antes do
                 // histórico, então as próprias mensagens já são reconhecidas.
-                if (typeof payload?.id !== "string" || payload.id === "") break;
+                // O servidor não envia id interno: a pessoa é o @ dela.
+                if (typeof payload?.username !== "string" || payload.username === "") break;
+                since = Date.parse(String(payload.since ?? ""));
+                if (Number.isNaN(since)) since = 0;
                 store.actions.setIdentity(
                     {
-                        id: payload.id,
+                        id: payload.username,
                         name:
                             typeof payload.name === "string"
                                 ? payload.name
                                 : (state.me?.name ?? ""),
-                        username:
-                            typeof payload.username === "string" && payload.username
-                                ? payload.username
-                                : (state.me?.username ?? ""),
+                        username: payload.username,
                     },
                     payload.role === "admin" ? "admin" : "member",
                 );
@@ -221,7 +235,7 @@ export const createEventHandler =
             }
 
             case SERVER_EVENTS.CHAT_MESSAGE: {
-                const message = toMessage({ id: event.id, payload }, meId);
+                const message = toMessage({ id: event.id, payload }, me);
                 if (!message) break;
                 // Quem envia para de "digitar" no instante em que a mensagem
                 // chega, mesmo que o sinal de parada se perca no caminho.
@@ -236,7 +250,7 @@ export const createEventHandler =
             case SERVER_EVENTS.MESSAGE_HISTORY: {
                 const list = Array.isArray(payload) ? payload : [];
                 const messages = list
-                    .map((entry) => toMessage(entry, meId))
+                    .map((entry) => toMessage(entry, me))
                     .filter(
                         /** @returns {item is Message} */
                         (item) => item !== null,
@@ -249,7 +263,7 @@ export const createEventHandler =
                 const list = Array.isArray(payload) ? payload : [];
                 store.actions.setPeople(
                     list.map((person) => ({
-                        id: String(person?.id ?? ""),
+                        id: typeof person?.username === "string" ? person.username : "",
                         name: String(person?.name ?? ""),
                         username: typeof person?.username === "string" ? person.username : "",
                         status: person?.status === "away" ? "away" : "online",
@@ -268,7 +282,7 @@ export const createEventHandler =
             }
 
             case SERVER_EVENTS.USER_TYPING: {
-                const id = String(payload?.userId ?? "");
+                const id = String(payload?.username ?? "");
                 if (id && id !== meId) {
                     typingTracker.set(
                         id,
@@ -292,7 +306,9 @@ export const createEventHandler =
 
             case SERVER_EVENTS.USER_LEFT: {
                 // Quem saiu deixa de "digitar" na hora.
-                if (typeof payload?.userId === "string") typingTracker.remove?.(payload.userId);
+                if (typeof payload?.username === "string") {
+                    typingTracker.remove?.(payload.username);
+                }
                 // Remoção por administrador já gera um `notice` próprio.
                 if (payload?.reason === "removed") break;
                 store.actions.addMessage(
@@ -420,3 +436,4 @@ export const createEventHandler =
             }
         }
     };
+};

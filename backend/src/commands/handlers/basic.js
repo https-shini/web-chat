@@ -1,6 +1,6 @@
 /** Comandos básicos: ajuda, salas, conexão e informações do servidor. */
 
-import { isMuted } from "../../room/policy.js";
+import { isAdmin, isMuted } from "../../room/policy.js";
 
 /** Regras da sala exibidas por /rules — fonte única. */
 export const ROOM_RULES = [
@@ -45,13 +45,14 @@ export const basicCommands = [
         name: "users",
         aliases: ["online", "who"],
         category: "basic",
-        description: "Lista quem está na sala agora, com o @username e o id curto de cada pessoa.",
+        description: "Lista quem está na sala agora, com o @username de cada pessoa.",
         syntax: "/users",
         examples: ["/users"],
         requiresRoom: true,
         run: (ctx) => {
             const time = ctx.now();
             const people = ctx.room.listMembers();
+            const seesIds = isAdmin(ctx.identity);
             const lines = people.map(({ identity, membership }) => {
                 const tags = [
                     identity.id === ctx.identity.id ? "você" : null,
@@ -60,7 +61,9 @@ export const basicCommands = [
                     identity.away !== null ? `ausente: ${identity.away}` : null,
                     isMuted(membership, time) ? "silenciado" : null,
                 ].filter(Boolean);
-                return `${identity.name} (@${identity.username}) · ${identity.id.slice(0, 8)}${tags.length ? ` · ${tags.join(" · ")}` : ""}`;
+                // O id interno só aparece para administradores.
+                const id = seesIds ? ` · id ${identity.id.slice(0, 8)}` : "";
+                return `${identity.name} (@${identity.username})${id}${tags.length ? ` · ${tags.join(" · ")}` : ""}`;
             });
             return ctx.reply.result(
                 people.length === 1 ? "1 pessoa na sala" : `${people.length} pessoas na sala`,

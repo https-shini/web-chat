@@ -15,7 +15,8 @@ describe("sessão", () => {
         assert.equal(result.ok, true);
         assert.notEqual(result.user.id, "escolhido");
         const [session] = received(ana, "session");
-        assert.equal(session.payload.id, result.user.id);
+        assert.equal(session.payload.username.length > 0, true);
+        assert.ok(!JSON.stringify(session).includes(result.user.id), "o id interno não é enviado");
         assert.equal(typeof session.payload.resumeToken, "string");
     });
 
@@ -154,10 +155,12 @@ describe("mensagens", () => {
     test("autor vem da sessão, não do payload", () => {
         const { member, enter, post, received } = setup();
         const ana = member("ana");
-        const { user } = enter(ana, { userName: "Ana" });
-        post(ana, { content: "oi", userId: "outro", userName: "Outro" });
+        const { user } = enter(ana, { userName: "Ana", username: "ana" });
+        post(ana, { content: "oi", userId: "outro", userName: "Outro", username: "outro" });
         const [message] = received(ana, "chat_message");
-        assert.equal(message.payload.userId, user.id);
+        assert.equal(message.payload.username, "ana");
+        assert.equal("userId" in message.payload, false);
+        assert.ok(!JSON.stringify(message).includes(user.id));
         assert.equal(message.payload.userName, "Ana");
         assert.match(message.id, /^msg-/);
     });

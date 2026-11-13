@@ -61,7 +61,7 @@ cliente: ele só lê o nome para saber se o comando é local.
   uma sala não tem poder em outra.
 - Comandos de sala (marcados `requiresRoom` no catálogo — `/users`, `/me`, `/roll`,
   formatação, moderação, `/invite`) recusam com `no_conversation` quando chegam sem
-  uma conversa válida. Comandos gerais (`/ping`, `/nick`, `/afk`, `/rooms`, `/id`…)
+  uma conversa válida. Comandos gerais (`/ping`, `/nick`, `/afk`, `/rooms`…)
   funcionam sem.
 - O papel fica no servidor. Nada vem do cliente: `role`,
   `isAdmin` ou `userId` em qualquer payload são ignorados (há teste para isso).
@@ -80,6 +80,17 @@ cliente: ele só lê o nome para saber se o comando é local.
 - Os papéis duram enquanto a identidade existir (inclusive em reconexões com o
   token); somem quando o servidor reinicia.
 
+### Id interno
+
+Cada identidade tem um id gerado pelo servidor. Ele **não aparece para as
+pessoas**: não vai em nenhum evento do protocolo, não aparece na lista, no cartão
+nem em `/users` e `/profile` de quem não é administrador, e não pode ser usado
+para indicar ninguém. Quem conversa se identifica pelo `@`.
+
+Só **administradores** (chave `ADMIN_KEY`) veem o id interno — em `/users`,
+`/profile` e `/id` — e podem usá-lo como alvo de moderação. Anfitriões moderam
+pelo `@`.
+
 ## 4. Comandos disponíveis (30)
 
 ### Básicos
@@ -89,7 +100,7 @@ cliente: ele só lê o nome para saber se o comando é local.
 | `/help`    | `/ajuda`, `/comandos` | `/help [comando]` | Lista os comandos por categoria ou explica um (uso, aliases, exemplos, permissão)                                                | navegador |
 | `/clear`   | `/limpar`             | `/clear`          | Limpa a conversa **só na sua tela**. Não apaga nada no servidor nem afeta ninguém; o histórico não traz essas mensagens de volta | navegador |
 | `/time`    | `/hora`, `/date`      | `/time`           | Data e hora deste dispositivo                                                                                                    | navegador |
-| `/users`   | `/online`, `/who`     | `/users`          | Quem está na sala, com @username, id curto, papel, ausência e silêncio                                                           | servidor  |
+| `/users`   | `/online`, `/who`     | `/users`          | Quem está na sala, com @username, papel, ausência e silêncio. Administradores veem também o id interno curto                     | servidor  |
 | `/ping`    | —                     | `/ping`           | Tempo de **ida e volta** da sua mensagem até o servidor (inclui o processamento)                                                 | servidor  |
 | `/about`   | `/sobre`              | `/about`          | O que é o chat                                                                                                                   | servidor  |
 | `/version` | `/versao`             | `/version`        | Versão do servidor e tempo no ar                                                                                                 | servidor  |
@@ -104,13 +115,13 @@ cliente: ele só lê o nome para saber se o comando é local.
 
 ### Perfil
 
-| Comando    | Aliases             | Sintaxe                 | O que faz                                                                                                     |
-| ---------- | ------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `/nick`    | `/nome`             | `/nick <novo nome>`     | Troca o nome de exibição (no máximo 1 troca a cada 10 s). O id não muda. Todas as suas salas são avisadas     |
-| `/profile` | `/whois`, `/perfil` | `/profile [nome ou id]` | Perfil público de alguém **da sala**: @username, id, papel na sala, status, desde quando está nela, mensagens |
-| `/id`      | —                   | `/id`                   | Seu id completo (atribuído pelo servidor)                                                                     |
-| `/me`      | —                   | `/me <ação>`            | Publica uma ação em terceira pessoa: “Ana está estudando”                                                     |
-| `/afk`     | `/away`, `/ausente` | `/afk [motivo]`         | Marca ausência em todas as suas salas. Repetir `/afk` ou enviar uma mensagem (em qualquer sala) volta         |
+| Comando    | Aliases             | Sintaxe                | O que faz                                                                                                 |
+| ---------- | ------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------- |
+| `/nick`    | `/nome`             | `/nick <novo nome>`    | Troca o nome de exibição (no máximo 1 troca a cada 10 s). O id não muda. Todas as suas salas são avisadas |
+| `/profile` | `/whois`, `/perfil` | `/profile [@ ou nome]` | Perfil público de alguém **da sala**: @username, papel na sala, status, desde quando está nela, mensagens |
+| `/id`      | —                   | `/id`                  | **Só administradores.** Mostra o seu id interno                                                           |
+| `/me`      | —                   | `/me <ação>`           | Publica uma ação em terceira pessoa: “Ana está estudando”                                                 |
+| `/afk`     | `/away`, `/ausente` | `/afk [motivo]`        | Marca ausência em todas as suas salas. Repetir `/afk` ou enviar uma mensagem (em qualquer sala) volta     |
 
 ### Interação
 
@@ -136,17 +147,18 @@ com elementos (`<strong>`, `<em>`, `<code>`, botão) — nunca com HTML vindo da
 
 ### Moderação
 
-| Comando     | Permissão | Sintaxe                        | O que faz                                                                                                                     |
-| ----------- | --------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| `/admin`    | todos     | `/admin <chave>`               | Torna você administrador global, se a chave estiver certa                                                                     |
-| `/clearall` | moderator | `/clearall confirmar`          | Apaga o histórico **desta sala** para todos. Sem `confirmar`, só explica o efeito                                             |
-| `/announce` | moderator | `/announce <texto>`            | Aviso destacado para a sala                                                                                                   |
-| `/mute`     | moderator | `/mute <nome ou id> [minutos]` | Impede alguém de publicar **nesta sala**, por 1–1440 min ou até `/unmute`                                                     |
-| `/unmute`   | moderator | `/unmute <nome ou id>`         | Libera                                                                                                                        |
-| `/kick`     | moderator | `/kick <nome ou id>`           | Remove alguém **desta sala** agora. A pessoa continua conectada e nas outras salas, mas não volta a esta enquanto ela existir |
+| Comando     | Permissão | Sintaxe                       | O que faz                                                                                                                     |
+| ----------- | --------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `/admin`    | todos     | `/admin <chave>`              | Torna você administrador global, se a chave estiver certa                                                                     |
+| `/clearall` | moderator | `/clearall confirmar`         | Apaga o histórico **desta sala** para todos. Sem `confirmar`, só explica o efeito                                             |
+| `/announce` | moderator | `/announce <texto>`           | Aviso destacado para a sala                                                                                                   |
+| `/mute`     | moderator | `/mute <@ ou nome> [minutos]` | Impede alguém de publicar **nesta sala**, por 1–1440 min ou até `/unmute`                                                     |
+| `/unmute`   | moderator | `/unmute <@ ou nome>`         | Libera                                                                                                                        |
+| `/kick`     | moderator | `/kick <@ ou nome>`           | Remove alguém **desta sala** agora. A pessoa continua conectada e nas outras salas, mas não volta a esta enquanto ela existir |
 
 **Alvos:** `@username` (exato e único — o jeito recomendado), nome (sem diferenciar
-maiúsculas) ou id/prefixo de id com 6+ caracteres (veja `/users`). Nome com espaço
+maiúsculas). Só administradores podem indicar alguém também pelo id interno
+(prefixo com 6+ caracteres, como aparece para eles em `/users`). Nome com espaço
 vai entre aspas: `/mute "João Silva" 5`. Nomes repetidos pedem o `@username`.
 
 **`/clearall` — o que acontece de fato:**

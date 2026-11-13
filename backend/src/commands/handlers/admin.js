@@ -100,14 +100,14 @@ export const adminCommands = [
         requiresRoom: true,
         description:
             "Impede alguém de enviar mensagens nesta sala, por um tempo (minutos) ou até /unmute.",
-        syntax: "/mute <nome ou id> [minutos]",
+        syntax: "/mute <@ ou nome> [minutos]",
         examples: ["/mute @ana 10", "/mute Ana", '/mute "João Silva" 5'],
         params: [
-            { name: "nome ou id", type: "word" },
+            { name: "@ ou nome", type: "word" },
             { name: "minutos", type: "int", optional: true, min: 1, max: 1440 },
         ],
         run: (ctx) => {
-            const found = findModerationTarget(ctx, ctx.args["nome ou id"]);
+            const found = findModerationTarget(ctx, ctx.args["@ ou nome"]);
             if (!found.ok) return found.response;
             const minutes = ctx.args.minutos;
             ctx.room.setMuted(
@@ -125,11 +125,11 @@ export const adminCommands = [
         permission: PERMISSIONS.MODERATOR,
         requiresRoom: true,
         description: "Libera alguém silenciado nesta sala.",
-        syntax: "/unmute <nome ou id>",
+        syntax: "/unmute <@ ou nome>",
         examples: ["/unmute @ana", "/unmute Ana"],
-        params: [{ name: "nome ou id", type: "word" }],
+        params: [{ name: "@ ou nome", type: "word" }],
         run: (ctx) => {
-            const found = findModerationTarget(ctx, ctx.args["nome ou id"]);
+            const found = findModerationTarget(ctx, ctx.args["@ ou nome"]);
             if (!found.ok) return found.response;
             const { identity, membership } = found.target;
             if (membership.mutedUntil === null || membership.mutedUntil <= ctx.now()) {
@@ -147,11 +147,11 @@ export const adminCommands = [
         requiresRoom: true,
         description:
             "Remove alguém desta sala agora. A pessoa continua nas outras salas, mas não volta a esta.",
-        syntax: "/kick <nome ou id>",
+        syntax: "/kick <@ ou nome>",
         examples: ["/kick @ana", "/kick Ana", '/kick "João Silva"'],
-        params: [{ name: "nome ou id", type: "word" }],
+        params: [{ name: "@ ou nome", type: "word" }],
         run: (ctx) => {
-            const found = findModerationTarget(ctx, ctx.args["nome ou id"]);
+            const found = findModerationTarget(ctx, ctx.args["@ ou nome"]);
             if (!found.ok) return found.response;
             ctx.room.kick(ctx.identity, found.target.identity);
             return null;

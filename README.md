@@ -56,6 +56,7 @@ Cada item corresponde a código neste repositório.
 | Funcionalidade                                                                                                                                                                                                                                                                                                                            | Onde                                                                                   |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | **Salas criadas pelas pessoas**: quem cria vira anfitrião e recebe um código de convite `abc-defg-hij` (link `…/#/s/código`); quem tem o código entra. Sem sala pública. Uma identidade participa de até 10 salas ao mesmo tempo; cada sala tem participantes, histórico e moderação próprios e acaba (com o histórico) quando fica vazia | `backend/src/room/hub.js`, `backend/src/room/directory.js`, `backend/src/room/room.js` |
+| **Conversas privadas no servidor**: entre duas identidades, abertas pelo `@` exato; cada pessoa é vista só pelo `@` (o id interno fica no servidor e só administradores o veem); só as duas leem e escrevem; bloqueio até o fim da sessão; acabam, com o histórico, quando uma das duas encerra, bloqueia ou sai                          | `backend/src/room/direct.js`, `backend/src/room/hub.js`                                |
 | Entrada com nome completo (até 60 caracteres) e nome de usuário único (`@username`), sem conta nem senha; botão Sair libera a identidade na hora                                                                                                                                                                                          | `frontend/src/ui/entry.js`                                                             |
 | Mensagens em tempo real para quem está na sala (até 1000 caracteres), nunca entregues fora dela                                                                                                                                                                                                                                           | `backend/src/server.js`, `frontend/src/state/events.js`                                |
 | Últimas 50 mensagens da sala enviadas a quem entra nela                                                                                                                                                                                                                                                                                   | `backend/src/server.js`                                                                |
@@ -72,7 +73,7 @@ Cada item corresponde a código neste repositório.
 | Confirmação de entrega: sua mensagem aparece como "enviando…" até o servidor confirmar; recusada ou sem confirmação, fica "não enviada" com o botão Tentar de novo (sem duplicar)                                                                                                                                                         | `frontend/src/main.js`, `frontend/src/state/store.js`, `backend/src/room/room.js`      |
 | Proteções no servidor: payload máx. 16 KiB, limites de taxa separados para mensagens e digitação, teto de 500 conexões, allowlist de origem, validação de cada quadro recebido, heartbeat e desligamento gracioso                                                                                                                         | `backend/src/server.js`                                                                |
 | **Comandos no chat** (30): digite `/` para ver sugestões; `/help`, `/nick`, `/me`, `/roll`, `/flip`, `/afk`, `/users`, `/profile`, formatação (`/bold`, `/spoiler`…) e mais — ver [`docs/CHAT_COMMANDS.md`](./docs/CHAT_COMMANDS.md)                                                                                                      | `backend/src/commands/`, `frontend/src/commands/`                                      |
-| Pessoas agrupadas (administradores, online, ausentes) com cartão de cada uma: ver perfil, copiar id e, para admins, silenciar, liberar e remover (com confirmação) — tudo por comandos verificados no servidor                                                                                                                            | `frontend/src/ui/people.js`, `frontend/src/ui/memberCard.js`                           |
+| Pessoas agrupadas (administradores, online, ausentes) com cartão de cada uma: ver perfil, copiar o @ e, para quem modera a sala, silenciar, liberar e remover (com confirmação) — tudo por comandos verificados no servidor                                                                                                               | `frontend/src/ui/people.js`, `frontend/src/ui/memberCard.js`                           |
 | Moderação por sala: o anfitrião (ou um administrador, pela chave `ADMIN_KEY`) usa `/clearall`, `/announce`, `/mute`, `/unmute`, `/kick` só naquela sala, com permissões verificadas no servidor                                                                                                                                           | `backend/src/commands/handlers/admin.js`, `backend/src/room/policy.js`                 |
 | Reconexão sem avisos repetidos: queda e volta em até 10 s não geram "saiu"/"entrou" para os outros                                                                                                                                                                                                                                        | `backend/src/room/room.js`                                                             |
 | Content-Security-Policy no HTML                                                                                                                                                                                                                                                                                                           | `frontend/index.html`                                                                  |
@@ -82,8 +83,9 @@ Cada item corresponde a código neste repositório.
 O servidor mantém em memória, **por sala**, as últimas **200 mensagens** e envia as
 **50 mais recentes** para quem entra. Uma sala sem ninguém é destruída, com o
 histórico, depois de 60 s; uma identidade que cai e não volta em 2 min sai de
-todas as salas. Nada é gravado em disco ou banco: **reiniciar o servidor apaga
-tudo**.
+todas as salas. Cada conversa privada guarda as últimas **100 mensagens** e é
+destruída quando uma das duas pessoas a encerra, bloqueia a outra ou deixa de
+existir. Nada é gravado em disco ou banco: **reiniciar o servidor apaga tudo**.
 
 ## O que não existe
 
@@ -92,7 +94,7 @@ Nenhum destes itens está implementado.
 | Recurso                                  | Situação                                                                                                                                       |
 | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | Banimento e avisos de moderação          | Não implementado: o chat é anônimo; `/kick` e `/mute` valem para a identidade atual naquela sala (quem abre outra aba entra como pessoa nova). |
-| Mensagens privadas                       | Planejado (Fase 3 da evolução).                                                                                                                |
+| Interface das mensagens privadas         | Planejado (Fases 4 e 5). O servidor já tem conversas privadas, busca por `@` e bloqueio; a interface atual ainda não as mostra.                |
 | Navegar entre várias salas na interface  | Planejado (Fases 4 e 5). O servidor já aceita várias salas por pessoa; a interface atual mostra uma por vez.                                   |
 | Excluir, editar ou responder mensagens   | Não implementado (só a limpeza da sala inteira por administrador).                                                                             |
 | Fixar mensagens                          | Não implementado. `localStorage` guarda apenas o tema.                                                                                         |
@@ -117,20 +119,49 @@ Versões exatas e estado das dependências em
 
 ## Arquitetura
 
-Cliente-servidor sobre WebSocket, com mensagens JSON `{ type, payload }`.
+Cliente-servidor sobre WebSocket, com mensagens JSON `{ type, payload }`. Eventos de
+uma conversa levam também `conversationId`.
 
 ```
-Navegador                                         Servidor (Node.js)
-┌─────────────────────────────────────┐           ┌──────────────────────────────┐
-│ main.js (raiz de composição)        │           │ backend/src/server.js        │
-│  ├─ transport/  conexão, backoff,   │  WebSocket│  HTTP 200 "ok" + WebSocket   │
-│  │              fila — sem DOM      │◄─────────►│  estado em memória:          │
-│  ├─ state/      estado observável — │   JSON    │   pessoas conectadas         │
-│  │              sem transporte      │           │   histórico (1000)           │
-│  └─ ui/         DOM puro, sem       │           │  rate limit, teto, Origin    │
-│                 innerHTML           │           └──────────────────────────────┘
-└─────────────────────────────────────┘
+Navegador                                      Servidor (Node.js, tudo em memória)
+┌──────────────────────────────────┐           ┌───────────────────────────────────────────┐
+│ main.js (raiz de composição)     │           │ transport/  HTTP, WebSocket, limites, Origin│
+│  ├─ transport/  conexão, backoff,│ WebSocket │ room/hub.js       sessões e conversas       │
+│  │              fila — sem DOM   │◄─────────►│ room/sessions.js  identidades, @, token     │
+│  ├─ state/      estado observável│   JSON    │ room/directory.js salas, códigos, limites   │
+│  │              — sem transporte │           │ room/room.js      regras de uma sala        │
+│  └─ ui/         DOM puro, sem    │           │ room/direct.js    conversas privadas        │
+│                 innerHTML        │           │ room/transcript.js histórico comum          │
+└──────────────────────────────────┘           │ commands/         comandos e permissões     │
+                                               └───────────────────────────────────────────┘
 ```
+
+### Identidade: o `@` é público, o id interno não
+
+- Cada pessoa entra com um nome e um `@username`, único entre quem está conectado.
+  É pelo `@` que as pessoas se veem, se procuram, abrem conversa privada, bloqueiam
+  e moderam.
+- O servidor dá a cada identidade um **id interno**, usado só nele: índices de
+  conversas e bloqueios, e logs. Esse id não vai em nenhum evento, não é aceito em
+  nenhum pedido e não aparece na interface.
+- Só **administradores** (chave `ADMIN_KEY`) veem o id interno, pelos comandos
+  `/users`, `/profile` e `/id`.
+- Quando alguém sai, o `@` fica livre. Quem o pega depois é outra identidade: não
+  recupera conversas privadas, não herda bloqueios e não vê como "suas" as
+  mensagens antigas (a sessão informa quando a identidade nasceu). No histórico de
+  uma sala, porém, os outros participantes veem o mesmo `@` nas mensagens das duas
+  pessoas; a distinção de quem já saiu está planejada para a Fase 4
+  ([plano](./docs/EVOLUCAO_FASE_4_PLANO.md)).
+
+### Quem pode o quê
+
+| Papel         | Como se obtém                  | Pode                                                                                        |
+| ------------- | ------------------------------ | ------------------------------------------------------------------------------------------- |
+| Participante  | Entrando com nome e `@`        | Criar e entrar em salas, conversar, conversa privada, bloquear                              |
+| Anfitrião     | Criando a sala (ou herdando)   | Moderar **a própria sala**, pelo `@`: `/mute`, `/unmute`, `/kick`, `/clearall`, `/announce` |
+| Administrador | `/admin <chave>` (`ADMIN_KEY`) | Moderar qualquer sala em que esteja e ver ids internos                                      |
+
+Toda permissão é conferida no servidor, a cada operação.
 
 Duas fronteiras do frontend são verificáveis por comando (ambos devem retornar vazio):
 
@@ -175,7 +206,8 @@ web-chat/
 │   │   ├── protocol.js         contrato do protocolo (fonte no servidor)
 │   │   ├── validation.js       normalização de nome, mensagem e token
 │   │   ├── rateLimiter.js      balde de fichas
-│   │   ├── room/               regras da sala e identidades (sem rede)
+│   │   ├── room/               sessões, salas, conversas privadas e permissões (sem rede)
+│   │   ├── commands/           comandos do chat: registro, executor e handlers
 │   │   └── transport/          HTTP, WebSocket, ciclo da conexão, heartbeat
 │   └── test/
 │       ├── unit/               módulos isolados e contrato cliente ↔ servidor
@@ -229,7 +261,7 @@ cp .env.example .env
 | Variável          | Usada por                    | Para quê                                                                                                                 | Padrão                          |
 | ----------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
 | `VITE_SOCKET_URL` | Frontend (embutida no build) | Endereço do servidor WebSocket; precisa ser `ws://` ou `wss://`                                                          | `ws(s)://<host da página>:8080` |
-| `ALLOWED_ORIGINS` | Backend                      | Origens autorizadas a conectar, separadas por vírgula. **Configure em produção.**                                        | vazio = qualquer origem         |
+| `ALLOWED_ORIGINS` | Backend                      | Origens autorizadas a conectar, separadas por vírgula. **Obrigatória em produção.**                                      | vazio = qualquer origem (dev)   |
 | `PORT`            | Backend                      | Porta HTTP/WebSocket                                                                                                     | `8080`                          |
 | `HEARTBEAT_MS`    | Backend                      | Intervalo do ping que detecta conexões mortas (mínimo 50)                                                                | `30000`                         |
 | `ADMIN_KEY`       | Backend                      | Chave secreta para `/admin` (16–200 caracteres, sem espaços). Vazia: administração desativada. Nunca use prefixo `VITE_` | vazio                           |
@@ -242,7 +274,8 @@ no [`.env.example`](./.env.example): `MAX_CONNECTIONS`, `MAX_PAYLOAD_BYTES`,
 `RATE_SIGNALS_PER_SEC`, `HISTORY_SIZE`, `HISTORY_ON_JOIN`, `HEARTBEAT_MAX_MISSED`,
 `MAX_BUFFERED_BYTES`, `LOGIN_TIMEOUT_MS`, `METRICS_ENABLED`, `METRICS_LOG_INTERVAL_MS`
 e os limites de salas: `MAX_ROOMS`, `MAX_ROOMS_PER_USER`, `MAX_ROOMS_CREATED_PER_USER`
-e `ROOM_EMPTY_TTL_MS`.
+`ROOM_EMPTY_TTL_MS` e os das conversas privadas: `MAX_DMS_PER_USER`, `MAX_DMS` e
+`DM_HISTORY_SIZE`.
 
 Comportamento previsível quando algo está errado:
 
@@ -250,8 +283,10 @@ Comportamento previsível quando algo está errado:
   a explicação, em vez de gerar um bundle que nunca conecta.
 - `ALLOWED_ORIGINS` ou `PORT` inválidas impedem o servidor de subir, com uma linha
   de log `config_invalid` dizendo qual variável corrigir.
-- Sem `ALLOWED_ORIGINS`, o servidor sobe e registra `allowed_origins_disabled`
-  (como aviso quando `NODE_ENV=production`).
+- Em produção (`NODE_ENV=production`), `ALLOWED_ORIGINS` é **obrigatória**: sem
+  ela o servidor não sobe (`config_invalid`). Fora de produção, vazia aceita
+  qualquer origem e registra `allowed_origins_disabled`. Curinga (`*`) é recusado
+  sempre.
 - Só variáveis com prefixo `VITE_` chegam ao navegador; as do backend no mesmo
   arquivo nunca são expostas.
 
@@ -264,11 +299,12 @@ Nunca versione arquivos `.env` (o `.gitignore` já os exclui).
 
 ### Administração
 
-Para moderar a sala, defina `ADMIN_KEY` no `.env` da raiz e entregue a chave a quem
-vai moderar. No chat, a pessoa digita `/admin <chave>` e passa a poder usar
-`/clearall`, `/announce`, `/mute`, `/unmute` e `/kick`. A chave nunca aparece em log
-nem na tela; tentativas erradas são bloqueadas após 5 erros. Sem `ADMIN_KEY`, a
-administração fica desativada.
+Quem cria uma sala é o anfitrião dela e já pode moderá-la. Para ter um administrador
+global, defina `ADMIN_KEY` no `.env` da raiz e entregue a chave a quem vai
+administrar. No chat, a pessoa digita `/admin <chave>` e passa a moderar qualquer
+sala em que esteja e a ver os ids internos em `/users`, `/profile` e `/id`. A chave
+nunca aparece em log nem na tela; tentativas erradas são bloqueadas após 5 erros. Sem
+`ADMIN_KEY`, não há administrador.
 
 ## Executando localmente
 
@@ -455,23 +491,27 @@ prevista no roadmap (F5-06).
 
 ## Documentação complementar
 
-| Documento                                                                                  | Conteúdo                                                           |
-| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
-| [`docs/ANALISE_E_PLANO_DE_MELHORIAS.md`](./docs/ANALISE_E_PLANO_DE_MELHORIAS.md)           | Diagnóstico técnico, problemas, melhorias e riscos                 |
-| [`docs/ROADMAP_DE_IMPLEMENTACAO.md`](./docs/ROADMAP_DE_IMPLEMENTACAO.md)                   | 49 tarefas em 8 fases, estratégia e plano de testes                |
-| [`docs/INVENTARIO_TECNICO.md`](./docs/INVENTARIO_TECNICO.md)                               | Tecnologias, dependências, módulos, variáveis e scripts            |
-| [`docs/PROTOCOLO.md`](./docs/PROTOCOLO.md)                                                 | Contrato do WebSocket: eventos, erros, identidade, limites         |
-| [`docs/DEPLOY_RENDER.md`](./docs/DEPLOY_RENDER.md)                                         | Deploy no Render: Blueprint, variáveis, origens, cabeçalhos        |
-| [`docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md) | Correções da Fase 1: decisões, testes e compatibilidade            |
-| [`docs/FASE_2_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_2_RELATORIO_DE_IMPLEMENTACAO.md) | Fase 2: arquitetura modular do backend, testes e CI                |
-| [`docs/FASE_3_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_3_RELATORIO_DE_IMPLEMENTACAO.md) | Fase 3: heartbeat, conexões, métricas, carga e otimizações medidas |
-| [`docs/CHAT_COMMANDS.md`](./docs/CHAT_COMMANDS.md)                                         | Comandos do chat: lista, permissões, respostas, como criar         |
-| [`docs/FASE_4_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_4_RELATORIO_DE_IMPLEMENTACAO.md) | Fase 4: evolução funcional, comandos e administração               |
-| [`docs/FASE_5_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_5_RELATORIO_DE_IMPLEMENTACAO.md) | Fase 5: redesign de UI/UX, componentes, testes e acessibilidade    |
-| [`docs/design-system.md`](./docs/design-system.md)                                         | Design system v2: tokens, componentes, layout, contraste medido    |
-| [`docs/refactor-report.md`](./docs/refactor-report.md)                                     | Antes → depois da refatoração do frontend                          |
-| [`docs/security-report.md`](./docs/security-report.md)                                     | Auditoria de segurança e riscos residuais                          |
-| [`CONTRIBUTING.md`](./CONTRIBUTING.md)                                                     | Como contribuir                                                    |
+| Documento                                                                                    | Conteúdo                                                            |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| [`docs/ANALISE_E_PLANO_DE_MELHORIAS.md`](./docs/ANALISE_E_PLANO_DE_MELHORIAS.md)             | Diagnóstico técnico, problemas, melhorias e riscos                  |
+| [`docs/ROADMAP_DE_IMPLEMENTACAO.md`](./docs/ROADMAP_DE_IMPLEMENTACAO.md)                     | 49 tarefas em 8 fases, estratégia e plano de testes                 |
+| [`docs/INVENTARIO_TECNICO.md`](./docs/INVENTARIO_TECNICO.md)                                 | Tecnologias, dependências, módulos, variáveis e scripts             |
+| [`docs/PROTOCOLO.md`](./docs/PROTOCOLO.md)                                                   | Contrato do WebSocket: eventos, erros, identidade, limites          |
+| [`docs/DEPLOY_RENDER.md`](./docs/DEPLOY_RENDER.md)                                           | Deploy no Render: Blueprint, variáveis, origens, cabeçalhos         |
+| [`docs/PRODUCAO.md`](./docs/PRODUCAO.md)                                                     | Produção: pendências, checklist, publicação e rollback              |
+| [`docs/EVOLUCAO_FASE_2_SALAS.md`](./docs/EVOLUCAO_FASE_2_SALAS.md)                           | Evolução, Fase 2: várias salas e códigos de convite                 |
+| [`docs/EVOLUCAO_FASE_3_CONVERSAS_PRIVADAS.md`](./docs/EVOLUCAO_FASE_3_CONVERSAS_PRIVADAS.md) | Evolução, Fase 3: conversas privadas e id interno fora do protocolo |
+| [`docs/EVOLUCAO_FASE_4_PLANO.md`](./docs/EVOLUCAO_FASE_4_PLANO.md)                           | Evolução, Fase 4 (plano): frontend com várias conversas             |
+| [`docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_1_RELATORIO_DE_IMPLEMENTACAO.md)   | Correções da Fase 1: decisões, testes e compatibilidade             |
+| [`docs/FASE_2_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_2_RELATORIO_DE_IMPLEMENTACAO.md)   | Fase 2: arquitetura modular do backend, testes e CI                 |
+| [`docs/FASE_3_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_3_RELATORIO_DE_IMPLEMENTACAO.md)   | Fase 3: heartbeat, conexões, métricas, carga e otimizações medidas  |
+| [`docs/CHAT_COMMANDS.md`](./docs/CHAT_COMMANDS.md)                                           | Comandos do chat: lista, permissões, respostas, como criar          |
+| [`docs/FASE_4_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_4_RELATORIO_DE_IMPLEMENTACAO.md)   | Fase 4: evolução funcional, comandos e administração                |
+| [`docs/FASE_5_RELATORIO_DE_IMPLEMENTACAO.md`](./docs/FASE_5_RELATORIO_DE_IMPLEMENTACAO.md)   | Fase 5: redesign de UI/UX, componentes, testes e acessibilidade     |
+| [`docs/design-system.md`](./docs/design-system.md)                                           | Design system v2: tokens, componentes, layout, contraste medido     |
+| [`docs/refactor-report.md`](./docs/refactor-report.md)                                       | Antes → depois da refatoração do frontend                           |
+| [`docs/security-report.md`](./docs/security-report.md)                                       | Auditoria de segurança e riscos residuais                           |
+| [`CONTRIBUTING.md`](./CONTRIBUTING.md)                                                       | Como contribuir                                                     |
 
 ## Roadmap
 
@@ -491,16 +531,22 @@ Resumo — detalhes, dependências e critérios de aceite em
 
 ## Status do projeto
 
-**Em desenvolvimento ativo.** As Fases 1 a 4 do roadmap estão concluídas e a 5 está em curso: correções de
-segurança, fundação modular, performance e monitoramento, e a **Fase 4**, que trouxe
-28 comandos no chat com autocomplete, administração por chave do operador
-(`ADMIN_KEY`), confirmação de entrega com "tentar de novo", presença, troca de nome e
-reconexão sem avisos repetidos. A **Fase 5** refez a interface inteira (layout em
-painéis, design system v2, gavetas em telas estreitas, cartão de pessoa, auditoria
-de acessibilidade automática sem violações); o projeto tem 271 testes automatizados.
-Próximo passo: concluir a Fase 5 (indicador de mensagens novas, contador no composer,
-auditoria manual com leitores de tela). Antes de expor o chat publicamente, configure
-`ALLOWED_ORIGINS` e, se quiser moderação, `ADMIN_KEY`.
+**Em desenvolvimento ativo.** O roadmap original (Fases 1 a 5: segurança, fundação
+modular, performance, comandos e redesign) está entregue. Em cima dele corre a
+**evolução para salas e conversas privadas**:
+
+| Etapa                                                            | Situação                                     |
+| ---------------------------------------------------------------- | -------------------------------------------- |
+| 1 · Barras laterais ajustáveis                                   | Publicada                                    |
+| 2 · Várias salas com código de convite (servidor)                | Publicada                                    |
+| 3 · Conversas privadas e id interno fora do protocolo (servidor) | Pronta, aguardando aprovação                 |
+| 4 · Frontend com várias conversas e não lidas                    | [Planejada](./docs/EVOLUCAO_FASE_4_PLANO.md) |
+| 5 · Interface: tela inicial, salas, convites, conversas privadas | A fazer                                      |
+| 6 · Revisão geral                                                | A fazer                                      |
+
+O projeto tem 463 testes automatizados (336 no servidor e 127 no cliente). Antes de
+expor o chat publicamente, veja as pendências em
+[`docs/PRODUCAO.md`](./docs/PRODUCAO.md): a principal é definir `ALLOWED_ORIGINS`.
 
 ## Contribuindo
 

@@ -40,6 +40,8 @@ test("variedades, formatos, tons e códigos de fechamento coincidem", () => {
     assert.equal(client.LIMITS.roomNameMaxLength, server.LIMITS.roomNameMaxLength);
     assert.deepEqual(client.ROLES, server.ROLES);
     assert.deepEqual(client.ROOM_LEFT_REASONS, server.ROOM_LEFT_REASONS);
+    assert.deepEqual(client.CONVERSATION_KINDS, server.CONVERSATION_KINDS);
+    assert.deepEqual(client.DM_CLOSED_REASONS, server.DM_CLOSED_REASONS);
 });
 
 test("limites de nome, username e mensagem são os mesmos nos dois lados e no HTML", () => {

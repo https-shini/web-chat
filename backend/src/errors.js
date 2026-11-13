@@ -43,6 +43,15 @@ export const ERROR_CODES = Object.freeze({
     ROOM_CREATE_LIMIT: "room_create_limit",
     ROOMS_FULL: "rooms_full",
     ROOM_JOIN_LOCKED: "room_join_locked",
+    // Conversas privadas (Fase 3 da evolução)
+    INVALID_USER: "invalid_user",
+    USER_UNAVAILABLE: "user_unavailable",
+    DM_SELF: "dm_self",
+    DM_LIMIT: "dm_limit",
+    DMS_FULL: "dms_full",
+    LOOKUP_LIMITED: "lookup_limited",
+    DM_OPEN_LIMITED: "dm_open_limited",
+    BLOCK_LIMIT: "block_limit",
 });
 
 const { PROTOCOL, VALIDATION, AUTHORIZATION, RATE_LIMIT, INTERNAL } = ERROR_CATEGORIES;
@@ -119,6 +128,40 @@ const CATALOG = Object.freeze({
     [ERROR_CODES.ROOM_JOIN_LOCKED]: {
         category: RATE_LIMIT,
         message: "Tentativas demais com códigos inválidos. Aguarde um pouco para tentar de novo.",
+    },
+    [ERROR_CODES.INVALID_USER]: {
+        category: VALIDATION,
+        message: "Informe um @ válido.",
+    },
+    // Mesmo texto para "não existe", "não está conectada" e "bloqueou você":
+    // a resposta não revela bloqueio nem confirma que alguém existe.
+    [ERROR_CODES.USER_UNAVAILABLE]: {
+        category: VALIDATION,
+        message: "Ninguém com esse @ está disponível para conversar agora.",
+    },
+    [ERROR_CODES.DM_SELF]: {
+        category: VALIDATION,
+        message: "Você não pode abrir uma conversa privada com você mesmo.",
+    },
+    [ERROR_CODES.DM_LIMIT]: {
+        category: AUTHORIZATION,
+        message: "Você já tem o número máximo de conversas privadas. Encerre uma para abrir outra.",
+    },
+    [ERROR_CODES.DMS_FULL]: {
+        category: RATE_LIMIT,
+        message: "O servidor está no limite de conversas privadas. Tente de novo em instantes.",
+    },
+    [ERROR_CODES.LOOKUP_LIMITED]: {
+        category: RATE_LIMIT,
+        message: "Buscas demais em pouco tempo. Aguarde um pouco para buscar de novo.",
+    },
+    [ERROR_CODES.DM_OPEN_LIMITED]: {
+        category: RATE_LIMIT,
+        message: "Conversas novas demais em pouco tempo. Aguarde um pouco.",
+    },
+    [ERROR_CODES.BLOCK_LIMIT]: {
+        category: AUTHORIZATION,
+        message: "Você já bloqueou o número máximo de pessoas nesta sessão.",
     },
 });
 

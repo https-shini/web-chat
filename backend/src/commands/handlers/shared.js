@@ -6,7 +6,7 @@
  */
 
 import { ERROR_CODES } from "../../errors.js";
-import { canModerate } from "../../room/policy.js";
+import { canModerate, isAdmin } from "../../room/policy.js";
 
 /**
  * Publica na sala em nome de quem executou o comando e traduz recusas.
@@ -32,13 +32,14 @@ export const publishFor = (ctx, message) => {
 };
 
 /**
- * Encontra exatamente uma pessoa na sala por @username, nome ou id (prefixo 6+).
+ * Encontra exatamente uma pessoa na sala por @username ou nome. Só
+ * administradores também podem indicar alguém pelo id interno (prefixo 6+).
  * @param {any} ctx
  * @param {string} query
  * @returns {{ok: true, target: {identity: any, membership: any}} | {ok: false, response: any}}
  */
 export const findTarget = (ctx, query) => {
-    const found = ctx.room.findMembers(query);
+    const found = ctx.room.findMembers(query, { allowIds: isAdmin(ctx.identity) });
     if (found.length === 0) {
         return {
             ok: false,

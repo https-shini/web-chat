@@ -147,14 +147,43 @@ describe("validação da configuração", () => {
         });
     }
 
-    test("sem ALLOWED_ORIGINS o servidor sobe e avisa que aceita qualquer origem", async () => {
-        const server = await startServer({ ALLOWED_ORIGINS: "", NODE_ENV: "production" });
-        const warning = await server.waitForLog(
+    test("em produção, sem ALLOWED_ORIGINS o servidor não sobe", async () => {
+        const server = await startServer(
+            { ALLOWED_ORIGINS: "", NODE_ENV: "production" },
+            { waitListening: false },
+        );
+        assert.equal(await server.exited, 1);
+        const entry = server.entries().find((item) => item.event === "config_invalid");
+        assert.equal(entry?.variable, "ALLOWED_ORIGINS");
+        assert.equal(
+            server.entries().some((item) => item.event === "server_listening"),
+            false,
+            "nunca chegou a escutar",
+        );
+    });
+
+    test("em produção, com a lista: só a origem listada entra; sem Origin, não", async () => {
+        const server = await startServer({
+            ALLOWED_ORIGINS: "https://chat.example",
+            NODE_ENV: "production",
+        });
+        const client = await connect(server.url, { origin: "https://chat.example" });
+        client.close();
+        for (const origin of ["https://qualquer.example", "http://chat.example", undefined]) {
+            await assert.rejects(
+                connect(server.url, origin === undefined ? {} : { origin }),
+                String(origin),
+            );
+        }
+        await server.stop();
+    });
+
+    test("fora de produção, sem ALLOWED_ORIGINS sobe e registra que aceita qualquer origem", async () => {
+        const server = await startServer({ ALLOWED_ORIGINS: "", NODE_ENV: "development" });
+        const notice = await server.waitForLog(
             (entry) => entry.event === "allowed_origins_disabled",
         );
-        assert.equal(warning.level, "warn");
-        const listening = await server.waitForLog((entry) => entry.event === "server_listening");
-        assert.deepEqual(listening.allowedOrigins, []);
+        assert.equal(notice.level, "info");
         const client = await connect(server.url, { origin: "https://qualquer.example" });
         client.close();
         await server.stop();

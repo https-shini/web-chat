@@ -54,6 +54,9 @@ export const DEFAULTS = Object.freeze({
     maxRoomsPerUser: 10,
     maxRoomsCreatedPerUser: 5,
     roomEmptyTtlMs: 60000,
+    maxDmsPerUser: 20,
+    maxDms: 5000,
+    dmHistorySize: 100,
 });
 
 const isBlank = (raw) => raw === undefined || raw === "";
@@ -140,6 +143,9 @@ const readOrigins = (raw) =>
                 url !== null &&
                 (url.protocol === "http:" || url.protocol === "https:") &&
                 url.pathname === "/" &&
+                // Curinga não existe: "https://*.x.com" seria aceito pelo
+                // parser como host literal e nunca casaria — melhor recusar.
+                !url.hostname.includes("*") &&
                 !url.search &&
                 !url.hash &&
                 !url.username &&
@@ -157,7 +163,7 @@ const readOrigins = (raw) =>
 /**
  * @typedef {object} Config
  * @property {number} port
- * @property {string[]} allowedOrigins  vazio = qualquer origem
+ * @property {string[]} allowedOrigins  vazio = qualquer origem (só fora de produção)
  * @property {number} heartbeatMs
  * @property {number} maxConnections
  * @property {number} maxPayloadBytes
@@ -172,6 +178,7 @@ const readOrigins = (raw) =>
  * @property {number} metricsLogIntervalMs  0 desliga o log periódico de métricas
  * @property {number} leaveGraceMs   janela em que uma reconexão não gera avisos de saída/entrada
  * @property {{maxRooms: number, maxRoomsPerIdentity: number, maxCreatedPerIdentity: number, emptyTtlMs: number}} rooms
+ * @property {{maxPerIdentity: number, maxTotal: number, historySize: number}} dms
  * @property {string | null} adminKey chave secreta de administrador (null = administração desativada)
  * @property {boolean} production
  */
@@ -198,9 +205,24 @@ export const loadConfig = (env) => {
         );
     }
 
+    const production = env.NODE_ENV === "production";
+    const allowedOrigins = readOrigins(env.ALLOWED_ORIGINS);
+    // Em produção a lista é obrigatória: sem ela, qualquer site poderia abrir
+    // um WebSocket em nome de quem o visita (CSWSH). Sem a variável o servidor
+    // nem sobe — o Render mantém a versão anterior no ar e o erro aparece no
+    // log, em vez de um backend aberto passar despercebido. Curinga (`*`) não
+    // existe: não é uma origem válida e já é recusado acima.
+    if (production && allowedOrigins.length === 0) {
+        throw new ConfigError(
+            "ALLOWED_ORIGINS",
+            "ALLOWED_ORIGINS é obrigatória em produção (NODE_ENV=production): informe a origem " +
+                "do frontend, ex.: https://chat-frontend-g42t.onrender.com.",
+        );
+    }
+
     return {
         port: readInteger("PORT", env.PORT, { fallback: DEFAULTS.port, min: 0, max: 65535 }),
-        allowedOrigins: readOrigins(env.ALLOWED_ORIGINS),
+        allowedOrigins,
         heartbeatMs: readInteger("HEARTBEAT_MS", env.HEARTBEAT_MS, {
             fallback: DEFAULTS.heartbeatMs,
             min: 50,
@@ -295,7 +317,26 @@ export const loadConfig = (env) => {
                 unit: " ms",
             }),
         },
+        dms: {
+            // Conversas privadas abertas por identidade ao mesmo tempo.
+            maxPerIdentity: readInteger("MAX_DMS_PER_USER", env.MAX_DMS_PER_USER, {
+                fallback: DEFAULTS.maxDmsPerUser,
+                min: 1,
+                max: 1000,
+            }),
+            // Conversas privadas no servidor inteiro: protege a memória.
+            maxTotal: readInteger("MAX_DMS", env.MAX_DMS, {
+                fallback: DEFAULTS.maxDms,
+                min: 1,
+                max: 1000000,
+            }),
+            historySize: readInteger("DM_HISTORY_SIZE", env.DM_HISTORY_SIZE, {
+                fallback: DEFAULTS.dmHistorySize,
+                min: 1,
+                max: 10000,
+            }),
+        },
         adminKey: readAdminKey(env.ADMIN_KEY),
-        production: env.NODE_ENV === "production",
+        production,
     };
 };

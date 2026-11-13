@@ -106,17 +106,23 @@ describe("variedades de mensagem", () => {
         handle({
             type: "chat_message",
             id: "a",
-            payload: { userId: "x", userName: "X", content: "acena", kind: "action" },
+            payload: { username: "x", userName: "X", content: "acena", kind: "action" },
         });
         handle({
             type: "chat_message",
             id: "b",
-            payload: { userId: "x", userName: "X", content: "s", format: "spoiler" },
+            payload: { username: "x", userName: "X", content: "s", format: "spoiler" },
         });
         handle({
             type: "chat_message",
             id: "c",
-            payload: { userId: "x", userName: "X", content: "?", kind: "hack", format: "<script>" },
+            payload: {
+                username: "x",
+                userName: "X",
+                content: "?",
+                kind: "hack",
+                format: "<script>",
+            },
         });
         const [a, b, c] = store.getState().messages;
         assert.equal(a?.variant, "action");
@@ -132,19 +138,19 @@ describe("limpezas", () => {
         handle({
             type: "chat_message",
             id: "m1",
-            payload: { userId: "x", userName: "X", content: "antiga" },
+            payload: { username: "x", userName: "X", content: "antiga" },
         });
         store.actions.clearLocal();
         assert.equal(store.getState().messages.length, 0);
         handle({
             type: "message_history",
-            payload: [{ id: "m1", payload: { userId: "x", userName: "X", content: "antiga" } }],
+            payload: [{ id: "m1", payload: { username: "x", userName: "X", content: "antiga" } }],
         });
         assert.equal(store.getState().messages.length, 0);
         handle({
             type: "chat_message",
             id: "m2",
-            payload: { userId: "x", userName: "X", content: "nova" },
+            payload: { username: "x", userName: "X", content: "nova" },
         });
         assert.equal(store.getState().messages.length, 1);
     });
@@ -154,7 +160,7 @@ describe("limpezas", () => {
         handle({
             type: "chat_message",
             id: "m1",
-            payload: { userId: "x", userName: "X", content: "a" },
+            payload: { username: "x", userName: "X", content: "a" },
         });
         handle({
             type: "chat_cleared",
@@ -173,13 +179,13 @@ describe("limpezas", () => {
             conversationId: "r_sala00000001",
             payload: { code: "abc-defg-hij", name: "Sala", role: "member", historyVersion },
         });
-        handle({ type: "session", payload: { id: "eu", name: "Eu", resumeToken: "t" } });
+        handle({ type: "session", payload: { username: "eu", name: "Eu", resumeToken: "t" } });
         handle(joined(0));
         handle({
             type: "chat_message",
             id: "m1",
             conversationId: "r_sala00000001",
-            payload: { userId: "x", userName: "X", content: "a" },
+            payload: { username: "x", userName: "X", content: "a" },
         });
         handle(joined(0));
         assert.equal(store.getState().messages.length, 1, "mesma versão: conversa mantida");
@@ -218,8 +224,8 @@ describe("comandos e avisos", () => {
 
     test("saída por remoção não gera 'saiu da sala' duplicado (o aviso vem por notice)", () => {
         const { store, handle } = setup();
-        handle({ type: "user_left", payload: { userId: "x", userName: "X", reason: "removed" } });
-        handle({ type: "user_left", payload: { userId: "y", userName: "Y" } });
+        handle({ type: "user_left", payload: { username: "x", userName: "X", reason: "removed" } });
+        handle({ type: "user_left", payload: { username: "y", userName: "Y" } });
         assert.deepEqual(
             store.getState().messages.map((m) => m.content),
             ["Y saiu da sala"],
@@ -230,7 +236,7 @@ describe("comandos e avisos", () => {
         const { store, handle } = setup();
         handle({
             type: "session",
-            payload: { id: "eu", name: "Eu", role: "admin", historyVersion: 0 },
+            payload: { username: "eu", name: "Eu", role: "admin", historyVersion: 0 },
         });
         assert.equal(store.getState().role, "admin");
     });

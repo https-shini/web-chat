@@ -13,6 +13,11 @@
  * O `conversationId` é opaco e não é o código de convite: o código só é
  * entregue a quem está na sala e nunca vai para o log.
  *
+ * Pessoas: quem conversa se identifica pelo `@username` — é ele que vai em
+ * mensagens, listas, digitação e conversas privadas. O id interno de uma
+ * identidade NUNCA sai num evento: fica no servidor (índices, logs) e só
+ * administradores o veem, pelos comandos `/users`, `/profile` e `/id`.
+ *
  * O cliente tem o espelho deste contrato em `frontend/src/protocol.js`; um
  * teste (`test/unit/contract.test.js`) falha se os dois divergirem. Os dois
  * arquivos não são compartilhados por import porque o frontend precisa
@@ -60,8 +65,18 @@ export const CLIENT_EVENTS = Object.freeze({
     ROOM_JOIN: "room_join",
     /** Sair de uma sala (a identidade continua nas outras). */
     ROOM_LEAVE: "room_leave",
-    /** Pedir a lista das salas de que a identidade participa. */
+    /** Pedir a lista das conversas (salas e privadas) da identidade. */
     ROOM_LIST: "room_list",
+    /** Procurar alguém conectado pelo @ exato (nunca lista ninguém). */
+    USER_LOOKUP: "user_lookup",
+    /** Abrir (ou retomar) a conversa privada com alguém. */
+    DM_OPEN: "dm_open",
+    /** Encerrar uma conversa privada: some para os dois, com o histórico. */
+    DM_CLOSE: "dm_close",
+    /** Bloquear alguém até o fim da sessão (só afeta conversas privadas). */
+    USER_BLOCK: "user_block",
+    /** Desfazer um bloqueio. */
+    USER_UNBLOCK: "user_unblock",
 });
 
 /** Eventos que o servidor envia. */
@@ -86,6 +101,16 @@ export const SERVER_EVENTS = Object.freeze({
     ROOM_LIST: "room_list",
     /** O resumo de uma sala mudou (ex.: anfitrião novo). */
     ROOM_UPDATED: "room_updated",
+    /** Resposta a `user_lookup`. */
+    USER_LOOKUP: "user_lookup",
+    /** Você está numa conversa privada: resumo (seguido de histórico). */
+    DM_OPENED: "dm_opened",
+    /** O resumo de uma conversa privada mudou (nome ou presença da outra pessoa). */
+    DM_UPDATED: "dm_updated",
+    /** A conversa privada acabou, com o histórico. */
+    DM_CLOSED: "dm_closed",
+    /** Quem você bloqueou nesta sessão (resposta a bloquear/desbloquear). */
+    BLOCK_LIST: "block_list",
 });
 
 /**
@@ -116,6 +141,17 @@ export const PRESENCE = Object.freeze({ ONLINE: "online", AWAY: "away" });
  * `host` (anfitrião) vale só na sala em que a pessoa o recebeu.
  */
 export const ROLES = Object.freeze({ MEMBER: "member", ADMIN: "admin", HOST: "host" });
+
+/** Tipos de conversa: o prefixo do `conversationId` diz qual é. */
+export const CONVERSATION_KINDS = Object.freeze({ ROOM: "room", DM: "dm" });
+
+/** Por que uma conversa privada acabou (`dm_closed`). */
+export const DM_CLOSED_REASONS = Object.freeze({
+    /** Uma das duas pessoas a encerrou (ou bloqueou a outra). */
+    CLOSED: "closed",
+    /** A identidade da outra pessoa acabou (saiu ou não voltou a tempo). */
+    ENDED: "ended",
+});
 
 /** Por que alguém deixou de estar numa sala (`room_left`). */
 export const ROOM_LEFT_REASONS = Object.freeze({
@@ -211,8 +247,16 @@ export const scoped = (conversationId, message) => ({ ...message, conversationId
  * @property {string} code      código de convite (só para quem está na sala)
  * @property {string} name
  * @property {string} role      papel de quem recebe NESTA sala
- * @property {string | null} hostId
+ * @property {string | null} hostUsername  @ de quem é anfitrião agora
  * @property {number} memberCount
+ * @property {number} historyVersion
+ */
+
+/**
+ * @typedef {object} DmSummary
+ * @property {string} conversationId
+ * @property {"dm"} kind
+ * @property {{name: string, username: string, online: boolean}} peer a outra pessoa
  * @property {number} historyVersion
  */
 
@@ -221,20 +265,22 @@ export const serverMessage = Object.freeze({
      * Sessão: quem a conexão é. Não diz nada sobre salas — cada sala chega
      * no seu próprio `room_joined`. `resumed` diz se a identidade anterior
      * foi retomada (e, com ela, as salas); sem isso, a identidade é nova e
-     * não está em sala nenhuma.
-     * @param {{id: string, name: string, username?: string, role?: string}} user
+     * não está em sala nenhuma. `since` é o instante em que ESTA identidade
+     * nasceu: mensagens anteriores com o mesmo @ são de outra pessoa, que
+     * usou o @ antes — o cliente não as mostra como "suas".
+     * @param {{name: string, username?: string, role?: string, joinedAt?: number}} user
      * @param {string} resumeToken
      * @param {boolean} [resumed]
      */
     session: (user, resumeToken, resumed = false) => ({
         type: SERVER_EVENTS.SESSION,
         payload: {
-            id: user.id,
             name: user.name,
             username: user.username ?? "",
             resumeToken,
             role: user.role === ROLES.ADMIN ? ROLES.ADMIN : ROLES.MEMBER,
             resumed,
+            since: new Date(user.joinedAt ?? 0).toISOString(),
         },
     }),
 
@@ -256,10 +302,59 @@ export const serverMessage = Object.freeze({
     roomLeft: (conversationId, reason) =>
         scoped(conversationId, { type: SERVER_EVENTS.ROOM_LEFT, payload: { reason } }),
 
-    /** @param {RoomSummary[]} rooms @param {string | null} [requestId] */
-    roomList: (rooms, requestId = null) => ({
+    /**
+     * As conversas da identidade: salas e conversas privadas.
+     * @param {RoomSummary[]} rooms
+     * @param {DmSummary[]} dms
+     * @param {string | null} [requestId]
+     */
+    roomList: (rooms, dms, requestId = null) => ({
         type: SERVER_EVENTS.ROOM_LIST,
-        payload: { rooms, ...(requestId ? { requestId } : {}) },
+        payload: { rooms, dms, ...(requestId ? { requestId } : {}) },
+    }),
+
+    /**
+     * Resultado de uma busca por @: só nome e @ de quem foi achado.
+     * @param {{name: string, username: string} | null} user
+     * @param {string | null} [requestId]
+     */
+    userLookup: (user, requestId = null) => ({
+        type: SERVER_EVENTS.USER_LOOKUP,
+        payload: {
+            found: user !== null,
+            ...(user ? { user: { name: user.name, username: user.username } } : {}),
+            ...(requestId ? { requestId } : {}),
+        },
+    }),
+
+    /**
+     * @param {DmSummary} summary
+     * @param {{created?: boolean, resumed?: boolean}} [how]
+     */
+    dmOpened: (summary, { created = false, resumed = false } = {}) =>
+        scoped(summary.conversationId, {
+            type: SERVER_EVENTS.DM_OPENED,
+            payload: { ...summary, created, resumed },
+        }),
+
+    /** @param {DmSummary} summary */
+    dmUpdated: (summary) =>
+        scoped(summary.conversationId, { type: SERVER_EVENTS.DM_UPDATED, payload: summary }),
+
+    /** @param {string} conversationId @param {string} reason um dos `DM_CLOSED_REASONS` */
+    dmClosed: (conversationId, reason) =>
+        scoped(conversationId, { type: SERVER_EVENTS.DM_CLOSED, payload: { reason } }),
+
+    /**
+     * @param {{name: string, username: string}[]} people
+     * @param {string | null} [requestId]
+     */
+    blockList: (people, requestId = null) => ({
+        type: SERVER_EVENTS.BLOCK_LIST,
+        payload: {
+            blocked: people.map(({ name, username }) => ({ name, username })),
+            ...(requestId ? { requestId } : {}),
+        },
     }),
 
     /** @param {unknown[]} entries mensagens de chat já no formato de envio */
@@ -269,7 +364,7 @@ export const serverMessage = Object.freeze({
      * Mensagem de chat. `kind`, `format` e `clientMsgId` são aditivos: só
      * entram no payload quando presentes, e clientes antigos os ignoram.
      * @param {{
-     *   id: string, user: {id: string, name: string, username?: string},
+     *   id: string, user: {name: string, username?: string},
      *   content: string, timestamp: string,
      *   kind?: string, format?: string | null, clientMsgId?: string | null,
      * }} message
@@ -286,9 +381,8 @@ export const serverMessage = Object.freeze({
         id,
         type: SERVER_EVENTS.CHAT_MESSAGE,
         payload: {
-            userId: user.id,
             userName: user.name,
-            ...(user.username ? { username: user.username } : {}),
+            username: user.username ?? "",
             content,
             timestamp,
             ...(kind !== MESSAGE_KINDS.TEXT ? { kind } : {}),
@@ -297,32 +391,31 @@ export const serverMessage = Object.freeze({
         },
     }),
 
-    /** @param {string} userName @param {string} timestamp */
-    joined: (userName, timestamp) => ({
+    /** @param {{name: string, username?: string}} user @param {string} timestamp */
+    joined: (user, timestamp) => ({
         type: SERVER_EVENTS.USER_JOINED,
-        payload: { userName, timestamp },
+        payload: { userName: user.name, username: user.username ?? "", timestamp },
     }),
 
     /**
-     * @param {{id: string, name: string}} user
+     * @param {{name: string, username?: string}} user
      * @param {string} timestamp
      * @param {string} [reason] "left" (padrão) ou "removed"
      */
     left: (user, timestamp, reason = "left") => ({
         type: SERVER_EVENTS.USER_LEFT,
-        payload: { userId: user.id, userName: user.name, timestamp, reason },
+        payload: { userName: user.name, username: user.username ?? "", timestamp, reason },
     }),
 
     /**
      * `status` já existia ("online"); agora também "away". `role` e
      * `statusText` são aditivos.
      * `role` é o papel NA SALA: `admin` (global) prevalece sobre `host`.
-     * @param {{id: string, name: string, username?: string, role?: string, away?: string | null}[]} users
+     * @param {{name: string, username?: string, role?: string, away?: string | null}[]} users
      */
     userList: (users) => ({
         type: SERVER_EVENTS.USER_LIST,
         payload: users.map((user) => ({
-            id: user.id,
             name: user.name,
             username: user.username ?? "",
             status: user.away === null || user.away === undefined ? PRESENCE.ONLINE : PRESENCE.AWAY,
@@ -331,10 +424,10 @@ export const serverMessage = Object.freeze({
         })),
     }),
 
-    /** @param {{id: string, name: string}} user @param {boolean} isTyping */
+    /** @param {{name: string, username?: string}} user @param {boolean} isTyping */
     typing: (user, isTyping) => ({
         type: SERVER_EVENTS.USER_TYPING,
-        payload: { userId: user.id, userName: user.name, isTyping },
+        payload: { userName: user.name, username: user.username ?? "", isTyping },
     }),
 
     /**

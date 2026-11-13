@@ -35,7 +35,7 @@ describe("várias salas", () => {
         const { client } = await session(server.url, "Solitária");
         client.send("room_list", { requestId: "lista" });
         const list = await client.take("room_list");
-        assert.deepEqual(list.payload, { rooms: [], requestId: "lista" });
+        assert.deepEqual(list.payload, { rooms: [], dms: [], requestId: "lista" });
         client.send("chat_message", { content: "alguém?" });
         assert.equal((await client.take("error")).payload.code, "conversation_not_found");
         client.close();
@@ -193,7 +193,6 @@ describe("reinício do servidor", () => {
         const fresh = await connect(second.url);
         fresh.send("user_login", { userName: "Antes", resumeToken: me.resumeToken });
         const next = (await fresh.take("session")).payload;
-        assert.notEqual(next.id, me.id, "o token não vale num processo novo");
         assert.equal(next.resumed, false);
         assert.equal((await joinRoom(fresh, room.payload.code)).payload.code, "room_not_found");
         fresh.close();
