@@ -6,6 +6,27 @@
 > está correta. A acessibilidade só pode ser declarada depois de este roteiro ser
 > executado, com os resultados registrados no fim do documento.
 
+## O que já é verificado automaticamente
+
+Os itens abaixo são conferidos a cada PR pelo job `navegador`
+(`npm run test:e2e`). Os leitores de tela continuam precisando do roteiro manual
+para dizer se a experiência faz sentido ouvida.
+
+- `05-teclado`:
+    - skip link;
+    - foco visível em todo o percurso;
+    - foco no título do início e no campo ao abrir uma conversa;
+    - cartão e diálogo com Escape devolvendo o foco;
+    - foco preso no diálogo.
+- `07-celular`:
+    - a gaveta lateral prende o foco: Tab e Shift+Tab circulam dentro dela;
+    - o conteúdo de trás e o skip link ficam inertes;
+    - Escape devolve o foco ao botão de menu;
+    - os botões têm área de toque de pelo menos 24 × 24 px;
+    - não há rolagem horizontal a 375 px.
+- `03-reconexao`: depois de uma queda, o foco continua no campo de mensagem e o texto meio escrito continua lá.
+- axe sem violações sérias no início, na sala, na privada, no celular e com a gaveta aberta.
+
 ## Ambientes
 
 | Leitor              | Sistema              | Navegador        | Modo                                 |

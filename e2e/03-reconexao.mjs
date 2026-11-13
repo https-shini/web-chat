@@ -30,6 +30,9 @@ export default async ({
     // Queda curta (menos que a janela de 10 s): volta sozinha, sem avisos.
     const notices = () => ana.locator(".c-message--system").count();
     const before = await notices();
+    // Texto meio escrito e foco no campo: precisam sobreviver à queda.
+    await bia.focus("#campo-mensagem");
+    await bia.fill("#campo-mensagem", "meio escrito");
     network.down();
     await bia.waitForSelector('.c-status-pill[data-state="retrying"]', { timeout: 20000 });
     network.up();
@@ -46,6 +49,15 @@ export default async ({
         (await notices()) === before,
         "queda curta: volta sozinha, sem 'saiu'/'entrou' para os outros",
     );
+    ok(
+        await bia.evaluate(() => document.activeElement?.id === "campo-mensagem"),
+        "depois da reconexão, o foco continua no campo de mensagem",
+    );
+    ok(
+        (await bia.inputValue("#campo-mensagem")) === "meio escrito",
+        "e o texto meio escrito continua lá",
+    );
+    await bia.fill("#campo-mensagem", "");
 
     // Queda longa: a rede cai para TODOS (proxy): conexões derrubadas de verdade. Ana
     // volta antes; Bia continua fora enquanto Ana fala nas duas salas.
