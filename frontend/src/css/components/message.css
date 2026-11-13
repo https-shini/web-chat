@@ -300,3 +300,17 @@
 .c-message--departed .c-identity__name {
     color: var(--color-text-2);
 }
+
+/* Enviada: ✓ discreto ao lado, sem ocupar uma linha própria. */
+.c-message__status[data-state="confirmed"] {
+    position: absolute;
+    right: var(--space-2);
+    bottom: var(--space-1);
+}
+
+.c-message__sent {
+    display: inline-flex;
+    align-items: center;
+    color: var(--color-text-2);
+    font-size: var(--text-xs);
+}

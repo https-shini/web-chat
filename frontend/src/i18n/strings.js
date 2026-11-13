@@ -65,6 +65,9 @@ export const strings = {
     },
     delivery: {
         pending: "enviando…",
+        retrying: "reenviando… (tentativa {n})",
+        sent: "enviada",
+        returned: "Sua mensagem não foi enviada ({reason}) e voltou para o campo de texto.",
         failed: "não enviada",
         retry: "Tentar de novo",
         timeout: "O servidor não confirmou o recebimento.",

@@ -86,6 +86,7 @@ export const authorKey = (username, author) =>
  * @property {string | null} [clientMsgId]
  * @property {"confirmed" | "pending" | "failed"} delivery
  * @property {number | null} [sentAt]   quando saiu pela rede (pendentes)
+ * @property {number} [attempt]  tentativa de envio em curso (1 = primeira; 2+ = reenvio)
  * @property {string} [failReason]
  * @property {string} [tone]            notice/system: info, success, warning, error, result, admin
  * @property {string} [title]
@@ -697,6 +698,34 @@ export const createStore = () => {
             },
 
             /**
+             * Tira da tela uma mensagem SUA que o servidor recusou de vez (o
+             * texto volta para o rascunho). Só falhas: uma confirmada nunca
+             * some, e uma pendente ainda pode chegar.
+             * @param {string} clientMsgId
+             * @returns {boolean}
+             */
+            discardFailed(clientMsgId) {
+                /** @param {Message} m */
+                const keep = (m) =>
+                    !(m.own && m.clientMsgId === clientMsgId && m.delivery === "failed");
+                let removed = false;
+                for (const [id, view] of buffers) {
+                    const messages = view.messages.filter(keep);
+                    if (messages.length !== view.messages.length) {
+                        removed = true;
+                        buffers.set(id, { ...view, messages });
+                    }
+                }
+                const messages = state.messages.filter(keep);
+                if (messages.length !== state.messages.length) {
+                    patch({ messages });
+                    return true;
+                }
+                if (removed) notify();
+                return removed;
+            },
+
+            /**
              * Reenvio: a mensagem volta a "enviando".
              * @param {string} clientMsgId
              * @param {number | null} sentAt
@@ -710,6 +739,7 @@ export const createStore = () => {
                         delivery: "pending",
                         sentAt,
                         failReason: undefined,
+                        attempt: (message.attempt ?? 1) + 1,
                     }),
                 );
             },

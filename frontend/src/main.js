@@ -1,7 +1,7 @@
 // @ts-check
 
 import { SOCKET_URL, TIMING } from "./config.js";
-import { CLIENT_EVENTS, CLOSE_CODES } from "./protocol.js";
+import { CLIENT_EVENTS, CLOSE_CODES, ERROR_CODES } from "./protocol.js";
 import { routeInput } from "./commands/input.js";
 import { helpReply, timeReply } from "./commands/local.js";
 import { createCommandSuggestions } from "./ui/commandSuggestions.js";
@@ -184,6 +184,21 @@ const typingSignal = createTypingSignal({
  */
 const drafts = new Map();
 
+/**
+ * Mensagens suas a caminho: o texto fica guardado até o servidor confirmar.
+ * Se o servidor recusar de vez (silenciado, limite, conteúdo inválido), o
+ * texto volta para o rascunho da conversa certa em vez de se perder.
+ * @type {Map<string, {conversationId: string, text: string}>}
+ */
+const inFlight = new Map();
+
+/** Recusas em que o servidor certamente NÃO guardou a mensagem. @type {Set<string>} */
+const DEFINITE_REJECTIONS = new Set([
+    ERROR_CODES.MUTED,
+    ERROR_CODES.RATE_LIMITED,
+    ERROR_CODES.INVALID_MESSAGE,
+]);
+
 /** De qual conversa é o texto que está no campo agora. @type {string | null} */
 let composerOwner = null;
 
@@ -282,6 +297,8 @@ const sendChat = (content) => {
     const me = store.getState().me;
     if (!me) return;
     const clientMsgId = crypto.randomUUID();
+    const conversationId = store.getState().room?.conversationId;
+    if (conversationId) inFlight.set(clientMsgId, { conversationId, text: content });
     const sent = transport.send(CLIENT_EVENTS.CHAT_MESSAGE, inRoom({ content, clientMsgId }));
     store.actions.addMessage({
         id: `local:${clientMsgId}`,
@@ -484,6 +501,7 @@ const endParticipation = ({ announce = strings.logout.done, notice } = {}) => {
     pendingDm = null;
     closingByMe.clear();
     drafts.clear();
+    inFlight.clear();
     composerOwner = null;
     home.clear();
     history.replaceState(null, "", location.pathname + location.search);
@@ -731,6 +749,28 @@ handleEvent = createEventHandler({
                     ? format(strings.conversations.dmEnded, { name })
                     : format(strings.conversations.dmClosedByPeer, { name });
         toasts.show(text);
+    },
+    onOwnConfirmed: (clientMsgId) => {
+        inFlight.delete(clientMsgId);
+    },
+    onSendRejected: (clientMsgId, code, reason) => {
+        const flight = inFlight.get(clientMsgId);
+        if (!flight || !DEFINITE_REJECTIONS.has(code)) return;
+        const state = store.getState();
+        const alive = state.conversations.some(
+            (entry) => entry.conversationId === flight.conversationId,
+        );
+        if (!alive) return;
+        const open = composerOwner === flight.conversationId;
+        const current = open ? composer.getValue() : (drafts.get(flight.conversationId) ?? "");
+        // Só devolve se o rascunho daquela conversa estiver vazio: nunca
+        // apaga o que a pessoa já começou a escrever depois.
+        if (current.trim()) return;
+        inFlight.delete(clientMsgId);
+        store.actions.discardFailed(clientMsgId);
+        if (open) composer.restore(flight.text);
+        else drafts.set(flight.conversationId, flight.text);
+        announcer.say(format(strings.delivery.returned, { reason }), { force: true });
     },
     onDmRefused: (_code, message) => {
         pendingDm = null;

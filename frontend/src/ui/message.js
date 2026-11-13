@@ -1,6 +1,6 @@
 // @ts-check
 
-import { strings } from "../i18n/strings.js";
+import { format, strings } from "../i18n/strings.js";
 import { el } from "./dom.js";
 import { icon } from "./icons.js";
 import { badge, renderIdentity } from "./identity.js";
@@ -109,8 +109,15 @@ const renderContent = (message) => {
 const fillStatus = (slot, message, handlers) => {
     slot.replaceChildren();
     if (message.delivery === "pending") {
+        const attempt = message.attempt ?? 1;
         slot.appendChild(
-            el("span", { class: "c-message__status-text", text: strings.delivery.pending }),
+            el("span", {
+                class: "c-message__status-text",
+                text:
+                    attempt > 1
+                        ? format(strings.delivery.retrying, { n: attempt })
+                        : strings.delivery.pending,
+            }),
         );
     } else if (message.delivery === "failed") {
         slot.appendChild(
@@ -129,7 +136,16 @@ const fillStatus = (slot, message, handlers) => {
         retry.addEventListener("click", () => handlers.onRetry?.(message));
         slot.appendChild(retry);
     }
-    slot.hidden = message.delivery === "confirmed";
+    // Enviada: sua mensagem confirmada pelo servidor ganha um ✓ discreto,
+    // com o estado em texto para leitor de tela.
+    if (message.delivery === "confirmed" && message.own && message.kind === "chat") {
+        const mark = el("span", { class: "c-message__sent" });
+        mark.appendChild(icon("check"));
+        mark.appendChild(el("span", { class: "sr-only", text: strings.delivery.sent }));
+        slot.appendChild(mark);
+    }
+    slot.hidden = message.delivery === "confirmed" && !message.own;
+    slot.dataset.state = message.delivery;
 };
 
 /**

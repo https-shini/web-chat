@@ -210,3 +210,149 @@ describe("não lidas com a aba escondida", () => {
         assert.equal(store.getState().pageVisible, false);
     });
 });
+
+describe("ciclo de envio: enviando, enviada, falha, reenvio", () => {
+    const pending = (clientMsgId) => ({
+        id: `local:${clientMsgId}`,
+        key: `c:${clientMsgId}`,
+        kind: /** @type {const} */ ("chat"),
+        userId: "eu",
+        userName: "Eu",
+        username: "eu",
+        content: "texto",
+        timestamp: new Date().toISOString(),
+        own: true,
+        clientMsgId,
+        delivery: /** @type {const} */ ("pending"),
+        sentAt: 1,
+    });
+
+    const wired = () => {
+        const store = createStore();
+        const calls = { confirmed: [], rejected: [] };
+        const handle = createEventHandler({
+            store,
+            toasts: { show: () => {} },
+            notifier: { show: () => {} },
+            typingTracker: { set: () => {} },
+            onOwnConfirmed: (id) => calls.confirmed.push(id),
+            onSendRejected: (id, code) => calls.rejected.push([id, code]),
+        });
+        store.actions.startJoin({ id: "eu", name: "Eu", username: "eu" });
+        handle({ type: "session", payload: { username: "eu", name: "Eu", resumeToken: "t" } });
+        handle({
+            type: "room_joined",
+            conversationId: A,
+            payload: {
+                code: "abc-defg-hij",
+                name: "A",
+                role: "member",
+                author: 1,
+                historyVersion: 0,
+            },
+        });
+        return { store, handle, calls };
+    };
+
+    test("confirmação do servidor avisa (o rascunho em trânsito pode ser liberado)", () => {
+        const { store, handle, calls } = wired();
+        store.actions.addMessage(pending("c1"));
+        handle({
+            type: "chat_message",
+            id: "srv-1",
+            conversationId: A,
+            payload: {
+                username: "eu",
+                userName: "Eu",
+                author: 1,
+                content: "texto",
+                clientMsgId: "c1",
+            },
+        });
+        assert.deepEqual(calls.confirmed, ["c1"]);
+        assert.equal(store.getState().messages.length, 1, "confirmação não duplica");
+        assert.equal(store.getState().messages[0]?.delivery, "confirmed");
+    });
+
+    test("confirmação que chega no histórico (depois de uma queda) também conta", () => {
+        const { store, handle, calls } = wired();
+        store.actions.addMessage(pending("c2"));
+        handle({
+            type: "message_history",
+            conversationId: A,
+            payload: [
+                {
+                    id: "srv-2",
+                    payload: {
+                        username: "eu",
+                        userName: "Eu",
+                        author: 1,
+                        content: "texto",
+                        clientMsgId: "c2",
+                    },
+                },
+            ],
+        });
+        assert.deepEqual(calls.confirmed, ["c2"]);
+        assert.equal(store.getState().messages.length, 1);
+    });
+
+    test("recusa com ref marca a falha e avisa com o código", () => {
+        const { store, handle, calls } = wired();
+        store.actions.addMessage(pending("c3"));
+        handle({ type: "error", payload: { code: "muted", message: "silenciado", ref: "c3" } });
+        assert.equal(store.getState().messages[0]?.delivery, "failed");
+        assert.deepEqual(calls.rejected, [["c3", "muted"]]);
+        // Recusa de algo que não é sua mensagem pendente não avisa.
+        handle({ type: "error", payload: { code: "muted", message: "x", ref: "outra" } });
+        assert.equal(calls.rejected.length, 1);
+    });
+
+    test("falha pode sair da tela (o texto volta ao rascunho); pendente e confirmada, não", () => {
+        const { store } = wired();
+        store.actions.addMessage(pending("c4"));
+        assert.equal(store.actions.discardFailed("c4"), false, "pendente ainda pode chegar");
+        store.actions.failMessage("c4", "silenciado");
+        assert.equal(store.actions.discardFailed("c4"), true);
+        assert.equal(store.getState().messages.length, 0);
+    });
+
+    test("reenvio conta a tentativa e mantém o mesmo clientMsgId (sem duplicar)", () => {
+        const { store, handle } = wired();
+        store.actions.addMessage(pending("c5"));
+        store.actions.failMessage("c5", "sem resposta");
+        store.actions.retryMessage("c5", 2);
+        assert.equal(store.getState().messages[0]?.attempt, 2);
+        assert.equal(store.getState().messages[0]?.delivery, "pending");
+        store.actions.failMessage("c5", "sem resposta");
+        store.actions.retryMessage("c5", 3);
+        assert.equal(store.getState().messages[0]?.attempt, 3);
+        // O servidor devolve a original (deduplicada): uma mensagem só.
+        handle({
+            type: "chat_message",
+            id: "srv-5",
+            conversationId: A,
+            payload: {
+                username: "eu",
+                userName: "Eu",
+                author: 1,
+                content: "texto",
+                clientMsgId: "c5",
+            },
+        });
+        handle({
+            type: "chat_message",
+            id: "srv-5",
+            conversationId: A,
+            payload: {
+                username: "eu",
+                userName: "Eu",
+                author: 1,
+                content: "texto",
+                clientMsgId: "c5",
+            },
+        });
+        assert.equal(store.getState().messages.length, 1);
+        assert.equal(store.getState().messages[0]?.delivery, "confirmed");
+    });
+});
