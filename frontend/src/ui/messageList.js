@@ -79,10 +79,23 @@ export const createMessageList = (handlers = {}) => {
         render(messages) {
             const stick = isAtBottom();
 
-            // Conversa substituída ou limpa: única situação em que a lista é
-            // reconstruída. Fora dela, há adição e atualização no lugar.
-            const known = messages.filter((message) => painted.has(message.key));
-            if (known.length < painted.size) {
+            // Saíram só as mais antigas (limite por conversa): remove esses
+            // itens um a um, sem redesenhar o resto nem reanunciar nada.
+            const keys = new Set(messages.map((message) => message.key));
+            const gone = [...painted.keys()].filter((key) => !keys.has(key));
+            const firstKept = messages.find((message) => painted.has(message.key));
+            const onlyOldest =
+                gone.length > 0 &&
+                firstKept !== undefined &&
+                [...painted.keys()].indexOf(firstKept.key) === gone.length;
+            if (onlyOldest) {
+                for (const key of gone) {
+                    painted.get(key)?.element.remove();
+                    painted.delete(key);
+                }
+            } else if (gone.length > 0) {
+                // Conversa substituída ou limpa: única situação em que a
+                // lista é reconstruída. Fora dela, adição e atualização no lugar.
                 clear(items);
                 painted.clear();
             }

@@ -67,3 +67,58 @@ jobs:
             - name: Auditoria completa (informativa)
               continue-on-error: true
               run: npm audit
+
+    # Fluxos principais no navegador (Chromium), contra um backend PRÓPRIO
+    # em 127.0.0.1 subido pelo próprio teste — nunca a produção. Nenhum
+    # segredo: a chave de administração é gerada a cada execução, só em
+    # memória. Falha também se um id interno do servidor aparecer no
+    # navegador (quadros ou HTML) ou se houver violação séria de
+    # acessibilidade (axe).
+    navegador:
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        permissions:
+            contents: read
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+                  cache: npm
+
+            - name: Instalar dependências
+              run: |
+                  npm ci
+                  npm --prefix backend ci
+
+            - name: Instalar o Chromium do Playwright
+              run: npx playwright install --with-deps chromium
+
+            - name: Testes no navegador (backend isolado)
+              run: npm run test:e2e
+
+    # Ciclo de vida das identidades e memória, contra um backend PRÓPRIO
+    # (127.0.0.1), com a janela de retomada real (2 min): rotatividade com
+    # quedas, logouts e retomadas, depois repouso além da janela. Falha se
+    # sobrar identidade ou conversa privada órfã, se alguma retomada falhar
+    # ou se alguma mensagem se perder. A versão longa (vários ciclos, para
+    # crescimento de memória) roda à mão: npm run test:memory.
+    estabilidade:
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        permissions:
+            contents: read
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+                  cache: npm
+
+            - name: Instalar dependências do backend
+              run: npm --prefix backend ci
+
+            - name: Identidades liberadas, retomadas e nenhuma mensagem perdida
+              run: node scripts/memory-test.mjs --cycles 1 --churn 20 --rest 140 --rate 4

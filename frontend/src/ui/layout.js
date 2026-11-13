@@ -24,6 +24,8 @@ export const createLayout = () => {
     const members = /** @type {HTMLElement} */ (must(".c-members"));
     const main = /** @type {HTMLElement} */ (must(".c-main"));
     const scrim = /** @type {HTMLElement} */ (must("[data-scrim]"));
+    /** Link "Ir para a conversa": fora do app, também fica inerte com a gaveta aberta. */
+    const skipLink = /** @type {HTMLElement | null} */ (document.querySelector(".c-skip-link"));
     const openers = /** @type {HTMLButtonElement[]} */ ([
         ...document.querySelectorAll("[data-drawer-open]"),
     ]);
@@ -62,6 +64,7 @@ export const createLayout = () => {
         scrim.hidden = !open;
         // Atrás da gaveta, nada é alcançável.
         main.inert = open;
+        if (skipLink) skipLink.inert = open;
         sidebar.inert = open && drawer !== "sidebar";
         members.inert = open && drawer !== "members";
 
@@ -112,6 +115,26 @@ export const createLayout = () => {
         if (event.key === "Escape" && drawer && !event.defaultPrevented) {
             event.preventDefault();
             close();
+            return;
+        }
+        // Gaveta aberta é modal: Tab e Shift+Tab circulam dentro dela, como
+        // num diálogo, em vez de sair para a página escurecida (inerte) ou
+        // para fora do documento.
+        if (event.key === "Tab" && drawer) {
+            const items = /** @type {HTMLElement[]} */ ([
+                ...node(drawer).querySelectorAll(FOCUSABLE),
+            ]).filter((item) => item.offsetParent !== null || item === document.activeElement);
+            if (items.length === 0) return;
+            const first = /** @type {HTMLElement} */ (items[0]);
+            const last = /** @type {HTMLElement} */ (items[items.length - 1]);
+            const inside = node(drawer).contains(document.activeElement);
+            if (event.shiftKey && (document.activeElement === first || !inside)) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && (document.activeElement === last || !inside)) {
+                event.preventDefault();
+                first.focus();
+            }
         }
     });
     wide.addEventListener("change", sync);

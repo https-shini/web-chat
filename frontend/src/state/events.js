@@ -173,7 +173,7 @@ export const noticeMessage = ({ tone, text: content, title, lines }) => {
  * @param {{
  *   store: Store,
  *   toasts: {show: (text: string, kind?: "info" | "error", options?: {announce?: boolean}) => void},
- *   notifier: {show: (title: string, body: string) => void},
+ *   notifier: {show: (title: string, body: string, tag?: string) => void},
  *   typingTracker: {set: (id: string, name: string, isTyping: boolean) => void, remove?: (id: string) => void},
  *   onSession?: (resumeToken: string | null, resumed: boolean) => void,
  *   onRoomJoined?: (room: import("./store.js").RoomInfo, how: {created: boolean, resumed: boolean}) => void,
@@ -215,9 +215,11 @@ export const createEventHandler = ({
     /** Quando a identidade desta sessão nasceu (ms), vindo de `session.since`. */
     let since = 0;
     /**
-     * Conversas privadas que alguém acabou de começar com você e que não
-     * estão na tela: a primeira mensagem chega no histórico logo depois do
-     * `dm_opened`, e conta como não lida.
+     * Conversas fora da tela cujo próximo histórico traz mensagens ainda
+     * não vistas: privada que alguém acabou de começar com você (a primeira
+     * mensagem chega no histórico logo depois do `dm_opened`) e conversa
+     * retomada depois de uma queda (o que chegou enquanto você estava fora).
+     * O histórico de quem só entrou agora numa sala não conta.
      * @type {Set<string>}
      */
     const freshIncoming = new Set();
@@ -289,6 +291,11 @@ export const createEventHandler = ({
                 ) {
                     break;
                 }
+                // Retomada de uma sala que já estava na lista: o que chegar no
+                // histórico e não estava na tela foi recebido durante a queda.
+                if (entry !== null && payload.resumed === true && scope !== current) {
+                    freshIncoming.add(scope);
+                }
                 /** @type {import("./store.js").RoomInfo} */
                 const room = {
                     conversationId: scope,
@@ -331,7 +338,12 @@ export const createEventHandler = ({
                 if (event.type === SERVER_EVENTS.DM_OPENED) {
                     if (store.getState().room?.conversationId === scope) {
                         store.actions.completeJoin();
-                    } else if (payload.created === true) {
+                    } else if (
+                        payload.created === true ||
+                        (entry !== null && payload.resumed === true)
+                    ) {
+                        // Conversa nova com você, ou retomada depois de uma
+                        // queda: o histórico que chegar traz não lidas.
                         freshIncoming.add(scope);
                     }
                     onDmOpened(dm, {
@@ -390,7 +402,16 @@ export const createEventHandler = ({
                 store.actions.addMessage(message, scope);
                 if (message.own && message.clientMsgId) onOwnConfirmed(message.clientMsgId);
                 if (!message.own) {
-                    notifier.show(message.userName, message.content);
+                    // Nada do conteúdo nem de quem escreveu sai para a central de
+                    // notificações do sistema (que guarda histórico e aparece na
+                    // tela bloqueada): só que há mensagem nova, e onde. Uma por
+                    // conversa — a próxima substitui a anterior.
+                    const dm = entry?.kind === "dm";
+                    notifier.show(
+                        dm ? strings.notify.dmTitle : (entry?.name ?? strings.notify.roomTitle),
+                        strings.notify.body,
+                        scope ?? "web-chat",
+                    );
                     if (scope !== null) onConversationMessage(scope, message);
                 }
                 break;
