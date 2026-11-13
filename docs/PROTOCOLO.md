@@ -251,7 +251,8 @@ Por conexão, dois baldes independentes (padrões configuráveis por ambiente):
   enviar uma origem permitida). A comparação é exata (esquema + host + porta),
   sem curinga nem prefixo. Isso protege contra páginas de terceiros abrindo o
   WebSocket pelo navegador de alguém; não é autenticação — fora do navegador,
-  `Origin` pode ser forjado. Vazia: qualquer origem (só para desenvolvimento).
+  `Origin` pode ser forjado. Em produção a lista é obrigatória (sem ela o
+  servidor não sobe); vazia, só fora de produção: qualquer origem.
 - Acima de `MAX_CONNECTIONS` (padrão 500): fechamento com 1013.
 - Prazo de login: conexão que não entra na sala em `LOGIN_TIMEOUT_MS` (padrão 30 s)
   é fechada com **4001**. Nome recusado não reinicia o prazo. O cliente oficial

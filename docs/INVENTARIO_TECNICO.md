@@ -128,28 +128,28 @@ Arquivo: `.env` na **raiz** (exemplo em `.env.example`). Backend: ambiente do
 processo > `.env` da raiz > `backend/.env` (compatibilidade). Leitura e validação em
 `backend/src/config.js`; frontend em `vite.config.js` e `frontend/src/config.js`.
 
-| Variável                  | Lado     | Padrão                             | Validação                                        |
-| ------------------------- | -------- | ---------------------------------- | ------------------------------------------------ |
-| `VITE_SOCKET_URL`         | Frontend | `ws(s)://<host da página>:8080`    | `ws://` ou `wss://`, senão o build falha         |
-| `ALLOWED_ORIGINS`         | Backend  | vazio (qualquer origem, com aviso) | Cada entrada é uma origem http(s) sem caminho    |
-| `PORT`                    | Backend  | `8080`                             | Inteiro 0–65535                                  |
-| `HEARTBEAT_MS`            | Backend  | `30000`                            | Inteiro ≥ 50                                     |
-| `MAX_CONNECTIONS`         | Backend  | `500`                              | Inteiro ≥ 1                                      |
-| `MAX_PAYLOAD_BYTES`       | Backend  | `16384`                            | 8192–1048576                                     |
-| `RATE_MESSAGES_CAPACITY`  | Backend  | `40`                               | Inteiro ≥ 1                                      |
-| `RATE_MESSAGES_PER_SEC`   | Backend  | `8`                                | Inteiro ≥ 1                                      |
-| `RATE_SIGNALS_CAPACITY`   | Backend  | `40`                               | Inteiro ≥ 1                                      |
-| `RATE_SIGNALS_PER_SEC`    | Backend  | `8`                                | Inteiro ≥ 1                                      |
-| `HISTORY_SIZE`            | Backend  | `1000`                             | 1–100000                                         |
-| `HISTORY_ON_JOIN`         | Backend  | `50`                               | 0–1000 e ≤ `HISTORY_SIZE`                        |
-| `HEARTBEAT_MAX_MISSED`    | Backend  | `2`                                | 1–10                                             |
-| `MAX_BUFFERED_BYTES`      | Backend  | `1048576`                          | Inteiro ≥ 65536                                  |
-| `LOGIN_TIMEOUT_MS`        | Backend  | `30000`                            | Inteiro ≥ 100                                    |
-| `METRICS_ENABLED`         | Backend  | `false`                            | `true` ou `false`                                |
-| `METRICS_LOG_INTERVAL_MS` | Backend  | `60000`                            | `0` (desliga) ou ≥ 1000                          |
-| `ADMIN_KEY`               | Backend  | vazio (administração desativada)   | 16–200 caracteres, sem espaços; nunca em log     |
-| `LEAVE_GRACE_MS`          | Backend  | `10000`                            | 0–60000                                          |
-| `NODE_ENV`                | Backend  | —                                  | `production` eleva o aviso de allowlist a `warn` |
+| Variável                  | Lado     | Padrão                                                     | Validação                                        |
+| ------------------------- | -------- | ---------------------------------------------------------- | ------------------------------------------------ |
+| `VITE_SOCKET_URL`         | Frontend | `ws(s)://<host da página>:8080`                            | `ws://` ou `wss://`, senão o build falha         |
+| `ALLOWED_ORIGINS`         | Backend  | obrigatória em produção; vazio fora dela = qualquer origem | Cada entrada é uma origem http(s) sem caminho    |
+| `PORT`                    | Backend  | `8080`                                                     | Inteiro 0–65535                                  |
+| `HEARTBEAT_MS`            | Backend  | `30000`                                                    | Inteiro ≥ 50                                     |
+| `MAX_CONNECTIONS`         | Backend  | `500`                                                      | Inteiro ≥ 1                                      |
+| `MAX_PAYLOAD_BYTES`       | Backend  | `16384`                                                    | 8192–1048576                                     |
+| `RATE_MESSAGES_CAPACITY`  | Backend  | `40`                                                       | Inteiro ≥ 1                                      |
+| `RATE_MESSAGES_PER_SEC`   | Backend  | `8`                                                        | Inteiro ≥ 1                                      |
+| `RATE_SIGNALS_CAPACITY`   | Backend  | `40`                                                       | Inteiro ≥ 1                                      |
+| `RATE_SIGNALS_PER_SEC`    | Backend  | `8`                                                        | Inteiro ≥ 1                                      |
+| `HISTORY_SIZE`            | Backend  | `1000`                                                     | 1–100000                                         |
+| `HISTORY_ON_JOIN`         | Backend  | `50`                                                       | 0–1000 e ≤ `HISTORY_SIZE`                        |
+| `HEARTBEAT_MAX_MISSED`    | Backend  | `2`                                                        | 1–10                                             |
+| `MAX_BUFFERED_BYTES`      | Backend  | `1048576`                                                  | Inteiro ≥ 65536                                  |
+| `LOGIN_TIMEOUT_MS`        | Backend  | `30000`                                                    | Inteiro ≥ 100                                    |
+| `METRICS_ENABLED`         | Backend  | `false`                                                    | `true` ou `false`                                |
+| `METRICS_LOG_INTERVAL_MS` | Backend  | `60000`                                                    | `0` (desliga) ou ≥ 1000                          |
+| `ADMIN_KEY`               | Backend  | vazio (administração desativada)                           | 16–200 caracteres, sem espaços; nunca em log     |
+| `LEAVE_GRACE_MS`          | Backend  | `10000`                                                    | 0–60000                                          |
+| `NODE_ENV`                | Backend  | —                                                          | `production` eleva o aviso de allowlist a `warn` |
 
 Configuração inválida: linha `config_invalid` com a variável e saída com código 1.
 
