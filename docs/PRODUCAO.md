@@ -62,7 +62,7 @@ Outras pendências, não bloqueantes:
   tela de entrada já explica a espera.
 - Verificação manual com leitores de tela (NVDA, VoiceOver, TalkBack) ainda não
   feita.
-- Testes de navegador (Playwright) rodam à mão, fora do CI.
+- Testes de navegador: `npm run test:e2e` (backend isolado), também no CI (job `navegador`).
 
 ## Variáveis de ambiente
 
