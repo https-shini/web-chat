@@ -199,9 +199,12 @@ const ctx = {
     framesOf: (page) => pages.find((record) => record.page === page)?.frames ?? [],
     /** Usuário único por execução. @param {string} base */
     user: (base) => `${base}${RUN}${++counter}`,
-    /** @param {{hash?: string, viewport?: {width: number, height: number}}} [options] */
-    open: async ({ hash = "", viewport = { width: 1280, height: 800 } } = {}) => {
+    /** @param {{hash?: string, viewport?: {width: number, height: number}, init?: Function | null}} [options] */
+    open: async ({ hash = "", viewport = { width: 1280, height: 800 }, init = null } = {}) => {
         const context = await browser.newContext({ viewport, bypassCSP: false });
+        // Script de teste antes da página (ex.: Notification falsa). Entra
+        // pelo Playwright, não pela página: a CSP real continua valendo.
+        if (init) await context.addInitScript(init);
         const page = await context.newPage();
         const record = { page, frames: [], errors: [] };
         page.on("websocket", (ws) =>
