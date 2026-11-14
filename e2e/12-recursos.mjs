@@ -95,7 +95,6 @@ export default async ({ open, enter, createRoom, user, ok, axe, RUN }) => {
     );
     ok(!(await bia.$(".c-pin__remove")), "participante não desafixa");
     await ana.waitForSelector(`${original} .c-message__pinned`);
-    await ana.waitForTimeout(400);
     const issues = await axe(ana);
     ok(issues.length === 0, `recursos sem violações sérias ${issues.join("; ")}`);
 
@@ -137,6 +136,8 @@ export default async ({ open, enter, createRoom, user, ok, axe, RUN }) => {
     await ana.click('.c-menu__item:has-text("Silenciar")');
     await ana.waitForSelector(".c-menu--sub");
     await ana.click('.c-menu--sub .c-menu__item:has-text("5 minutos")');
+    // O comando vale quando o aviso dele chega à sala (outra conexão).
+    await bia.waitForSelector('.c-message:has-text("foi silenciado por")');
     await say(bia, `calada ${RUN}`);
     await bia.waitForSelector('.c-composer__notice[data-kind="muted"]');
     const notice = (await bia.textContent(".c-composer__notice")) ?? "";
