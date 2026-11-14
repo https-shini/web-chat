@@ -125,7 +125,10 @@ export default async ({ open, enter, createRoom, user, ok, axe, RUN }) => {
     await ana.$eval(".c-message-list", (x) => {
         x.scrollTop = 0;
     });
-    await ana.waitForTimeout(200);
+    // O evento de rolagem chega no quadro seguinte: espera dois quadros.
+    await ana.evaluate(
+        () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
+    );
     await say(bia, `durante a rolagem ${RUN}`);
     await ana.waitForSelector(".c-jump-bar:not([hidden])");
     ok(
