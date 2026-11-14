@@ -49,15 +49,14 @@ export default async ({ open, enter, createRoom, user, ok, axe, RUN }) => {
             labels.some((l) => l.startsWith("Remover")),
         "menu do integrante traz a moderação para o anfitrião",
     );
-    // Espera a animação de entrada terminar: o axe mede o contraste da cor
-    // computada, e no meio do esmaecimento ela ainda não é a final.
-    await ana.waitForTimeout(400);
     const menuIssues = await axe(ana);
     ok(menuIssues.length === 0, `menu do integrante sem violações sérias ${menuIssues.join("; ")}`);
     // Silenciar ▸ 5 minutos: comando real; Caio é recusado ao escrever.
     await ana.click('.c-menu__item:has-text("Silenciar")');
     await ana.waitForSelector(".c-menu--sub");
     await ana.click('.c-menu--sub .c-menu__item:has-text("5 minutos")');
+    // O comando vale quando o aviso dele chega à sala (outra conexão).
+    await caio.waitForSelector('.c-message:has-text("foi silenciado por")');
     await caio.fill("#campo-mensagem", `silenciado ${RUN}`);
     await caio.press("#campo-mensagem", "Enter");
     await caio.waitForSelector('.c-toast:has-text("silenciad")');
@@ -86,9 +85,6 @@ export default async ({ open, enter, createRoom, user, ok, axe, RUN }) => {
         !(await ana.isVisible('[data-context-block="members"]')),
         "privada: sem lista de integrantes",
     );
-    // Espera a animação de entrada (conversa e painel): o axe mede a cor
-    // computada, e no meio do esmaecimento ela ainda não é a final.
-    await ana.waitForTimeout(400);
     const dmIssues = await axe(ana);
     ok(dmIssues.length === 0, `painel da privada sem violações sérias ${dmIssues.join("; ")}`);
 
