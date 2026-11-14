@@ -316,6 +316,12 @@ export const strings = {
         dmHint: "Só pelo @ exato de quem está conectado. Ninguém mais lê.",
         open: "Conversar",
     },
+    composer: {
+        limit: "Limite de {max} caracteres por mensagem.",
+        pasteTooLong:
+            "O texto colado tem {n} caracteres; o limite é {max}. O que passou não entrou.",
+        muted: "Você foi silenciado(a) nesta sala por quem modera. Pode continuar lendo.",
+    },
     context: {
         roomTitle: "Dados da sala",
         dmTitle: "Dados do contato",
