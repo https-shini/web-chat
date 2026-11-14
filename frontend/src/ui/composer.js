@@ -293,6 +293,20 @@ export const createComposer = ({
             reportInput();
         },
 
+        /**
+         * Troca um trecho do texto (ex.: "@par" → "@pessoa ") e põe o
+         * cursor no fim do trecho novo.
+         * @param {number} start
+         * @param {number} end
+         * @param {string} text
+         */
+        replaceRange(start, end, text) {
+            input.setRangeText(text, start, end, "end");
+            input.focus();
+            afterChange();
+            reportInput();
+        },
+
         /** O campo, para o autocomplete apontar atributos ARIA. */
         input,
 

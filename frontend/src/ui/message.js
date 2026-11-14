@@ -5,13 +5,20 @@ import { el } from "./dom.js";
 import { icon } from "./icons.js";
 import { badge, renderIdentity } from "./identity.js";
 import { authorKey } from "../state/store.js";
+import { renderMarkdown, spoilerNode } from "../markdown/render.js";
+import { mentionsOf, parseMarkdown } from "../markdown/parse.js";
 
 /**
  * Renderização de uma entrada da transcrição. Só `textContent` e
  * `createElement`: nenhum conteúdo vindo da rede vira HTML.
  *
  * @typedef {import("../state/store.js").Message} Message
- * @typedef {{onRetry?: (message: Message) => void}} MessageHandlers
+ * @typedef {{
+ *   onRetry?: (message: Message) => void,
+ *   onDiscard?: (message: Message) => void,
+ *   onDismiss?: (message: Message) => void,
+ * }} MessageHandlers
+ * @typedef {{compact?: boolean, me?: string | null}} RenderOptions
  */
 
 /**
@@ -38,46 +45,16 @@ const timeElement = (timestamp) => {
 };
 
 /**
- * Spoiler: o texto fica escondido até a pessoa pedir. É um botão — chega
- * por teclado e anuncia o estado com `aria-expanded`.
- * @param {string} content
- */
-const spoiler = (content) => {
-    const button = el("button", {
-        class: "c-spoiler",
-        attrs: {
-            type: "button",
-            "aria-expanded": "false",
-            "aria-label": strings.message.spoilerShow,
-        },
-    });
-    // Escondido também para leitores de tela até a pessoa pedir.
-    const hidden = el("span", {
-        class: "c-spoiler__text",
-        text: content,
-        attrs: { "aria-hidden": "true" },
-    });
-    button.appendChild(hidden);
-    button.addEventListener("click", () => {
-        const open = button.getAttribute("aria-expanded") !== "true";
-        button.setAttribute("aria-expanded", String(open));
-        button.setAttribute(
-            "aria-label",
-            open ? strings.message.spoilerHide : strings.message.spoilerShow,
-        );
-        hidden.setAttribute("aria-hidden", String(!open));
-        // Aberto, o rótulo do botão não pode esconder o texto revelado.
-        if (open) button.removeAttribute("aria-label");
-    });
-    return button;
-};
-
-/**
- * Conteúdo com a formatação aplicada pelo servidor (comandos /bold etc.).
+ * Conteúdo da mensagem. Formatação aplicada pelo servidor (comandos /bold,
+ * /italic, /code, /spoiler) vale para a mensagem inteira; texto comum passa
+ * pelo Markdown (decisão C2), desenhado sem HTML.
  * @param {Message} message
+ * @param {string | null} me
  * @returns {HTMLElement}
  */
-const renderContent = (message) => {
+const renderContent = (message, me) => {
+    if (!message.format) return renderMarkdown(message.content, { me });
+    const root = el("div", { class: "c-message__content" });
     const paragraph = el("p", { class: "c-message__text" });
     switch (message.format) {
         case "bold":
@@ -89,13 +66,11 @@ const renderContent = (message) => {
         case "code":
             paragraph.appendChild(el("code", { class: "c-message__code", text: message.content }));
             break;
-        case "spoiler":
-            paragraph.appendChild(spoiler(message.content));
-            break;
         default:
-            paragraph.textContent = message.content;
+            paragraph.appendChild(spoilerNode([document.createTextNode(message.content)]));
     }
-    return paragraph;
+    root.appendChild(paragraph);
+    return root;
 };
 
 /**
@@ -135,17 +110,35 @@ const fillStatus = (slot, message, handlers) => {
         });
         retry.addEventListener("click", () => handlers.onRetry?.(message));
         slot.appendChild(retry);
+        // "Apagar" (decisão C4): descarta a tentativa, só na sua tela.
+        if (handlers.onDiscard && message.clientMsgId) {
+            const discard = el("button", {
+                class: "c-button c-button--ghost c-button--sm c-message__retry",
+                text: strings.delivery.discard,
+                attrs: { type: "button" },
+            });
+            discard.addEventListener("click", () => handlers.onDiscard?.(message));
+            slot.appendChild(discard);
+        }
     }
-    // Enviada: sua mensagem confirmada pelo servidor ganha um ✓ discreto,
-    // com o estado em texto para leitor de tela.
+    slot.hidden = message.delivery === "confirmed";
+    slot.dataset.state = message.delivery;
+};
+
+/**
+ * Enviada: a sua mensagem confirmada pelo servidor ganha um ✓ discreto
+ * logo depois do texto, com o estado em texto para o leitor de tela.
+ * @param {HTMLElement} slot
+ * @param {Message} message
+ */
+const fillSent = (slot, message) => {
+    slot.replaceChildren();
     if (message.delivery === "confirmed" && message.own && message.kind === "chat") {
         const mark = el("span", { class: "c-message__sent" });
         mark.appendChild(icon("check"));
         mark.appendChild(el("span", { class: "sr-only", text: strings.delivery.sent }));
         slot.appendChild(mark);
     }
-    slot.hidden = message.delivery === "confirmed" && !message.own;
-    slot.dataset.state = message.delivery;
 };
 
 /**
@@ -160,11 +153,12 @@ const iconAside = (name) => {
 
 /**
  * Resposta de comando (visível só para você): cartão com o selo
- * "Só você vê isto", em texto.
+ * "Só você vê isto", em texto, e o botão "Dispensar".
  * @param {HTMLLIElement} item
  * @param {Message} message
+ * @param {MessageHandlers} handlers
  */
-const renderNotice = (item, message) => {
+const renderNotice = (item, message, handlers) => {
     item.classList.add("c-message--notice");
     item.dataset.tone = message.tone ?? "info";
     item.appendChild(iconAside(message.tone === "error" ? "alert" : "terminal"));
@@ -178,6 +172,15 @@ const renderNotice = (item, message) => {
         const list = el("ul", { class: "c-message__lines" });
         for (const line of message.lines) list.appendChild(el("li", { text: line }));
         card.appendChild(list);
+    }
+    if (handlers.onDismiss) {
+        const dismiss = el("button", {
+            class: "c-button c-button--ghost c-button--sm c-message__dismiss",
+            text: strings.message.dismiss,
+            attrs: { type: "button" },
+        });
+        dismiss.addEventListener("click", () => handlers.onDismiss?.(message));
+        card.appendChild(dismiss);
     }
     body.appendChild(card);
     item.appendChild(body);
@@ -220,18 +223,29 @@ const renderSystem = (item, message) => {
  *
  * @param {Message} message
  * @param {MessageHandlers} [handlers]
- * @param {{compact?: boolean}} [options]
+ * @param {RenderOptions} [options]
  * @returns {HTMLLIElement}
  */
-export const renderMessage = (message, handlers = {}, { compact = false } = {}) => {
+export const renderMessage = (message, handlers = {}, { compact = false, me = null } = {}) => {
     const item = el("li", { class: "c-message" });
     item.dataset.messageId = message.id;
+    item.dataset.kind = message.kind;
 
-    if (message.kind === "notice") return renderNotice(item, message);
+    if (message.kind === "notice") return renderNotice(item, message, handlers);
     if (message.kind === "system") return renderSystem(item, message);
 
     if (message.own) item.classList.add("c-message--self");
     item.dataset.delivery = message.delivery;
+    // Alcançável pelas setas dentro da lista (foco itinerante da lista).
+    item.tabIndex = -1;
+    if (message.username) item.dataset.username = message.username;
+    // Menção a você: destaque (forma e cor) e aviso em texto para o leitor.
+    const mentionsMe =
+        !message.own &&
+        me !== null &&
+        !message.format &&
+        mentionsOf(parseMarkdown(message.content)).includes(me);
+    if (mentionsMe) item.classList.add("c-message--mention");
     // Chave de autor (@ + número na conversa): a lista marca "saiu" por ela.
     const key = message.own ? null : authorKey(message.username, message.author);
     if (key) item.dataset.authorKey = key;
@@ -267,10 +281,17 @@ export const renderMessage = (message, handlers = {}, { compact = false } = {}) 
         line.appendChild(document.createTextNode(` ${message.content} `));
         const time = timeElement(message.timestamp);
         if (time) line.appendChild(time);
-        body.appendChild(line);
+        const content = el("div", { class: "c-message__content" });
+        content.appendChild(line);
+        body.appendChild(content);
     } else if (isCompact) {
-        body.appendChild(el("span", { class: "sr-only", text: `${message.userName}:` }));
-        body.appendChild(renderContent(message));
+        body.appendChild(
+            el("span", {
+                class: "sr-only",
+                text: `${message.userName}${message.own ? ` (${strings.room.youBadge})` : ""}:`,
+            }),
+        );
+        body.appendChild(renderContent(message, me));
     } else {
         if (variant === "announcement") {
             item.classList.add("c-message--announcement");
@@ -294,7 +315,10 @@ export const renderMessage = (message, handlers = {}, { compact = false } = {}) 
                 el("span", { class: "c-message__handle", text: `@${message.username}` }),
             );
         }
-        if (message.own) head.appendChild(badge(strings.room.youBadge));
+        // "você" não aparece em toda mensagem própria (decisão Q5): o nome
+        // já diz, e o leitor de tela continua ouvindo.
+        if (message.own)
+            head.appendChild(el("span", { class: "sr-only", text: `(${strings.room.youBadge})` }));
         if (key) {
             // Escondido até a pessoa sair; em texto, não só no tom.
             const departed = badge(strings.message.departed, "departed");
@@ -304,8 +328,18 @@ export const renderMessage = (message, handlers = {}, { compact = false } = {}) 
         const time = timeElement(message.timestamp);
         if (time) head.appendChild(time);
         body.appendChild(head);
-        body.appendChild(renderContent(message));
+        body.appendChild(renderContent(message, me));
     }
+    if (mentionsMe)
+        body.appendChild(el("span", { class: "sr-only", text: strings.message.mentionsYou }));
+
+    // ✓ logo depois do texto (no último parágrafo), não na ponta da linha.
+    const sent = el("span", { class: "c-message__sent-slot" });
+    fillSent(sent, message);
+    const blocks = body.querySelectorAll(".c-message__content > *");
+    const last = blocks[blocks.length - 1];
+    if (last && last.tagName === "P") last.appendChild(sent);
+    else body.querySelector(".c-message__content")?.appendChild(sent);
 
     const status = el("p", { class: "c-message__status" });
     fillStatus(status, message, handlers);
@@ -326,4 +360,6 @@ export const patchDelivery = (item, message, handlers = {}) => {
     item.dataset.delivery = message.delivery;
     const status = item.querySelector(".c-message__status");
     if (status instanceof HTMLElement) fillStatus(status, message, handlers);
+    const sent = item.querySelector(".c-message__sent-slot");
+    if (sent instanceof HTMLElement) fillSent(sent, message);
 };

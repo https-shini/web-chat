@@ -2,6 +2,7 @@
 
 import { format, strings } from "../i18n/strings.js";
 import { setIcon } from "./icons.js";
+import { conversationGlyph } from "./nav/sidebarNav.js";
 
 /**
  * Nome e descrição da conversa aberta nos lugares que dependem dela:
@@ -38,6 +39,10 @@ export const createRoomHeader = () => {
         if (!button.classList.contains("c-action")) button.dataset.tooltip = label;
     };
 
+    const introGlyph = document.querySelector("[data-intro-glyph]");
+    const introTitle = document.querySelector("[data-intro-title]");
+    const introBody = document.querySelector("[data-intro-body]");
+
     let lastKind = "";
 
     return {
@@ -72,6 +77,20 @@ export const createRoomHeader = () => {
                 input.placeholder = dm
                     ? format(strings.conversations.dmPlaceholder, { name })
                     : format(strings.room.placeholder, { name });
+            }
+            // Começo da conversa, no topo da lista (como o "começo do canal"
+            // do Fluxer e do Discord).
+            if (room && introGlyph)
+                introGlyph.replaceChildren(conversationGlyph({ ...room, unread: 0 }));
+            if (introTitle) {
+                introTitle.textContent = dm
+                    ? format(strings.message.introDm, { name })
+                    : format(strings.message.introRoom, { name });
+            }
+            if (introBody) {
+                introBody.textContent = dm
+                    ? strings.message.introDmBody
+                    : strings.message.introRoomBody;
             }
             for (const invite of invites) invite.hidden = dm || !room?.code;
             const blockLabel = format(strings.conversations.block, { name });
