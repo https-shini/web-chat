@@ -1,7 +1,14 @@
 // @ts-check
 
 import { format, strings } from "../i18n/strings.js";
-import { ERROR_CODES, MESSAGE_FORMATS, MESSAGE_KINDS, SERVER_EVENTS, TONES } from "../protocol.js";
+import {
+    ERROR_CODES,
+    MESSAGE_FORMATS,
+    MESSAGE_KINDS,
+    REACTION_EMOJIS,
+    SERVER_EVENTS,
+    TONES,
+} from "../protocol.js";
 import { authorKey } from "./store.js";
 
 /**
@@ -19,6 +26,8 @@ const VARIANTS = new Set(Object.values(MESSAGE_KINDS));
 const FORMATS = new Set(Object.values(MESSAGE_FORMATS));
 /** @type {Set<string>} */
 const KNOWN_TONES = new Set(Object.values(TONES));
+/** @type {Set<unknown>} */
+const REACTIONS = new Set(REACTION_EMOJIS);
 
 /** @param {unknown} value */
 const text = (value) => (typeof value === "string" ? value : "");
@@ -67,8 +76,66 @@ const toMessage = (raw, me) => {
         format: FORMATS.has(payload.format) ? payload.format : null,
         clientMsgId: typeof payload.clientMsgId === "string" ? payload.clientMsgId : null,
         delivery: "confirmed",
+        ...referenceOf(payload.reference),
+        ...(typeof payload.editedAt === "string" ? { editedAt: payload.editedAt } : {}),
+        ...(Array.isArray(payload.reactions)
+            ? { reactions: readReactions(payload.reactions) }
+            : {}),
     };
 };
+
+/**
+ * Referência de uma resposta (cópia feita pelo servidor), normalizada.
+ * @param {any} raw
+ */
+const readReference = (raw) =>
+    raw && typeof raw.id === "string" && typeof raw.excerpt === "string"
+        ? {
+              id: raw.id,
+              userName: String(raw.userName ?? ""),
+              username: String(raw.username ?? ""),
+              author: Number.isInteger(raw.author) ? raw.author : null,
+              excerpt: raw.excerpt,
+          }
+        : null;
+
+/** @param {any} raw @returns {{reference?: NonNullable<ReturnType<typeof readReference>>}} */
+const referenceOf = (raw) => {
+    const reference = readReference(raw);
+    return reference ? { reference } : {};
+};
+
+/**
+ * Reações vindas do servidor, normalizadas (só os emojis da lista).
+ * @param {any[]} raw
+ */
+const readReactions = (raw) =>
+    raw
+        .filter((item) => REACTIONS.has(item?.emoji) && Number.isInteger(item?.count))
+        .map((item) => ({
+            emoji: String(item.emoji),
+            count: Number(item.count),
+            authors: Array.isArray(item.authors) ? item.authors.map(String) : [],
+        }))
+        .filter((item) => item.count > 0);
+
+/**
+ * Fixadas vindas do servidor, normalizadas.
+ * @param {any} raw
+ * @returns {import("./store.js").Pin[]}
+ */
+const readPins = (raw) =>
+    (Array.isArray(raw) ? raw : [])
+        .filter((pin) => typeof pin?.id === "string")
+        .map((pin) => ({
+            id: pin.id,
+            userName: String(pin.userName ?? ""),
+            username: String(pin.username ?? ""),
+            author: Number.isInteger(pin.author) ? pin.author : null,
+            excerpt: String(pin.excerpt ?? ""),
+            at: String(pin.at ?? ""),
+            by: String(pin.by ?? ""),
+        }));
 
 /** Recusas de pedidos de conversa privada (buscar, abrir, bloquear). */
 const DM_REFUSALS = new Set([
@@ -80,6 +147,16 @@ const DM_REFUSALS = new Set([
     ERROR_CODES.LOOKUP_LIMITED,
     ERROR_CODES.DM_OPEN_LIMITED,
     ERROR_CODES.BLOCK_LIMIT,
+]);
+
+/** Recusas de ações sobre mensagens e conversa (avisadas uma vez). */
+const ACTION_REFUSALS = new Set([
+    ERROR_CODES.MESSAGE_NOT_FOUND,
+    ERROR_CODES.NOT_ALLOWED,
+    ERROR_CODES.INVALID_REACTION,
+    ERROR_CODES.REACTION_LIMIT,
+    ERROR_CODES.PIN_LIMIT,
+    ERROR_CODES.INVALID_DESCRIPTION,
 ]);
 
 /** Número de autor válido (inteiro positivo) ou null. @param {unknown} value */
@@ -186,7 +263,7 @@ export const noticeMessage = ({ tone, text: content, title, lines }) => {
  *   onBlockList?: (blocked: {name: string, username: string}[]) => void,
  *   onConversationMessage?: (conversationId: string, message: Message) => void,
  *   onOwnConfirmed?: (clientMsgId: string) => void,
- *   onSendRejected?: (clientMsgId: string, code: string, reason: string) => void,
+ *   onSendRejected?: (clientMsgId: string, code: string, reason: string, until: string | null) => void,
  *   onLoginRejected?: (message: string, field: "name" | "username") => void,
  *   onCommandResult?: (requestId: string | null, result: {tone: string, text: string, title?: string, lines?: string[], code?: string, data?: Record<string, unknown>}) => void,
  * }} deps
@@ -304,6 +381,9 @@ export const createEventHandler = ({
                     name: payload.name,
                     role: payload.role === "host" ? "host" : "member",
                     author: authorNumber(payload.author),
+                    ...(typeof payload.description === "string" && payload.description
+                        ? { description: payload.description }
+                        : {}),
                 };
                 // Entra na lista; vira a aberta só se nenhuma estiver aberta.
                 store.actions.setRoom(room);
@@ -580,6 +660,54 @@ export const createEventHandler = ({
                 break;
             }
 
+            case SERVER_EVENTS.MESSAGE_UPDATED: {
+                if (typeof payload?.id !== "string" || typeof payload?.content !== "string") break;
+                store.actions.updateMessage(
+                    payload.id,
+                    {
+                        content: payload.content,
+                        ...(typeof payload.editedAt === "string"
+                            ? { editedAt: payload.editedAt }
+                            : {}),
+                    },
+                    scope,
+                );
+                break;
+            }
+
+            case SERVER_EVENTS.MESSAGE_DELETED: {
+                if (typeof payload?.id !== "string") break;
+                store.actions.deleteMessage(payload.id, scope);
+                if (payload.by === "moderation") {
+                    store.actions.addMessage(
+                        systemMessage(
+                            strings.message.removedByModeration,
+                            new Date().toISOString(),
+                            {
+                                tone: TONES.ADMIN,
+                            },
+                        ),
+                        scope,
+                    );
+                }
+                break;
+            }
+
+            case SERVER_EVENTS.MESSAGE_REACTIONS: {
+                if (typeof payload?.id !== "string" || !Array.isArray(payload?.reactions)) break;
+                store.actions.updateMessage(
+                    payload.id,
+                    { reactions: readReactions(payload.reactions) },
+                    scope,
+                );
+                break;
+            }
+
+            case SERVER_EVENTS.PINS_UPDATED: {
+                store.actions.setPins(readPins(payload?.pins), scope);
+                break;
+            }
+
             case SERVER_EVENTS.ERROR: {
                 const code = typeof payload?.code === "string" ? payload.code : null;
                 const message = String(payload?.message ?? strings.errors.generic);
@@ -611,7 +739,19 @@ export const createEventHandler = ({
                 // Recusa de uma mensagem específica: ela fica marcada como não
                 // enviada, com a opção de tentar de novo.
                 const failedOne = ref !== null && store.actions.failMessage(ref, message);
-                if (failedOne && ref !== null && code !== null) onSendRejected(ref, code, message);
+                if (failedOne && ref !== null && code !== null) {
+                    onSendRejected(
+                        ref,
+                        code,
+                        message,
+                        typeof payload?.until === "string" ? payload.until : null,
+                    );
+                }
+                // Recusa de editar, apagar, reagir, fixar ou descrever.
+                if (!failedOne && code !== null && ACTION_REFUSALS.has(code)) {
+                    toasts.show(message, "error");
+                    break;
+                }
                 // Mensagem marcada como falha já é anunciada pela lista; o
                 // toast, nesse caso, é só reforço visual (sem anúncio duplo).
                 if (code === ERROR_CODES.RATE_LIMITED) {

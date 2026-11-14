@@ -76,6 +76,7 @@ export const wrapSelection = (value, start, end, [open, close]) => {
  *   onKeyDown?: (event: KeyboardEvent) => boolean,
  *   onCommands?: () => void,
  *   onNotice?: (text: string) => void,
+ *   onCancelReply?: () => void,
  * }} handlers
  */
 export const createComposer = ({
@@ -85,6 +86,7 @@ export const createComposer = ({
     onKeyDown = () => false,
     onCommands = () => {},
     onNotice = () => {},
+    onCancelReply = () => {},
 }) => {
     const footer = /** @type {HTMLElement} */ (must(".c-composer-area"));
     const form = /** @type {HTMLFormElement} */ (must(".c-composer"));
@@ -93,6 +95,12 @@ export const createComposer = ({
     const send = /** @type {HTMLButtonElement} */ (must(".c-composer__send"));
     const count = /** @type {HTMLElement} */ (must(".c-composer__count"));
     const hint = /** @type {HTMLElement} */ (must(".c-composer__hint"));
+    const replyBar = /** @type {HTMLElement} */ (must(".c-composer__reply"));
+    const replyText = /** @type {HTMLElement} */ (must("[data-reply-text]"));
+    must("[data-reply-cancel]").addEventListener("click", () => {
+        onCancelReply();
+        input.focus();
+    });
 
     /** Aviso de silêncio (até a próxima mensagem aceita). */
     let mutedText = "";
@@ -309,6 +317,16 @@ export const createComposer = ({
 
         /** O campo, para o autocomplete apontar atributos ARIA. */
         input,
+
+        /**
+         * Barra "Respondendo a…" acima do campo (vazio tira).
+         * @param {string} text
+         */
+        setReply(text) {
+            replyBar.hidden = !text;
+            replyText.textContent = text;
+            requestAnimationFrame(resize);
+        },
 
         /**
          * Aviso de silêncio da moderação: fica até uma mensagem passar.

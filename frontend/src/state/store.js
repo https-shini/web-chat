@@ -55,6 +55,7 @@ export const authorKey = (username, author) =>
  * @property {"member" | "host"} role  seu papel nesta sala
  * @property {number | null} [author]  seu número de autor nesta conversa (dado pelo servidor)
  * @property {Peer} [peer]     a outra pessoa (só conversas privadas)
+ * @property {string} [description]  descrição da sala (definida por quem modera)
  */
 
 /**
@@ -94,6 +95,14 @@ export const authorKey = (username, author) =>
  * @property {string} [title]
  * @property {"join" | "leave"} [event]  system: entrada ou saída (só muda o ícone)
  * @property {string[]} [lines]
+ * @property {{id: string, userName: string, username: string, author: number | null, excerpt: string}} [reference]  a mensagem respondida (cópia)
+ * @property {string} [editedAt]  editada por quem escreveu
+ * @property {{emoji: string, count: number, authors: string[]}[]} [reactions]
+ */
+
+/**
+ * Mensagem fixada (cópia de trecho e autoria, feita pelo servidor).
+ * @typedef {{id: string, userName: string, username: string, author: number | null, excerpt: string, at: string, by: string}} Pin
  */
 
 /**
@@ -134,6 +143,7 @@ export const authorKey = (username, author) =>
  * @property {RoomInfo | null} room  a conversa aberta agora
  * @property {ConversationEntry[]} conversations  todas as conversas desta participação
  * @property {import("./navigation.js").NavPrefs} nav  organização da lista (fixadas, ordem, seções) — só em memória
+ * @property {Pin[]} pins  mensagens fixadas da conversa aberta
  */
 
 /** @typedef {(state: State) => void} Listener */
@@ -178,11 +188,12 @@ const initialState = () => ({
     room: null,
     conversations: [],
     nav: initialNav(),
+    pins: [],
 });
 
 /**
  * O que é de UMA conversa e precisa sobreviver enquanto outra está aberta.
- * @typedef {{messages: Message[], people: Person[], historyVersion: number | null, authorsSeen: string[], authorsLeft: string[]}} View
+ * @typedef {{messages: Message[], people: Person[], historyVersion: number | null, authorsSeen: string[], authorsLeft: string[], pins: Pin[]}} View
  */
 
 /**
@@ -203,6 +214,7 @@ const emptyView = () => ({
     historyVersion: null,
     authorsSeen: [],
     authorsLeft: [],
+    pins: [],
 });
 
 /** Os campos da vista que vivem no estado quando a conversa está aberta. */
@@ -213,6 +225,7 @@ const CLEAR_VIEW = Object.freeze({
     historyVersion: null,
     authorsSeen: [],
     authorsLeft: [],
+    pins: [],
 });
 
 /** Mesma conversa, mesmos dados visíveis? @param {RoomInfo} a @param {RoomInfo} b */
@@ -222,6 +235,7 @@ const sameSummary = (a, b) =>
     a.code === b.code &&
     a.name === b.name &&
     a.role === b.role &&
+    (a.description ?? "") === (b.description ?? "") &&
     (a.author ?? null) === (b.author ?? null) &&
     JSON.stringify(a.peer ?? null) === JSON.stringify(b.peer ?? null);
 
@@ -331,6 +345,7 @@ export const createStore = () => {
             historyVersion: state.historyVersion,
             authorsSeen: state.authorsSeen,
             authorsLeft: state.authorsLeft,
+            pins: state.pins,
         });
     };
 
@@ -739,10 +754,15 @@ export const createStore = () => {
                     const id = /** @type {string} */ (conversationId);
                     const view = bufferOf(id);
                     if (view)
-                        buffers.set(id, { ...view, historyVersion: version, messages: [notice] });
+                        buffers.set(id, {
+                            ...view,
+                            historyVersion: version,
+                            messages: [notice],
+                            pins: [],
+                        });
                     return;
                 }
-                patch({ historyVersion: version, messages: [notice] });
+                patch({ historyVersion: version, messages: [notice], pins: [] });
             },
 
             /**
@@ -755,6 +775,54 @@ export const createStore = () => {
                         message.clientMsgId === clientMsgId && message.delivery === "pending",
                     (message) => ({ ...message, delivery: "failed", failReason: reason }),
                 );
+            },
+
+            /**
+             * Muda campos de uma mensagem (edição, reações) onde ela estiver.
+             * @param {string} id
+             * @param {Partial<Message>} change
+             * @param {string | null} [conversationId]
+             */
+            updateMessage(id, change, conversationId = null) {
+                return updateWhere(
+                    (message) => message.id === id && message.kind === "chat",
+                    (message) => ({ ...message, ...change }),
+                    conversationId,
+                );
+            },
+
+            /**
+             * Mensagem apagada (por quem escreveu ou pela moderação).
+             * @param {string} id
+             * @param {string | null} [conversationId]
+             */
+            deleteMessage(id, conversationId = null) {
+                if (!isActive(conversationId)) {
+                    const view = bufferOf(/** @type {string} */ (conversationId));
+                    if (!view) return;
+                    const messages = view.messages.filter((m) => m.id !== id);
+                    if (messages.length !== view.messages.length) {
+                        buffers.set(/** @type {string} */ (conversationId), { ...view, messages });
+                    }
+                    return;
+                }
+                const messages = state.messages.filter((m) => m.id !== id);
+                if (messages.length !== state.messages.length) patch({ messages });
+            },
+
+            /**
+             * Mensagens fixadas de uma conversa.
+             * @param {Pin[]} pins
+             * @param {string | null} [conversationId]
+             */
+            setPins(pins, conversationId = null) {
+                if (!isActive(conversationId)) {
+                    const view = bufferOf(/** @type {string} */ (conversationId));
+                    if (view)
+                        buffers.set(/** @type {string} */ (conversationId), { ...view, pins });
+                    return;
+                }
+                patch({ pins });
             },
 
             /**
