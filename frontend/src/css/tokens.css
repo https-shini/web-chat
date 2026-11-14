@@ -320,6 +320,21 @@
     --menu-min-width: 13.75rem; /* 220px */
     --menu-item-height: 2.25rem;
     --gutter-message: 4.5rem; /* coluna do avatar nas mensagens */
+    /* Densidade (ui/density.js): o que muda entre padrão e compacta. */
+    --message-gap-group: var(--space-4); /* espaço antes de um grupo novo */
+    --message-pad-y: var(--space-0-5); /* respiro de cada linha */
+    --message-avatar: var(--avatar-lg);
+}
+
+/* Densidade compacta: mais mensagens na tela. Texto, contraste e áreas de
+   toque mínimas (24 px) não mudam. */
+:root[data-density="compact"] {
+    --gutter-message: 3.5rem;
+    --message-gap-group: var(--space-2);
+    --message-pad-y: var(--space-0);
+    --message-avatar: var(--avatar-md);
+    --nav-item-height: 2rem; /* 32px */
+    --menu-item-height: 2rem;
 }
 
 /* Respeita "reduzir movimento": nenhuma informação depende de animação. */

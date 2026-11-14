@@ -92,6 +92,40 @@ export default async ({ open, enter, createRoom, user, ok, axe }) => {
             ok(!covered, "320 px: com o campo crescido, a última mensagem continua à vista");
             await phone.fill("#campo-mensagem", "");
         }
+        if (width === 375) {
+            // Voltar da lista pergunta antes de sair; "Ficar" mantém tudo.
+            await phone.click(back);
+            await phone.waitForSelector(".c-sidebar:not([hidden])");
+            await phone.goBack();
+            await phone.waitForSelector('.c-dialog[open]:has-text("Sair do chat?")');
+            ok(
+                (await phone.evaluate(() => document.activeElement?.textContent?.trim())) ===
+                    "Ficar no chat",
+                "375 px: voltar da lista pergunta antes de sair (foco em Ficar no chat)",
+            );
+            await phone.click('.c-dialog button[value="cancel"]');
+            await phone.waitForSelector(".c-dialog:not([open])", { state: "attached" });
+            ok(
+                (await visible(".c-sidebar")) &&
+                    (await phone.evaluate(() => history.state?.layer === "list")),
+                "375 px: Ficar no chat volta para a lista, ainda no chat",
+            );
+            // Navegar entre painéis nunca pergunta.
+            await phone.click(`.c-sidebar >> text=Pilha ${width}`);
+            await phone.click('.c-header [data-drawer-open="members"]');
+            await phone.goBack();
+            await phone.goBack();
+            await phone.waitForSelector(".c-sidebar:not([hidden])");
+            ok(
+                !(await phone.$(".c-dialog[open]")),
+                "375 px: ir e voltar entre as telas não pergunta nada",
+            );
+            await phone.goBack();
+            await phone.waitForSelector(".c-dialog[open]");
+            await phone.click(".c-dialog__confirm");
+            await phone.waitForSelector('.c-app[data-screen="entry"]');
+            ok(true, "375 px: confirmar a saída encerra o chat e volta para a entrada");
+        }
         await phone.close();
     }
 
@@ -107,5 +141,19 @@ export default async ({ open, enter, createRoom, user, ok, axe }) => {
     ok(
         await desk.evaluate(() => history.state === null || !("layer" in (history.state ?? {}))),
         "no computador o histórico não ganha entradas da pilha",
+    );
+
+    // Recarregar ou fechar no meio do chat: o navegador pergunta antes.
+    let asked = "";
+    desk.once("dialog", (prompt) => {
+        asked = prompt.type();
+        void prompt.dismiss();
+    });
+    await desk.click("#campo-mensagem");
+    await desk.reload({ timeout: 3000 }).catch(() => {});
+    ok(asked === "beforeunload", `recarregar no meio do chat pergunta antes (${asked})`);
+    ok(
+        (await desk.$('.c-app[data-screen="room"]')) !== null,
+        "cancelar a pergunta mantém a conversa aberta",
     );
 };
