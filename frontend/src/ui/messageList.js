@@ -173,6 +173,27 @@ export const createMessageList = (handlers = {}) => {
         paintJump();
     };
 
+    // Quem lia o fim continua no fim quando a área da conversa muda de altura
+    // (o campo cresce, a barra de resposta aparece, o teclado do celular
+    // abre, a janela muda). Sem isso, as últimas mensagens ficavam escondidas
+    // atrás do campo.
+    let pinnedToEnd = true;
+    root.addEventListener(
+        "scroll",
+        () => {
+            pinnedToEnd = isAtBottom();
+        },
+        { passive: true },
+    );
+    if (typeof ResizeObserver === "function") {
+        let lastHeight = root.clientHeight;
+        new ResizeObserver(() => {
+            const height = root.clientHeight;
+            if (height !== lastHeight && pinnedToEnd) root.scrollTop = root.scrollHeight;
+            lastHeight = height;
+        }).observe(root);
+    }
+
     root.addEventListener(
         "scroll",
         () => {
