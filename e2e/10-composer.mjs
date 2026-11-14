@@ -28,7 +28,8 @@ export default async ({ open, enter, createRoom, user, ok, axe, RUN }) => {
     await bia.waitForSelector(`.c-message:has-text("linha um ${RUN}")`);
     const received = await bia.$eval(
         `.c-message:has-text("linha um ${RUN}") .c-message__text`,
-        (x) => x.textContent,
+        // innerText: o texto como aparece na tela (cada quebra é um <br>).
+        (x) => /** @type {HTMLElement} */ (x).innerText.replace(/\s*✓?$/, "").trim(),
     );
     ok(
         received === `linha um ${RUN}\nlinha dois\nlinha três`,

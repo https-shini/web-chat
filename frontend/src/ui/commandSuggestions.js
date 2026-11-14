@@ -12,17 +12,69 @@ import { el, must } from "./dom.js";
  * fecha, clique/toque escolhe. Depois do nome, mostra só a sintaxe — sem
  * tomar nenhuma tecla. Mensagens comuns não abrem nada.
  *
+ * Também sugere pessoas ao digitar "@" (decisão C3): só quem está na
+ * conversa aberta, com os dados que o navegador já tem (lista de pessoas).
+ * Escolher troca o trecho "@parcial" por "@username ".
+ *
  * @typedef {import("../state/store.js").CommandInfo} CommandInfo
+ * @typedef {import("../state/store.js").Person} Person
  */
+
+/**
+ * "@parcial" logo antes do cursor (início de palavra), ou null.
+ * @param {string} text
+ * @param {number} cursor
+ * @returns {{start: number, query: string} | null}
+ */
+export const mentionQuery = (text, cursor) => {
+    const before = text.slice(0, cursor);
+    const match = /(^|\s)@([a-z0-9._]{0,20})$/.exec(before);
+    if (!match) return null;
+    return { start: before.length - (match[2] ?? "").length - 1, query: match[2] ?? "" };
+};
+
+/** Sem acento e em minúsculas. @param {string} text */
+const fold = (text) => text.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase("pt-BR");
+
+/**
+ * Pessoas que combinam com o "@parcial" (no máximo 8, sem você).
+ * @param {Person[]} people
+ * @param {string} query
+ * @param {string | null} me
+ */
+export const matchPeople = (people, query, me) => {
+    const q = fold(query);
+    return people
+        .filter((person) => person.username && person.username !== me)
+        .filter(
+            (person) =>
+                !q ||
+                (person.username ?? "").startsWith(q) ||
+                fold(person.name)
+                    .split(/\s+/)
+                    .some((word) => word.startsWith(q)),
+        )
+        .slice(0, 8);
+};
 
 /**
  * @param {{
  *   input: HTMLInputElement | HTMLTextAreaElement,
  *   getCatalog: () => CommandInfo[],
  *   onChoose: (text: string) => void,
+ *   getPeople?: () => Person[],
+ *   getMe?: () => string | null,
+ *   onMention?: (start: number, end: number, text: string) => void,
  * }} options
  */
-export const createCommandSuggestions = ({ input, getCatalog, onChoose }) => {
+export const createCommandSuggestions = ({
+    input,
+    getCatalog,
+    onChoose,
+    getPeople = () => [],
+    getMe = () => null,
+    onMention = () => {},
+}) => {
     const root = /** @type {HTMLElement} */ (must(".c-command-suggestions"));
     const list = /** @type {HTMLUListElement} */ (must(".c-command-suggestions__list", root));
     const hint = /** @type {HTMLElement} */ (must(".c-command-suggestions__hint", root));
@@ -44,6 +96,11 @@ export const createCommandSuggestions = ({ input, getCatalog, onChoose }) => {
 
     /** @type {{command: CommandInfo, matched: string}[]} */
     let items = [];
+    /** Modo pessoas ("@"): as pessoas e onde o "@" começa. */
+    /** @type {Person[]} */
+    let people = [];
+    let mentionStart = -1;
+    const heading = root.querySelector(".c-command-suggestions__heading");
     let active = 0;
     let query = "";
     /** Escape fecha até o texto mudar. */
@@ -55,6 +112,8 @@ export const createCommandSuggestions = ({ input, getCatalog, onChoose }) => {
 
     const close = () => {
         items = [];
+        people = [];
+        mentionStart = -1;
         root.hidden = true;
         list.hidden = true;
         hint.hidden = true;
@@ -73,6 +132,14 @@ export const createCommandSuggestions = ({ input, getCatalog, onChoose }) => {
 
     /** @param {number} index */
     const choose = (index) => {
+        if (people.length) {
+            const person = people[index];
+            const start = mentionStart;
+            const end = input.selectionStart ?? input.value.length;
+            close();
+            if (person?.username) onMention(start, end, `@${person.username} `);
+            return;
+        }
         const item = items[index];
         if (!item) return;
         close();
@@ -121,7 +188,52 @@ export const createCommandSuggestions = ({ input, getCatalog, onChoose }) => {
         update(text, cursor) {
             if (dismissedFor !== null && dismissedFor !== text) dismissedFor = null;
             const result = dismissedFor === null ? suggest(text, cursor, getCatalog()) : null;
-            if (!result) return close();
+            if (!result) {
+                const mention = dismissedFor === null ? mentionQuery(text, cursor) : null;
+                const found = mention ? matchPeople(getPeople(), mention.query, getMe()) : [];
+                if (!mention || found.length === 0) return close();
+                const same =
+                    people.length === found.length &&
+                    people.every((person, index) => person.username === found[index]?.username);
+                items = [];
+                people = found;
+                mentionStart = mention.start;
+                if (!same) active = 0;
+                root.hidden = false;
+                hint.hidden = true;
+                list.hidden = false;
+                if (heading) heading.textContent = strings.commands.peopleHeading;
+                list.replaceChildren(
+                    ...people.map((person, index) => {
+                        const option = el("li", {
+                            class: "c-command-suggestions__option",
+                            attrs: {
+                                role: "option",
+                                id: optionId(index),
+                                "aria-selected": "false",
+                            },
+                        });
+                        option.appendChild(
+                            el("span", { class: "c-command-suggestions__name", text: person.name }),
+                        );
+                        option.appendChild(
+                            el("span", {
+                                class: "c-command-suggestions__desc",
+                                text: `@${person.username}`,
+                            }),
+                        );
+                        option.addEventListener("mousedown", (event) => {
+                            event.preventDefault();
+                            choose(index);
+                        });
+                        return option;
+                    }),
+                );
+                setExpanded(true);
+                highlight();
+                return;
+            }
+            if (heading) heading.textContent = strings.commands.helpTitle;
 
             root.hidden = false;
             if (result.mode === "syntax") {
@@ -155,14 +267,15 @@ export const createCommandSuggestions = ({ input, getCatalog, onChoose }) => {
          * @param {KeyboardEvent} event
          */
         handleKey(event) {
-            if (items.length === 0) return false;
+            const total = people.length || items.length;
+            if (total === 0) return false;
             switch (event.key) {
                 case "ArrowDown":
-                    active = (active + 1) % items.length;
+                    active = (active + 1) % total;
                     highlight();
                     return true;
                 case "ArrowUp":
-                    active = (active - 1 + items.length) % items.length;
+                    active = (active - 1 + total) % total;
                     highlight();
                     return true;
                 case "Tab":
@@ -170,6 +283,10 @@ export const createCommandSuggestions = ({ input, getCatalog, onChoose }) => {
                     choose(active);
                     return true;
                 case "Enter": {
+                    if (people.length) {
+                        choose(active);
+                        return true;
+                    }
                     // Nome já completo (ex.: "/help"): Enter envia. Senão, completa.
                     const item = items[active];
                     if (!item || item.matched === query) return false;

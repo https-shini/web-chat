@@ -18,12 +18,19 @@ const chat = (over = {}) => ({
 });
 
 describe("agrupamento de mensagens", () => {
-    test("mesma pessoa, em sequência e dentro de 5 min: agrupa", () => {
-        assert.equal(continuesGroup(chat(), chat({ timestamp: "2026-11-07T10:04:59Z" })), true);
+    // Janela de 7 minutos, como no Fluxer (MessageGroupingUtils).
+    test("mesma pessoa, em sequência e dentro de 7 min: agrupa", () => {
+        assert.equal(continuesGroup(chat(), chat({ timestamp: "2026-11-07T10:06:59Z" })), true);
     });
 
-    test("depois de 5 minutos: novo grupo", () => {
-        assert.equal(continuesGroup(chat(), chat({ timestamp: "2026-11-07T10:05:00Z" })), false);
+    test("depois de 7 minutos: novo grupo", () => {
+        assert.equal(continuesGroup(chat(), chat({ timestamp: "2026-11-07T10:07:00Z" })), false);
+    });
+
+    test("virou o dia: novo grupo, mesmo dentro da janela", () => {
+        const late = new Date(2026, 10, 7, 23, 58).toISOString();
+        const early = new Date(2026, 10, 8, 0, 1).toISOString();
+        assert.equal(continuesGroup(chat({ timestamp: late }), chat({ timestamp: early })), false);
     });
 
     test("outra pessoa: novo grupo", () => {
@@ -56,5 +63,17 @@ describe("mesmo @, autores diferentes", () => {
 
     test("sem número de autor (servidor antigo), vale só o @", () => {
         assert.equal(continuesGroup(chat(), chat({ author: 3, id: "b" })), true);
+    });
+});
+
+describe("separadores de dia", () => {
+    const now = new Date(2026, 10, 14, 15, 0);
+    test("hoje, ontem e a data", async () => {
+        const { dayLabel } = await import("../src/ui/messageList.js");
+        assert.equal(dayLabel(new Date(2026, 10, 14, 9, 0).toISOString(), now), "Hoje");
+        assert.equal(dayLabel(new Date(2026, 10, 13, 23, 0).toISOString(), now), "Ontem");
+        assert.equal(dayLabel(new Date(2026, 10, 2, 8, 0).toISOString(), now), "2 de novembro");
+        assert.equal(dayLabel(new Date(2025, 0, 5).toISOString(), now), "5 de janeiro de 2025");
+        assert.equal(dayLabel("não é data", now), "");
     });
 });

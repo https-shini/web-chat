@@ -758,6 +758,18 @@ export const createStore = () => {
             },
 
             /**
+             * Tira da tela uma entrada que só existe aqui (resposta de
+             * comando "Dispensar"). Não mexe em nada do servidor.
+             * @param {string} id
+             */
+            removeLocal(id) {
+                const messages = state.messages.filter(
+                    (m) => !(m.id === id && m.kind === "notice"),
+                );
+                if (messages.length !== state.messages.length) patch({ messages });
+            },
+
+            /**
              * Tira da tela uma mensagem SUA que o servidor recusou de vez (o
              * texto volta para o rascunho). Só falhas: uma confirmada nunca
              * some, e uma pendente ainda pode chegar.
