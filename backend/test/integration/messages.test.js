@@ -154,11 +154,11 @@ describe("mensagens", () => {
         newcomer.close();
     });
 
-    test("conteúdo é normalizado: controle vira espaço e o tamanho é limitado", async () => {
+    test("conteúdo é normalizado: quebra de linha fica, outro controle vira espaço, tamanho limitado", async () => {
         const user = await join(server.url, { userName: "Gil" });
         user.client.send("chat_message", { content: "linha1\nlinha2\u0000fim" });
         const normalized = await user.client.take("chat_message");
-        assert.equal(normalized.payload.content, "linha1 linha2 fim");
+        assert.equal(normalized.payload.content, "linha1\nlinha2 fim");
 
         user.client.send("chat_message", { content: "x".repeat(1500) });
         const truncated = await user.client.take("chat_message");
