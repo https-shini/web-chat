@@ -476,12 +476,12 @@ Não há banco de dados, APIs de terceiros ou serviços de autenticação.
 
 ## Acessibilidade
 
-Verificada por comando, não por afirmação: `npm run check:contrast` mede 71 pares
-de cor nos dois temas (142 verificações) a partir de `frontend/src/css/tokens.css`.
+Verificada por comando, não por afirmação: `npm run check:contrast` mede 94 pares
+de cor nos dois temas (188 verificações) a partir de `frontend/src/css/tokens.css`.
 Na Fase 5, uma auditoria com axe-core (WCAG 2.0/2.1/2.2 A e AA) não encontrou
 violações em 16 telas e estados, nos dois temas.
 
-- **1.4.3** — todo texto ≥ 4.5:1 (menor par medido: 4.52:1).
+- **1.4.3** — todo texto ≥ 4.5:1 (menor par medido: 4.70:1).
 - **1.4.11** — contorno de controle, preenchimento e anel de foco ≥ 3:1.
 - **1.4.1** — cor nunca é o único sinal: selo "você", selo "admin", presença em
   texto ("Ausente"), estado da conexão com rótulo.
