@@ -55,8 +55,8 @@ jobs:
             - name: Testes
               run: npm test
 
-            # Bloqueante: dependências que vão para produção (o backend; o
-            # frontend não tem dependência de runtime).
+            # Bloqueante: dependências que vão para produção (o backend e a
+            # única dependência de runtime do frontend, @floating-ui/dom).
             - name: Auditoria de dependências de produção
               run: |
                   npm audit --omit=dev --audit-level=high
