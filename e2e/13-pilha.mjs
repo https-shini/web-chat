@@ -73,6 +73,25 @@ export default async ({ open, enter, createRoom, user, ok, axe }) => {
         await phone.goForward();
         await phone.waitForSelector(".c-sidebar[hidden]", { state: "attached" });
         ok(true, `${width} px: "Voltar" da interface e avançar do navegador ficam em sincronia`);
+        if (width === 320) {
+            // O campo cresce (várias linhas): a última mensagem continua à vista,
+            // acima do campo, para quem estava lendo o fim.
+            for (let i = 1; i <= 12; i += 1) {
+                await phone.fill("#campo-mensagem", `linha ${i}`);
+                await phone.click(".c-composer__send");
+            }
+            await phone.waitForSelector('.c-message:has-text("linha 12")');
+            await phone.fill("#campo-mensagem", "a\nb\nc\nd\ne");
+            await phone.waitForTimeout(300);
+            const covered = await phone.evaluate(() => {
+                const items = document.querySelectorAll(".c-message");
+                const last = items[items.length - 1]?.getBoundingClientRect();
+                const field = document.querySelector(".c-composer-area")?.getBoundingClientRect();
+                return !last || !field ? true : last.bottom > field.top + 1;
+            });
+            ok(!covered, "320 px: com o campo crescido, a última mensagem continua à vista");
+            await phone.fill("#campo-mensagem", "");
+        }
         await phone.close();
     }
 
