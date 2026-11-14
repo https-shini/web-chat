@@ -39,6 +39,8 @@ export const LIMITS = Object.freeze({
     usernameMinLength: 3,
     usernameMaxLength: 20,
     messageMaxLength: 1000,
+    /** Linhas de uma mensagem (as que passarem são juntadas na última). */
+    messageMaxLines: 20,
     resumeTokenMaxLength: 100,
     /** Texto bruto de um comando (`/nome argumentos`). */
     commandMaxLength: 1000,

@@ -17,7 +17,7 @@ import { el, must } from "./dom.js";
 
 /**
  * @param {{
- *   input: HTMLInputElement,
+ *   input: HTMLInputElement | HTMLTextAreaElement,
  *   getCatalog: () => CommandInfo[],
  *   onChoose: (text: string) => void,
  * }} options
@@ -27,10 +27,20 @@ export const createCommandSuggestions = ({ input, getCatalog, onChoose }) => {
     const list = /** @type {HTMLUListElement} */ (must(".c-command-suggestions__list", root));
     const hint = /** @type {HTMLElement} */ (must(".c-command-suggestions__hint", root));
 
-    input.setAttribute("role", "combobox");
+    // Campo de uma linha: combobox. Área de texto (o campo de mensagem):
+    // continua "caixa de texto" de várias linhas — o ARIA não permite
+    // combobox num textarea — e indica as sugestões com aria-autocomplete,
+    // aria-controls e aria-activedescendant, como os chats que usam um
+    // editor de várias linhas.
+    const isTextarea = input instanceof HTMLTextAreaElement;
+    if (!isTextarea) input.setAttribute("role", "combobox");
     input.setAttribute("aria-autocomplete", "list");
     input.setAttribute("aria-controls", list.id);
-    input.setAttribute("aria-expanded", "false");
+    /** @param {boolean} open */
+    const setExpanded = (open) => {
+        if (!isTextarea) input.setAttribute("aria-expanded", String(open));
+    };
+    setExpanded(false);
 
     /** @type {{command: CommandInfo, matched: string}[]} */
     let items = [];
@@ -49,7 +59,7 @@ export const createCommandSuggestions = ({ input, getCatalog, onChoose }) => {
         list.hidden = true;
         hint.hidden = true;
         list.replaceChildren();
-        input.setAttribute("aria-expanded", "false");
+        setExpanded(false);
         input.removeAttribute("aria-activedescendant");
     };
 
@@ -120,7 +130,7 @@ export const createCommandSuggestions = ({ input, getCatalog, onChoose }) => {
                 list.replaceChildren();
                 hint.hidden = false;
                 hint.textContent = `${format(strings.commands.syntax, { syntax: result.command.syntax })} — ${result.command.description}`;
-                input.setAttribute("aria-expanded", "false");
+                setExpanded(false);
                 input.removeAttribute("aria-activedescendant");
                 return;
             }
@@ -136,7 +146,7 @@ export const createCommandSuggestions = ({ input, getCatalog, onChoose }) => {
             list.replaceChildren(
                 ...items.map((item, index) => renderOption(item.command, item.matched, index)),
             );
-            input.setAttribute("aria-expanded", "true");
+            setExpanded(true);
             highlight();
         },
 

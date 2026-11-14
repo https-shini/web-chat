@@ -7,12 +7,12 @@
     padding: var(--space-0) var(--space-4);
 }
 
+/* Duas faixas: o texto (cresce com o conteúdo) e a barra de ferramentas. */
 .c-composer {
     display: flex;
-    gap: var(--space-1);
-    align-items: center;
-    min-height: var(--space-12);
-    padding: var(--space-1) var(--space-1) var(--space-1) var(--space-4);
+    flex-direction: column;
+    gap: var(--space-0);
+    padding: var(--space-0);
     border: var(--rule-1) solid var(--color-border-subtle);
     border-radius: var(--radius-lg);
     background-color: var(--color-bg-elevated);
@@ -31,14 +31,79 @@
 }
 
 .c-composer__input {
-    flex: 1 1 auto;
-    min-width: 0;
+    display: block;
+    width: 100%;
     min-height: var(--space-10);
-    padding: var(--space-2) var(--space-0);
+    max-height: 40dvh;
+    padding: var(--space-3) var(--space-4) var(--space-1);
+    overflow-y: hidden;
     border: 0;
     background: transparent;
     color: var(--color-text-1);
+    font: inherit;
     font-size: var(--text-md);
+    line-height: var(--leading-normal);
+    resize: none;
+    overflow-wrap: anywhere;
+}
+
+.c-composer__bar {
+    display: flex;
+    gap: var(--space-0-5);
+    align-items: center;
+    padding: var(--space-0) var(--space-1-5) var(--space-1-5);
+}
+
+.c-composer__format {
+    display: inline-flex;
+    gap: var(--space-0-5);
+}
+
+.c-composer__tool {
+    color: var(--color-text-3);
+}
+
+.c-composer__divider {
+    width: var(--rule-1);
+    height: var(--space-5);
+    margin: var(--space-0) var(--space-1);
+    background-color: var(--color-border-subtle);
+}
+
+.c-composer__spacer {
+    flex: 1 1 auto;
+}
+
+.c-composer__hint {
+    color: var(--color-text-3);
+    font-size: var(--text-2xs);
+    white-space: nowrap;
+}
+
+.c-composer__hint kbd {
+    padding: var(--space-0);
+    border: 0;
+    background: none;
+    color: var(--color-text-2);
+    font-family: var(--font-text);
+    font-size: inherit;
+    font-weight: var(--weight-semibold);
+}
+
+.c-composer__hint[hidden] {
+    display: none;
+}
+
+.c-composer__count {
+    margin: var(--space-0) var(--space-1);
+    color: var(--color-warn-text);
+    font-size: var(--text-xs);
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--weight-semibold);
+}
+
+.c-composer__count[data-level="limit"] {
+    color: var(--color-danger-text);
 }
 
 .c-composer__input::placeholder {
@@ -54,12 +119,19 @@
 }
 
 .c-composer__send {
-    color: var(--color-brand-text);
+    background-color: var(--color-brand);
+    color: var(--color-on-brand);
 }
 
 .c-composer__send:hover:not(:disabled) {
-    background-color: var(--color-brand-soft);
-    color: var(--color-brand-text);
+    background-color: var(--color-brand-hover);
+    color: var(--color-on-brand);
+}
+
+/* Campo vazio: o botão continua alcançável, mas fica discreto. */
+.c-composer__send[aria-disabled="true"] {
+    background-color: var(--color-bg-selected);
+    color: var(--color-text-3);
 }
 
 .c-composer[data-state="blocked"] {
@@ -72,6 +144,11 @@
     color: var(--color-warn-text);
 }
 
+.c-composer__notice[data-kind="muted"] {
+    color: var(--color-danger-text);
+    font-weight: var(--weight-semibold);
+}
+
 .c-composer__notice:empty {
     display: none;
 }
@@ -79,5 +156,21 @@
 @media (max-width: 30rem) {
     .c-composer-area {
         padding: var(--space-0) var(--space-2);
+    }
+
+    /* No celular a dica de teclado não se aplica (Enter quebra a linha). */
+    .c-composer__hint {
+        display: none;
+    }
+}
+
+@media (pointer: coarse) {
+    .c-composer__hint {
+        display: none;
+    }
+
+    .c-composer__bar .c-icon-button {
+        min-width: var(--tap-comfort);
+        min-height: var(--tap-comfort);
     }
 }

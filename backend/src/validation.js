@@ -97,6 +97,44 @@ export const readUsername = (raw) => {
     return valid ? { ok: true, username } : { ok: false, code: ERROR_CODES.INVALID_USERNAME };
 };
 
+// Numa mensagem, a quebra de linha tem uso legítimo (listas, código). Os
+// demais caracteres de controle continuam sem uso e viram espaço.
+// eslint-disable-next-line no-control-regex
+const MESSAGE_CONTROL_CHARS = /[\x00-\x08\x0b-\x1f\x7f]/g;
+
+/**
+ * Texto de uma mensagem de chat, com quebras de linha (decisão C1):
+ * - `\r\n` e `\r` viram `\n`; tabulação vira dois espaços;
+ * - outros caracteres de controle viram espaço;
+ * - espaços no fim de cada linha somem; mais de uma linha vazia seguida
+ *   vira uma só (nada de "parede" de linhas em branco);
+ * - no máximo `messageMaxLines` linhas: o que passar disso é juntado na
+ *   última, com espaço — nenhum texto se perde, só a quebra;
+ * - extremidades aparadas e corte em `messageMaxLength`.
+ * A exibição usa `textContent` e `white-space: pre-wrap`: a quebra de linha
+ * não abre nenhuma brecha de marcação.
+ * @param {string} value
+ */
+export const normalizeMessage = (value) => {
+    const lines = value
+        .replace(/\r\n?/g, "\n")
+        .replace(/\t/g, "  ")
+        .replace(MESSAGE_CONTROL_CHARS, " ")
+        .split("\n")
+        .map((line) => line.trimEnd());
+    /** @type {string[]} */
+    const kept = [];
+    for (const line of lines) {
+        if (line === "" && kept.at(-1) === "") continue;
+        kept.push(line);
+    }
+    const max = LIMITS.messageMaxLines;
+    const head = kept.slice(0, max - 1);
+    const tail = kept.slice(max - 1).filter((line) => line.trim() !== "");
+    if (tail.length) head.push(tail.map((line) => line.trim()).join(" "));
+    return head.join("\n").trim().slice(0, LIMITS.messageMaxLength).trim();
+};
+
 /**
  * Conteúdo de uma mensagem de chat.
  * @param {unknown} raw
@@ -104,7 +142,7 @@ export const readUsername = (raw) => {
  */
 export const readContent = (raw) => {
     if (typeof raw !== "string") return { ok: false, code: ERROR_CODES.INVALID_MESSAGE };
-    const content = normalizeText(raw, LIMITS.messageMaxLength);
+    const content = normalizeMessage(raw);
     if (!content) return { ok: false, code: ERROR_CODES.EMPTY_MESSAGE };
     return { ok: true, content };
 };
