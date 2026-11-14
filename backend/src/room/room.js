@@ -29,6 +29,7 @@
 import crypto from "node:crypto";
 import { ERROR_CODES } from "../errors.js";
 import {
+    LIMITS,
     MESSAGE_KINDS,
     ROLES,
     ROOM_LEFT_REASONS,
@@ -36,9 +37,10 @@ import {
     scoped,
     serverMessage,
 } from "../protocol.js";
-import { readClientId, readContent } from "../validation.js";
-import { isMuted } from "./policy.js";
+import { normalizeText, readClientId, readContent } from "../validation.js";
+import { isModerator, isMuted } from "./policy.js";
 import { createTranscript } from "./transcript.js";
+import { createMessageOps } from "./messageOps.js";
 
 /** Intervalo mínimo entre duas trocas de nome da mesma pessoa. */
 export const RENAME_COOLDOWN_MS = 10_000;
@@ -165,6 +167,18 @@ export const createRoom = ({
     const notice = (tone, text) =>
         broadcast(serverMessage.notice({ id: newMessageId(), tone, text, timestamp: timestamp() }));
 
+    /** Responder, editar, apagar, reagir e fixar (comum com as privadas). */
+    const ops = createMessageOps({
+        transcript,
+        broadcast,
+        notice: (text) => notice(TONES.INFO, text),
+        timestamp,
+        log,
+        conversationId: id,
+    });
+    /** Descrição da sala (F6), definida por quem modera. */
+    let description = "";
+
     /** Quem aparece na lista: conectados, com o papel que têm NESTA sala. */
     const present = () => [...members].filter(([, membership]) => membership.connected);
 
@@ -229,6 +243,7 @@ export const createRoom = ({
         author: authors.get(identity.id) ?? null,
         memberCount: members.size,
         historyVersion: transcript.version,
+        ...(description ? { description } : {}),
     });
 
     /**
@@ -247,6 +262,7 @@ export const createRoom = ({
         if (recent.length > 0) {
             sendTo(identity, serverMessage.history(recent));
         }
+        if (ops.pinCount > 0) sendTo(identity, ops.pinsUpdated());
     };
 
     /** Cada participante recebe o resumo atualizado (o papel difere por pessoa). */
@@ -284,6 +300,33 @@ export const createRoom = ({
     };
 
     /**
+     * Recusa por silêncio, com o instante em que ele acaba (F7). Silêncio
+     * "até liberar" não tem prazo.
+     * @param {Membership} membership
+     * @returns {{ok: false, code: string, until?: string}}
+     */
+    const mutedRefusal = (membership) => ({
+        ok: false,
+        code: ERROR_CODES.MUTED,
+        ...(membership.mutedUntil !== null && Number.isFinite(membership.mutedUntil)
+            ? { until: new Date(membership.mutedUntil).toISOString() }
+            : {}),
+    });
+
+    /**
+     * Quem participa, e se pode agir (silêncio vale também para editar e
+     * reagir).
+     * @param {Identity} identity
+     * @param {{speak?: boolean}} [options]
+     */
+    const participant = (identity, { speak = false } = {}) => {
+        const membership = members.get(identity);
+        if (!membership) return { ok: false, code: ERROR_CODES.CONVERSATION_NOT_FOUND };
+        if (speak && isMuted(membership, nowMs())) return mutedRefusal(membership);
+        return { ok: true, membership };
+    };
+
+    /**
      * Publica uma mensagem na sala. Único caminho de escrita no histórico —
      * mensagem digitada e mensagem produzida por comando seguem as mesmas
      * regras.
@@ -293,17 +336,17 @@ export const createRoom = ({
      */
     const publish = (
         identity,
-        { content, kind = MESSAGE_KINDS.TEXT, format = null, clientMsgId = null },
+        { content, kind = MESSAGE_KINDS.TEXT, format = null, clientMsgId = null, reference = null },
     ) => {
         const membership = members.get(identity);
         if (!membership) return { ok: false, code: ERROR_CODES.CONVERSATION_NOT_FOUND };
-        if (isMuted(membership, nowMs())) return { ok: false, code: ERROR_CODES.MUTED };
+        if (isMuted(membership, nowMs())) return mutedRefusal(membership);
 
         // Reenvio da mesma mensagem (retentativa do cliente): a original volta
         // só para quem enviou, sem duplicar na sala.
         const { message, duplicate } = transcript.append(
             identity,
-            { content, kind, format, clientMsgId },
+            { content, kind, format, clientMsgId, reference },
             authorOf(identity),
         );
         if (duplicate) {
@@ -450,10 +493,71 @@ export const createRoom = ({
             return publish(identity, {
                 content: content.content,
                 clientMsgId: readClientId(payload.clientMsgId),
+                reference: ops.reference(payload.replyTo),
             });
         },
 
         publish,
+
+        /** Editar a própria mensagem. @param {Identity} identity @param {Record<string, unknown>} payload */
+        edit(identity, payload) {
+            const check = participant(identity, { speak: true });
+            return check.ok ? ops.edit(persona(identity), payload) : check;
+        },
+
+        /** Apagar (sua, ou qualquer uma se você modera). @param {Identity} identity @param {Record<string, unknown>} payload */
+        removeMessage(identity, payload) {
+            const check = participant(identity);
+            if (!check.ok) return check;
+            return ops.remove(persona(identity), payload, {
+                moderator: isModerator(identity, check.membership),
+                actorId: identity.id,
+            });
+        },
+
+        /** Reagir. @param {Identity} identity @param {Record<string, unknown>} payload */
+        react(identity, payload) {
+            const check = participant(identity, { speak: true });
+            return check.ok ? ops.react(persona(identity), payload) : check;
+        },
+
+        /** Fixar ou desafixar: quem modera a sala. @param {Identity} identity @param {Record<string, unknown>} payload */
+        pin(identity, payload) {
+            const check = participant(identity);
+            if (!check.ok) return check;
+            return ops.pin(persona(identity), payload, isModerator(identity, check.membership));
+        },
+
+        /**
+         * Descrição da sala (F6): só quem modera; até 200 caracteres; vazia
+         * apaga.
+         * @param {Identity} identity
+         * @param {Record<string, unknown>} payload `{ description }`
+         */
+        describe(identity, payload) {
+            const check = participant(identity);
+            if (!check.ok) return check;
+            if (!isModerator(identity, check.membership)) {
+                return { ok: false, code: ERROR_CODES.NOT_ALLOWED };
+            }
+            if (typeof payload.description !== "string") {
+                return { ok: false, code: ERROR_CODES.INVALID_DESCRIPTION };
+            }
+            const next = normalizeText(payload.description, LIMITS.roomDescriptionMaxLength + 1);
+            if (next.length > LIMITS.roomDescriptionMaxLength) {
+                return { ok: false, code: ERROR_CODES.INVALID_DESCRIPTION };
+            }
+            if (next === description) return { ok: true };
+            description = next;
+            notice(
+                TONES.INFO,
+                next
+                    ? `${identity.name} mudou a descrição da sala.`
+                    : `${identity.name} apagou a descrição da sala.`,
+            );
+            broadcastSummary();
+            return { ok: true };
+        },
 
         /**
          * Sinal de digitação, só para os outros participantes desta sala.
@@ -494,6 +598,7 @@ export const createRoom = ({
          */
         clearHistory(actor) {
             const removed = transcript.clear(members.keys());
+            ops.reset();
             log("warn", "moderation_action", {
                 action: "clear_history",
                 conversation: id,
