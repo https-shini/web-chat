@@ -121,12 +121,20 @@ export default async ({ open, enter, createRoom, user, ok, axe }) => {
                 "375 px: voltar da lista pergunta antes de sair (foco em Ficar no chat)",
             );
             await phone.click('.c-dialog button[value="cancel"]');
-            await phone.waitForSelector(".c-dialog:not([open])", { state: "attached" });
-            ok(
-                (await visible(".c-sidebar")) &&
-                    (await phone.evaluate(() => history.state?.layer === "list")),
-                "375 px: Ficar no chat volta para a lista, ainda no chat",
-            );
+            // A resposta do diálogo é aplicada depois que ele fecha (promessa):
+            // espera o estado final, em vez de conferir no mesmo instante.
+            const stayed = await phone
+                .waitForFunction(
+                    () =>
+                        history.state?.layer === "list" &&
+                        !document.querySelector(".c-sidebar")?.closest("[hidden]") &&
+                        !document.querySelector(".c-dialog[open]"),
+                    null,
+                    { timeout: 3000 },
+                )
+                .then(() => true)
+                .catch(() => false);
+            ok(stayed, "375 px: Ficar no chat volta para a lista, ainda no chat");
             // Navegar entre painéis nunca pergunta.
             await phone.click(`.c-sidebar >> text=Pilha ${width}`);
             await phone.click('.c-header [data-drawer-open="members"]');
