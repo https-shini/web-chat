@@ -47,7 +47,9 @@ sessão acaba.
 
 O objetivo técnico é mostrar comunicação em tempo real, um design system com
 acessibilidade verificada e dois temas usando apenas HTML, CSS e JavaScript
-nativos no navegador — **nenhuma dependência de runtime no frontend**.
+nativos no navegador — **uma única dependência de runtime no frontend**:
+[`@floating-ui/dom`](https://floating-ui.com/) (MIT, versão fixa), que posiciona
+menus e cartões junto de quem os abriu.
 
 ## Funcionalidades
 
@@ -109,8 +111,8 @@ Nenhum destes itens está implementado.
 
 | Camada         | Tecnologia                                                                                         |
 | -------------- | -------------------------------------------------------------------------------------------------- |
-| Frontend       | HTML, CSS (custom properties, BEM), JavaScript ES2022 com JSDoc                                    |
-| Build / dev    | [Vite](https://vitejs.dev/) 5                                                                      |
+| Frontend       | HTML, CSS (custom properties, BEM), JavaScript ES2022 com JSDoc; `@floating-ui/dom` 1.6.13 (MIT)   |
+| Build / dev    | [Vite](https://vitejs.dev/) 6                                                                      |
 | Backend        | Node.js, [`ws`](https://github.com/websockets/ws) 8, `dotenv`                                      |
 | Qualidade      | ESLint 9, Stylelint 16, TypeScript (só checagem de tipos), Prettier 3, script próprio de contraste |
 | CI / segurança | GitHub Actions, CodeQL                                                                             |
