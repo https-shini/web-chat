@@ -35,8 +35,23 @@ import { inviteHash, readInviteHash } from "./state/invite.js";
 import { createMemberCard } from "./ui/memberCard.js";
 import { createTooltips } from "./ui/tooltip.js";
 import { createUserPanel } from "./ui/userPanel.js";
-import { createHome } from "./ui/home.js";
+import { createHome, readUsername } from "./ui/home.js";
 import { createConversationNav } from "./ui/conversationNav.js";
+import { createSidebarNav } from "./ui/nav/sidebarNav.js";
+import { createQuickSwitcher } from "./ui/nav/quickSwitcher.js";
+import { createNewConversation } from "./ui/nav/newConversation.js";
+import { createCommandsPage } from "./ui/pages/commandsPage.js";
+import { createProfilePage } from "./ui/pages/profilePage.js";
+import { showMenu } from "./ui/primitives/menu.js";
+import {
+    moveBy as navMoveBy,
+    moveTo as navMoveTo,
+    neighbor,
+    positionOf,
+    sectionsOf,
+    setPinned,
+} from "./state/navigation.js";
+import { normalizeRoomCode } from "./state/invite.js";
 
 /**
  * Raiz de composição. É o único lugar em que transporte, estado e interface
@@ -92,11 +107,13 @@ const renderNotifyButton = () => {
     notifyButton.dataset.tooltip = label;
     notifyButton.dataset.state = current;
 };
-notifyButton?.addEventListener("click", async () => {
+/** Liga ou desliga as notificações (botão do painel "você" e página Perfil). */
+const toggleNotifications = async () => {
     if (notifier.state() === "on") {
         notifier.disable();
         renderNotifyButton();
         announcer.say(strings.notify.disabled, { force: true });
+        renderLoop.request();
         return;
     }
     const result = await notifier.enable();
@@ -111,7 +128,9 @@ notifyButton?.addEventListener("click", async () => {
                 ? strings.notify.unsupported
                 : strings.notify.disabled;
     toasts.show(text, result === "on" ? "info" : "error");
-});
+    renderLoop.request();
+};
+notifyButton?.addEventListener("click", () => void toggleNotifications());
 renderNotifyButton();
 const toasts = createToasts();
 
@@ -124,6 +143,7 @@ const themeToggle = createThemeToggle({
         // Sem toast: ele nasce sobre o próprio alternador. O feedback visual é
         // a página inteira mudando e o rótulo do botão invertendo.
         announcer.say(label, { force: true });
+        renderLoop.request();
     },
 });
 
@@ -278,14 +298,54 @@ const openConversation = (conversationId) => {
     if (store.actions.openConversation(conversationId)) syncDraft(conversationId);
 };
 
+/**
+ * Conversa da lista por id.
+ * @param {string} id
+ */
+const entryOf = (id) => store.getState().conversations.find((e) => e.conversationId === id);
+
+/**
+ * Copia o link de convite de uma sala.
+ * @param {string} code
+ */
+const copyInvite = async (code) => {
+    const link = `${location.origin}${location.pathname}${inviteHash(code)}`;
+    try {
+        await navigator.clipboard.writeText(link);
+        toasts.show(strings.conversations.inviteCopied);
+    } catch {
+        toasts.show(format(strings.conversations.inviteCopyFailed, { code }));
+    }
+};
+
+/** @param {string} text */
+const copyText = async (text) => {
+    try {
+        await navigator.clipboard.writeText(text);
+        toasts.show(strings.memberCard.copied);
+    } catch {
+        toasts.show(strings.memberCard.copyFailed, "error");
+    }
+};
+
 /** Volta ao início; as conversas continuam na lista, recebendo mensagens. */
-const goHome = () => {
+const goHome = () => showPage("home");
+
+/**
+ * Página no centro sem conversa aberta (Início, Comandos, Perfil). As
+ * conversas continuam na lista, recebendo mensagens.
+ * @param {"home" | "commands" | "profile"} page
+ */
+const showPage = (page) => {
     typingSignal.stop();
     typingTracker.clear();
     memberCard.close({ restoreFocus: false });
     syncDraft(null);
-    store.actions.goHome();
+    store.actions.showPage(page);
 };
+
+/** A última conversa aberta (para "Usar" um comando a partir da página). @type {string | null} */
+let lastConversationId = null;
 
 /**
  * Pede uma sala ao servidor (criar ou entrar). A resposta (`room_joined`)
@@ -480,7 +540,14 @@ const roomHeader = createRoomHeader();
 
 const people = createPeople({ onSelect: (person, button) => memberCard.open(person, button) });
 
-const userPanel = createUserPanel({ onToggleAway: () => submit("/afk") });
+const userPanel = createUserPanel({ onMenu: (button) => openProfileMenu(button) });
+
+/**
+ * Presença sua conhecida por último (a lista de pessoas só existe com uma
+ * sala aberta; fora dela, vale a última vista).
+ * @type {{status: "online" | "away", statusText: string}}
+ */
+let selfPresence = { status: "online", statusText: "" };
 
 /**
  * Atalhos da barra lateral e do cabeçalho. Cada um é um comando que já
@@ -595,6 +662,8 @@ const home = createHome({
     onDirect: (username) => requestDm(username),
 });
 
+// Lista do início ("Suas conversas"): plana. A da barra lateral é a nova
+// navegação em seções (abaixo).
 const conversationNavs = [...document.querySelectorAll("[data-conversation-nav]")].map(
     (container) =>
         createConversationNav({
@@ -606,6 +675,551 @@ const conversationNavs = [...document.querySelectorAll("[data-conversation-nav]"
             },
         }),
 );
+
+// ─── Navegação (esquerda) ─────────────────────────────────────────────────
+
+const newButton = /** @type {HTMLButtonElement} */ (must("[data-nav-new]"));
+const railButton = /** @type {HTMLButtonElement} */ (must("[data-nav-rail]"));
+const unreadTotal = /** @type {HTMLElement} */ (must("[data-unread-total]"));
+const filterButtons = /** @type {HTMLButtonElement[]} */ ([
+    ...document.querySelectorAll("[data-nav-filter]"),
+]);
+
+/**
+ * @param {{nav: import("./state/navigation.js").NavPrefs, position: number, total: number, section: import("./state/navigation.js").SectionId} | null} result
+ */
+const applyMove = (result) => {
+    if (!result) return null;
+    store.actions.updateNav(() => result.nav);
+    return result;
+};
+
+/**
+ * Fixa ou desafixa uma conversa (em memória, pela vida da identidade).
+ * @param {string} id
+ * @param {boolean} value
+ * @param {number} [at]
+ */
+const pinConversation = (id, value, at) => {
+    const entry = entryOf(id);
+    if (!entry) return;
+    store.actions.updateNav((nav) => setPinned(nav, id, value, at ?? -1));
+    announcer.say(
+        format(value ? strings.nav.pinned1 : strings.nav.unpinned1, { name: entry.name }),
+        {
+            force: true,
+        },
+    );
+};
+
+/**
+ * Sair de uma sala ou encerrar uma privada (aberta ou não), com confirmação.
+ * @param {string} id
+ */
+const leaveConversation = async (id) => {
+    const room = entryOf(id);
+    if (!room) return;
+    const dm = room.kind === "dm";
+    const ok = await dialog.confirm(
+        dm
+            ? {
+                  title: format(strings.conversations.closeDmTitle, { name: room.name }),
+                  body: strings.conversations.closeDmBody,
+                  confirmLabel: strings.conversations.closeDmConfirm,
+              }
+            : {
+                  title: format(strings.conversations.leaveRoomTitle, { name: room.name }),
+                  body: strings.conversations.leaveRoomBody,
+                  confirmLabel: strings.conversations.leaveRoomConfirm,
+              },
+    );
+    if (!ok) return;
+    if (store.getState().room?.conversationId === id) typingSignal.stop();
+    if (dm) {
+        closingByMe.set(id, "closed");
+        transport.send(CLIENT_EVENTS.DM_CLOSE, { conversationId: id });
+    } else {
+        transport.send(CLIENT_EVENTS.ROOM_LEAVE, { conversationId: id });
+    }
+};
+
+/**
+ * Bloquear a outra pessoa de uma privada, com confirmação.
+ * @param {string} id
+ */
+const blockConversation = async (id) => {
+    const room = entryOf(id);
+    if (room?.kind !== "dm" || !room.peer) return;
+    const ok = await dialog.confirm({
+        title: format(strings.conversations.blockTitle, { name: room.name }),
+        body: strings.conversations.blockBody,
+        confirmLabel: strings.conversations.blockConfirm,
+    });
+    if (!ok) return;
+    if (store.getState().room?.conversationId === id) typingSignal.stop();
+    closingByMe.set(id, "blocked");
+    transport.send(CLIENT_EVENTS.USER_BLOCK, { username: room.peer.username });
+};
+
+/**
+ * Menu de uma conversa (botão "⋯", clique direito, Shift+F10, toque longo).
+ * @param {string} id
+ * @returns {{items: import("./ui/primitives/menuModel.js").MenuItem[], label: string} | null}
+ */
+const conversationMenu = (id) => {
+    const state = store.getState();
+    const entry = entryOf(id);
+    if (!entry) return null;
+    const pinned = state.nav.pinned.includes(id);
+    const position = positionOf(state.nav, state.conversations, id);
+    const dm = entry.kind === "dm";
+    const isOpen = state.screen === "room" && state.room?.conversationId === id;
+    /** @param {-1 | 1} delta */
+    const move = (delta) => {
+        const result = applyMove(
+            navMoveBy(store.getState().nav, store.getState().conversations, id, delta),
+        );
+        if (result) {
+            announcer.say(
+                format(strings.nav.moved, {
+                    name: entry.name,
+                    position: result.position,
+                    total: result.total,
+                    section:
+                        result.section === "pinned"
+                            ? strings.nav.pinned
+                            : result.section === "rooms"
+                              ? strings.nav.rooms
+                              : result.section === "dms"
+                                ? strings.nav.dms
+                                : strings.nav.all,
+                }),
+                { force: true },
+            );
+        }
+    };
+    /** @type {import("./ui/primitives/menuModel.js").MenuItem[]} */
+    const items = [
+        ...(isOpen
+            ? []
+            : [
+                  {
+                      label: strings.nav.open,
+                      icon: "arrow-in",
+                      run: () => {
+                          layout.closeDrawer();
+                          openConversation(id);
+                          composer.focus();
+                      },
+                  },
+                  { type: /** @type {const} */ ("separator") },
+              ]),
+        {
+            label: pinned ? strings.nav.unpin : strings.nav.pin,
+            icon: "pin",
+            run: () => pinConversation(id, !pinned),
+        },
+        {
+            label: strings.nav.moveUp,
+            icon: "arrow-up",
+            hint: "Ctrl+Shift+↑",
+            disabled: position.index <= 0,
+            run: () => move(-1),
+        },
+        {
+            label: strings.nav.moveDown,
+            icon: "arrow-down",
+            hint: "Ctrl+Shift+↓",
+            disabled: position.index < 0 || position.index >= position.total - 1,
+            run: () => move(1),
+        },
+        {
+            label: strings.nav.markRead,
+            icon: "check",
+            disabled: entry.unread === 0,
+            run: () => store.actions.markRead(id),
+        },
+        dm && entry.peer
+            ? {
+                  label: format(strings.nav.copyHandle, { username: entry.peer.username }),
+                  icon: "copy",
+                  run: () => void copyText(`@${entry.peer?.username ?? ""}`),
+              }
+            : {
+                  label: strings.nav.copyInvite,
+                  icon: "link",
+                  disabled: !entry.code,
+                  run: () => void (entry.code ? copyInvite(entry.code) : undefined),
+              },
+        { type: "separator" },
+        ...(dm
+            ? [
+                  {
+                      label: `${strings.conversations.closeDm}…`,
+                      icon: "close",
+                      danger: true,
+                      run: () => void leaveConversation(id),
+                  },
+                  {
+                      label: `${format(strings.conversations.block, { name: entry.name })}…`,
+                      icon: "ban",
+                      danger: true,
+                      run: () => void blockConversation(id),
+                  },
+              ]
+            : [
+                  {
+                      label: `${strings.conversations.leaveRoom}…`,
+                      icon: "logout",
+                      danger: true,
+                      run: () => void leaveConversation(id),
+                  },
+              ]),
+    ];
+    return { items, label: format(strings.nav.menuFor, { name: entry.name }) };
+};
+
+const sidebarNav = createSidebarNav({
+    container: /** @type {HTMLElement} */ (must("[data-conversation-tree]")),
+    pill: /** @type {HTMLButtonElement} */ (must("[data-unread-pill]")),
+    onOpen: (id) => {
+        layout.closeDrawer();
+        openConversation(id);
+        composer.focus();
+    },
+    onToggleSection: (id) =>
+        store.actions.updateNav((nav) => ({
+            ...nav,
+            collapsed: { ...nav.collapsed, [id]: !nav.collapsed[id] },
+        })),
+    onPin: (id, value, at) => pinConversation(id, value, at),
+    onMove: (id, to) =>
+        applyMove(navMoveTo(store.getState().nav, store.getState().conversations, id, to)),
+    onMoveBy: (id, delta) =>
+        applyMove(navMoveBy(store.getState().nav, store.getState().conversations, id, delta)),
+    onNew: (kind) => newConversation.open(newButton, kind === "dm" ? "dm" : "room"),
+    menuFor: conversationMenu,
+    isPinned: (id) => store.getState().nav.pinned.includes(id),
+    announce: (text) => announcer.say(text, { force: true }),
+});
+
+const newConversation = createNewConversation({
+    onCreate: (name) => requestRoom("create", { name }),
+    onJoin: (code) => requestRoom("join", { code }),
+    onDirect: (username) => requestDm(username),
+});
+newButton.addEventListener("click", () => newConversation.open(newButton));
+
+for (const button of filterButtons) {
+    button.addEventListener("click", () => {
+        const unreadOnly = button.dataset.navFilter === "unread";
+        store.actions.updateNav((nav) => ({ ...nav, unreadOnly }));
+    });
+}
+
+/**
+ * Menu recolhido (trilho de 72 px): padrão entre 1024 e 1279 px, onde a
+ * conversa e o painel de contexto disputam espaço; a pessoa pode trocar.
+ * Preferência só em memória.
+ */
+const railQuery = window.matchMedia("(min-width: 48rem) and (max-width: 79.99rem)");
+/** @type {boolean | null} escolha da pessoa (null = padrão da largura) */
+let railChoice = null;
+const syncRail = () => {
+    const rail = railChoice ?? railQuery.matches;
+    shell.dataset.navRail = String(rail);
+    railButton.setAttribute("aria-pressed", String(rail));
+    const label = rail ? strings.nav.expand : strings.nav.collapse;
+    railButton.setAttribute("aria-label", label);
+    railButton.dataset.tooltip = label;
+};
+railButton.addEventListener("click", () => {
+    railChoice = !(railChoice ?? railQuery.matches);
+    syncRail();
+});
+railQuery.addEventListener("change", syncRail);
+syncRail();
+
+const quickSwitcher = createQuickSwitcher({
+    getConversations: () => {
+        const state = store.getState();
+        return sectionsOf({ ...state.nav, unreadOnly: false }, state.conversations).flatMap(
+            (section) => section.items,
+        );
+    },
+    isUsername: (text) => readUsername(text) !== null,
+    readCode: (text) => (/[-/#]/.test(text) ? normalizeRoomCode(text) : null),
+    onChoose: (choice) => {
+        layout.closeDrawer();
+        if (choice.kind === "open") {
+            openConversation(choice.entry.conversationId);
+            composer.focus();
+        } else if (choice.kind === "dm") requestDm(choice.username);
+        else if (choice.kind === "join") requestRoom("join", { code: choice.code });
+        else requestRoom("create", { name: choice.name });
+    },
+});
+for (const button of document.querySelectorAll("[data-quick-switcher]")) {
+    button.addEventListener("click", () => quickSwitcher.open(/** @type {HTMLElement} */ (button)));
+}
+
+for (const button of document.querySelectorAll("[data-go-commands]")) {
+    button.addEventListener("click", () => {
+        layout.closeDrawer();
+        showPage("commands");
+    });
+}
+for (const button of document.querySelectorAll("[data-go-profile]")) {
+    button.addEventListener("click", () => {
+        layout.closeDrawer();
+        showPage("profile");
+    });
+}
+
+/**
+ * Atalhos globais (padrão do Fluxer e do Discord), só dentro do chat:
+ *   Ctrl/⌘ K         ir para conversa
+ *   Alt+↑/↓          conversa anterior/seguinte
+ *   Alt+Shift+↑/↓    conversa não lida anterior/seguinte
+ */
+document.addEventListener("keydown", (event) => {
+    const state = store.getState();
+    if (state.screen === "entry" || event.defaultPrevented) return;
+    if (
+        (event.ctrlKey || event.metaKey) &&
+        !event.shiftKey &&
+        !event.altKey &&
+        event.key.toLowerCase() === "k"
+    ) {
+        if (document.querySelector("dialog[open]")) return;
+        event.preventDefault();
+        quickSwitcher.open();
+        return;
+    }
+    if (
+        event.altKey &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        (event.key === "ArrowUp" || event.key === "ArrowDown")
+    ) {
+        if (document.querySelector("dialog[open]")) return;
+        const current = state.screen === "room" ? (state.room?.conversationId ?? null) : null;
+        const next = neighbor(
+            state.nav,
+            state.conversations,
+            current,
+            event.key === "ArrowUp" ? -1 : 1,
+            {
+                unreadOnly: event.shiftKey,
+            },
+        );
+        if (!next) return;
+        event.preventDefault();
+        layout.closeDrawer();
+        openConversation(next);
+        composer.focus();
+    }
+});
+
+/**
+ * Menu rápido do perfil (nome no pé da navegação): status, notificações,
+ * tema, perfil e sair — com rótulo, em vez de quatro ícones sem nome.
+ * @param {HTMLButtonElement} button
+ */
+const openProfileMenu = (button) => {
+    const state = store.getState();
+    const away = selfPresence.status === "away";
+    const online = state.link === "online";
+    const notify = notifier.state();
+    const theme = themeToggle.current();
+    showMenu({
+        label: format(strings.profile.menu, { name: state.me?.name ?? "" }),
+        anchor: button,
+        placement: "top-start",
+        items: [
+            { type: "label", label: strings.profile.statusLabel },
+            {
+                type: "check",
+                label: strings.profile.online,
+                checked: !away,
+                disabled: !online,
+                run: () => {
+                    if (away) setAway(false, "");
+                },
+            },
+            {
+                type: "check",
+                label: strings.profile.away,
+                checked: away,
+                disabled: !online,
+                run: () => {
+                    if (!away) setAway(true, "");
+                },
+            },
+            {
+                label: strings.profile.awayWithReason,
+                icon: "pencil",
+                disabled: !online,
+                run: () => showPage("profile"),
+            },
+            { type: "separator" },
+            ...(notify === "unsupported"
+                ? []
+                : [
+                      {
+                          type: /** @type {const} */ ("check"),
+                          label: strings.profile.notifications,
+                          checked: notify === "on",
+                          run: () => void toggleNotifications(),
+                      },
+                  ]),
+            {
+                type: "submenu",
+                label: strings.profile.theme,
+                icon: theme === "light" ? "sun" : "moon",
+                hint: theme === "light" ? strings.profile.light : strings.profile.dark,
+                items: [
+                    {
+                        type: "check",
+                        label: strings.profile.dark,
+                        checked: theme === "dark",
+                        run: () => themeToggle.set("dark"),
+                    },
+                    {
+                        type: "check",
+                        label: strings.profile.light,
+                        checked: theme === "light",
+                        run: () => themeToggle.set("light"),
+                    },
+                ],
+            },
+            {
+                label: strings.profile.preferences,
+                icon: "settings",
+                run: () => {
+                    layout.closeDrawer();
+                    showPage("profile");
+                },
+            },
+            { type: "separator" },
+            {
+                label: `${strings.logout.button}…`,
+                icon: "logout",
+                danger: true,
+                run: () => void logout(),
+            },
+        ],
+    });
+};
+
+/**
+ * Status: o comando real /afk (o servidor decide e avisa todo mundo).
+ * @param {boolean} away
+ * @param {string} reason
+ */
+const setAway = (away, reason) => {
+    if (away) submit(reason ? `/afk ${reason}` : "/afk");
+    else if (selfPresence.status === "away") submit("/afk");
+};
+
+/** Menu "⋯" do cabeçalho: ações da conversa aberta. */
+const headerMenuButton = /** @type {HTMLButtonElement} */ (must("[data-conversation-menu]"));
+headerMenuButton.addEventListener("click", () => {
+    const state = store.getState();
+    const room = state.room;
+    if (!room) return;
+    const id = room.conversationId;
+    const dm = room.kind === "dm";
+    const pinned = state.nav.pinned.includes(id);
+    const role = effectiveRole(state);
+    const moderates = !dm && (role === "admin" || role === "host");
+    showMenu({
+        label: strings.header.more,
+        anchor: headerMenuButton,
+        placement: "bottom-end",
+        items: [
+            {
+                label: pinned ? strings.header.unpin : strings.header.pin,
+                icon: "pin",
+                run: () => pinConversation(id, !pinned),
+            },
+            ...(dm
+                ? []
+                : [
+                      {
+                          label: strings.nav.copyInvite,
+                          icon: "link",
+                          run: () => void (room.code ? copyInvite(room.code) : undefined),
+                      },
+                  ]),
+            { label: strings.header.clearLocal, icon: "eraser", run: () => submit("/clear") },
+            ...(moderates
+                ? [
+                      { type: /** @type {const} */ ("label"), label: strings.header.moderation },
+                      {
+                          label: strings.header.clearAll,
+                          icon: "trash",
+                          danger: true,
+                          run: () => void shortcuts["clear-room"]?.(),
+                      },
+                  ]
+                : []),
+            { type: "separator" },
+            ...(dm
+                ? [
+                      {
+                          label: `${strings.conversations.closeDm}…`,
+                          icon: "close",
+                          danger: true,
+                          run: () => void leaveConversation(id),
+                      },
+                      {
+                          label: `${format(strings.conversations.block, { name: room.name })}…`,
+                          icon: "ban",
+                          danger: true,
+                          run: () => void blockConversation(id),
+                      },
+                  ]
+                : [
+                      {
+                          label: `${strings.conversations.leaveRoom}…`,
+                          icon: "logout",
+                          danger: true,
+                          run: () => void leaveConversation(id),
+                      },
+                  ]),
+        ],
+    });
+});
+
+const commandsPage = createCommandsPage({
+    canUse: () => lastConversationId !== null,
+    onUse: (command) => {
+        const target =
+            (lastConversationId && entryOf(lastConversationId) ? lastConversationId : null) ??
+            store.getState().conversations[0]?.conversationId ??
+            null;
+        if (!target) {
+            toasts.show(strings.commandsPage.needsConversation, "error");
+            return;
+        }
+        layout.closeDrawer();
+        openConversation(target);
+        composer.setValue(`/${command.name} `);
+        composer.focus();
+    },
+});
+
+const profilePage = createProfilePage({
+    onRename: (name) => {
+        submit(`/nick ${name}`);
+    },
+    onAway: (away, reason) => setAway(away, reason),
+    onTheme: (theme) => themeToggle.set(theme),
+    onNotifications: () => void toggleNotifications(),
+    onLogout: () => void logout(),
+    onCopyHandle: () => void copyText(`@${store.getState().me?.username ?? ""}`),
+});
 
 // Link de convite colado nesta aba com o chat já aberto: só o `#` muda, a
 // página não recarrega. Se é de uma sala que você já tem, ela é aberta; se
@@ -634,53 +1248,15 @@ for (const button of document.querySelectorAll("[data-go-home]")) {
 const conversationActions = {
     invite: async () => {
         const room = store.getState().room;
-        if (!room?.code) return;
-        const link = `${location.origin}${location.pathname}${inviteHash(room.code)}`;
-        try {
-            await navigator.clipboard.writeText(link);
-            toasts.show(strings.conversations.inviteCopied);
-        } catch {
-            toasts.show(format(strings.conversations.inviteCopyFailed, { code: room.code }));
-        }
+        if (room?.code) await copyInvite(room.code);
     },
     leave: async () => {
         const room = store.getState().room;
-        if (!room) return;
-        const dm = room.kind === "dm";
-        const ok = await dialog.confirm(
-            dm
-                ? {
-                      title: format(strings.conversations.closeDmTitle, { name: room.name }),
-                      body: strings.conversations.closeDmBody,
-                      confirmLabel: strings.conversations.closeDmConfirm,
-                  }
-                : {
-                      title: format(strings.conversations.leaveRoomTitle, { name: room.name }),
-                      body: strings.conversations.leaveRoomBody,
-                      confirmLabel: strings.conversations.leaveRoomConfirm,
-                  },
-        );
-        if (!ok) return;
-        typingSignal.stop();
-        if (dm) {
-            closingByMe.set(room.conversationId, "closed");
-            transport.send(CLIENT_EVENTS.DM_CLOSE, { conversationId: room.conversationId });
-        } else {
-            transport.send(CLIENT_EVENTS.ROOM_LEAVE, { conversationId: room.conversationId });
-        }
+        if (room) await leaveConversation(room.conversationId);
     },
     block: async () => {
         const room = store.getState().room;
-        if (room?.kind !== "dm" || !room.peer) return;
-        const ok = await dialog.confirm({
-            title: format(strings.conversations.blockTitle, { name: room.name }),
-            body: strings.conversations.blockBody,
-            confirmLabel: strings.conversations.blockConfirm,
-        });
-        if (!ok) return;
-        typingSignal.stop();
-        closingByMe.set(room.conversationId, "blocked");
-        transport.send(CLIENT_EVENTS.USER_BLOCK, { username: room.peer.username });
+        if (room) await blockConversation(room.conversationId);
     },
 };
 
@@ -854,6 +1430,8 @@ const baseTitle = document.title;
 let lastScreen = "entry";
 /** @type {import("./state/store.js").State["link"]} */
 let lastLink = "idle";
+/** @type {import("./state/store.js").State["page"] | null} */
+let lastPage = null;
 
 /**
  * Texto do estado da conexão para leitor de tela. Anunciado uma vez por
@@ -891,18 +1469,36 @@ const render = (state, previous) => {
     const noMessages = state.messages.length === 0;
     const wasEmpty = previous ? previous.messages.length === 0 : null;
 
-    if (changed(state, previous, ["screen", "room"])) {
+    if (changed(state, previous, ["screen", "room", "page"])) {
         shell.dataset.screen = state.screen;
         entry.setVisible(!inApp);
-        home.setVisible(state.screen === "home");
+        home.setVisible(state.screen === "home" && state.page === "home");
+        commandsPage.setVisible(state.screen === "home" && state.page === "commands");
+        profilePage.setVisible(state.screen === "home" && state.page === "profile");
+        for (const button of document.querySelectorAll("[data-go-home]")) {
+            if (state.screen === "home" && state.page === "home")
+                button.setAttribute("aria-current", "page");
+            else button.removeAttribute("aria-current");
+        }
+        for (const button of document.querySelectorAll("[data-go-commands]")) {
+            if (state.screen === "home" && state.page === "commands")
+                button.setAttribute("aria-current", "page");
+            else button.removeAttribute("aria-current");
+        }
         room.hidden = !inRoom;
         composer.setVisible(inRoom);
         layout.setInRoom(inApp, inRoom && !isDm);
         if (!inRoom) memberCard.close({ restoreFocus: false });
     }
-    if (changed(state, previous, ["conversations", "room", "screen"])) {
+    if (inRoom && state.room) lastConversationId = state.room.conversationId;
+    if (changed(state, previous, ["conversations", "room", "screen", "nav"])) {
         const current = inRoom ? (state.room?.conversationId ?? null) : null;
         for (const nav of conversationNavs) nav.render(state.conversations, current);
+        sidebarNav.render(sectionsOf(state.nav, state.conversations, current), current);
+        for (const button of filterButtons) {
+            const on = (button.dataset.navFilter === "unread") === state.nav.unreadOnly;
+            button.setAttribute("aria-pressed", String(on));
+        }
         // O endereço da página é o convite da sala aberta; fora dela, nenhum.
         if (inApp) {
             const hash = inRoom && state.room?.code && !isDm ? inviteHash(state.room.code) : "";
@@ -915,6 +1511,7 @@ const render = (state, previous) => {
         // Total de não lidas no título da aba: "(3) web-chat · …".
         const total = state.conversations.reduce((sum, entry) => sum + entry.unread, 0);
         document.title = total > 0 ? `(${total > 99 ? "99+" : total}) ${baseTitle}` : baseTitle;
+        unreadTotal.textContent = total > 0 ? String(total > 99 ? "99+" : total) : "";
     }
     if (changed(state, previous, ["me", "conversations"])) {
         home.render(state.me, state.conversations.length);
@@ -954,14 +1551,36 @@ const render = (state, previous) => {
         people.render(state.people, state.me?.id ?? null, state.link === "online");
     }
     if (changed(state, previous, ["room"])) roomHeader.render(state.room);
+    if (changed(state, previous, ["people", "me"])) {
+        const listed = state.people.find((person) => person.id === state.me?.id);
+        if (listed) {
+            selfPresence = {
+                status: listed.status === "away" ? "away" : "online",
+                statusText: listed.statusText ?? "",
+            };
+        }
+    }
     if (changed(state, previous, ["people", "me", "role", "link", "room"])) {
-        const meId = state.me?.id;
         userPanel.render(
             state.me,
-            state.people.find((person) => person.id === meId),
+            state.me
+                ? { ...state.me, status: selfPresence.status, statusText: selfPresence.statusText }
+                : undefined,
             effectiveRole(state),
             state.link === "online",
         );
+    }
+    if (changed(state, previous, ["catalog"])) commandsPage.render(state.catalog);
+    if (state.screen === "home" && state.page === "profile" && state.me) {
+        profilePage.render({
+            name: state.me.name,
+            username: state.me.username ?? "",
+            away: selfPresence.status === "away",
+            awayText: selfPresence.statusText,
+            theme: themeToggle.current(),
+            notifications: notifier.state(),
+            online: state.link === "online",
+        });
     }
     if (changed(state, previous, ["link", "queued"])) composer.render(state.link, state.queued);
 
@@ -982,11 +1601,21 @@ const render = (state, previous) => {
             { force: true },
         );
     }
-    if (state.screen === "home" && lastScreen !== "home") {
-        home.focus();
-        announcer.say(strings.a11y.home, { force: true });
+    const pageNow = state.screen === "home" ? state.page : null;
+    if (pageNow && (lastScreen !== "home" || pageNow !== lastPage)) {
+        if (pageNow === "commands") {
+            commandsPage.focus();
+            announcer.say(strings.commandsPage.title, { force: true });
+        } else if (pageNow === "profile") {
+            profilePage.focus();
+            announcer.say(strings.profile.title, { force: true });
+        } else {
+            home.focus();
+            announcer.say(strings.a11y.home, { force: true });
+        }
     }
     lastScreen = state.screen;
+    lastPage = pageNow;
 
     if (state.link !== lastLink) {
         announcer.say(linkAnnouncement(state));

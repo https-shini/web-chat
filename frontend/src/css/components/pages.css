@@ -1,0 +1,552 @@
+/* Páginas do centro sem conversa (Comandos, Perfil) e controles comuns:
+   cartão, chave liga/desliga, controle segmentado, abas, ação com
+   descrição, popover, busca e o "Ir para conversa". */
+
+/* ─── Página ───────────────────────────────────────────────────────── */
+.c-page {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.c-page__bar {
+    display: flex;
+    flex: none;
+    gap: var(--space-2);
+    align-items: center;
+    height: var(--header-height);
+    padding: var(--space-0) var(--space-4);
+    border-bottom: var(--rule-1) solid var(--color-border);
+}
+
+.c-page__menu {
+    display: none;
+}
+
+.c-page__glyph {
+    display: inline-flex;
+    color: var(--color-text-3);
+}
+
+.c-page__title {
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+}
+
+.c-page__title:focus {
+    outline: none;
+}
+
+.c-page__scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.c-page__content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    max-width: 44rem;
+    padding: var(--space-6) var(--space-6) var(--space-10);
+}
+
+.c-page__content--wide {
+    max-width: 72rem;
+}
+
+.c-page__lead {
+    color: var(--color-text-2);
+    font-size: var(--text-sm);
+}
+
+@media (max-width: 47.99rem) {
+    .c-page__menu {
+        display: inline-flex;
+    }
+
+    .c-page__content {
+        padding: var(--space-4) var(--space-3) var(--space-8);
+    }
+}
+
+/* ─── Cartão ───────────────────────────────────────────────────────── */
+.c-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-5);
+    border: var(--rule-1) solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-bg-elevated);
+}
+
+.c-card__title {
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+}
+
+/* ─── Chave liga/desliga (role="switch") ──────────────────────────── */
+.c-switch {
+    position: relative;
+    flex: none;
+    width: 2.5rem;
+    height: 1.375rem;
+    border: var(--rule-1) solid var(--color-outline-control);
+    border-radius: var(--radius-full);
+    background-color: var(--color-bg-selected);
+    cursor: pointer;
+    transition: background-color var(--duration-base) var(--ease-standard);
+}
+
+.c-switch__thumb {
+    position: absolute;
+    top: 50%;
+    left: var(--space-0-5);
+    width: 1rem;
+    height: 1rem;
+    border-radius: var(--radius-full);
+    background-color: var(--color-text-2);
+    transform: translateY(-50%);
+    transition: transform var(--duration-base) var(--ease-standard);
+}
+
+.c-switch[aria-checked="true"] {
+    border-color: transparent;
+    background-color: var(--color-brand);
+}
+
+.c-switch[aria-checked="true"] .c-switch__thumb {
+    background-color: var(--color-on-brand);
+    transform: translate(1.1rem, -50%);
+}
+
+.c-switch:disabled {
+    opacity: var(--opacity-disabled);
+    cursor: not-allowed;
+}
+
+/* ─── Controle segmentado (role="radiogroup") ─────────────────────── */
+.c-segmented {
+    display: inline-flex;
+    padding: var(--space-0-5);
+    border-radius: var(--radius-md);
+    background-color: var(--color-bg-selected);
+}
+
+.c-segmented__option {
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-2);
+    font-size: var(--text-sm);
+    cursor: pointer;
+}
+
+.c-segmented__option[aria-checked="true"] {
+    background-color: var(--color-bg-elevated);
+    color: var(--color-text-1);
+    box-shadow: var(--shadow-1);
+}
+
+/* ─── Ação com descrição (lista de ações) ─────────────────────────── */
+.c-action {
+    display: flex;
+    gap: var(--space-3);
+    align-items: flex-start;
+    width: 100%;
+    padding: var(--space-2);
+    border-radius: var(--radius-md);
+    color: var(--color-text-1);
+    text-align: start;
+    cursor: pointer;
+}
+
+.c-action:hover {
+    background-color: var(--color-bg-hover);
+}
+
+.c-action__icon {
+    display: inline-flex;
+    padding-top: var(--space-0-5);
+    color: var(--color-text-3);
+    font-size: var(--text-lg);
+}
+
+.c-action__text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-0-5);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+}
+
+.c-action__hint {
+    color: var(--color-text-3);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-regular);
+}
+
+.c-action--danger,
+.c-action--danger .c-action__icon {
+    color: var(--color-danger-text);
+}
+
+/* ─── Perfil ───────────────────────────────────────────────────────── */
+.c-profile__hero {
+    flex-direction: row;
+    gap: var(--space-4);
+    align-items: center;
+    --presence-ring: var(--color-bg-elevated);
+}
+
+.c-profile__name {
+    font-size: var(--text-2xl);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-tight);
+    overflow-wrap: anywhere;
+}
+
+.c-profile__handle {
+    color: var(--color-text-3);
+}
+
+.c-profile__inline {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+}
+
+.c-profile__inline .c-field__input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.c-profile__value {
+    flex: 1 1 auto;
+    padding: var(--space-2) var(--space-0);
+    font-family: var(--font-mono);
+}
+
+.c-profile__switch {
+    display: flex;
+    gap: var(--space-4);
+    align-items: center;
+    justify-content: space-between;
+}
+
+.c-profile__switch[hidden] {
+    display: none;
+}
+
+.c-profile__switch-text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-0-5);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+}
+
+/* ─── Comandos ─────────────────────────────────────────────────────── */
+.c-commands__tools {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.c-search {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    max-width: 26rem;
+    padding: var(--space-0) var(--space-3);
+    border: var(--rule-1) solid var(--color-outline-control);
+    border-radius: var(--radius-md);
+    background-color: var(--color-bg-elevated);
+    color: var(--color-text-3);
+}
+
+.c-search:focus-within {
+    box-shadow: 0 0 0 var(--halo-width) color-mix(in srgb, var(--color-focus-ring) 35%, transparent);
+}
+
+.c-search__input {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: var(--space-10);
+    border: 0;
+    background: transparent;
+    color: var(--color-text-1);
+    font-size: var(--text-sm);
+}
+
+.c-search__input:focus-visible {
+    outline: none;
+}
+
+.c-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1-5);
+}
+
+.c-commands {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+    gap: var(--space-3);
+    margin: var(--space-0);
+    padding: var(--space-0);
+    list-style: none;
+}
+
+.c-commands__empty {
+    color: var(--color-text-3);
+    font-size: var(--text-sm);
+}
+
+.c-command-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border: var(--rule-1) solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-bg-elevated);
+}
+
+.c-command-card__head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    align-items: center;
+}
+
+.c-command-card__syntax {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    color: var(--color-text-1);
+}
+
+.c-command-card__desc {
+    color: var(--color-text-2);
+    font-size: var(--text-sm);
+}
+
+.c-command-card__examples,
+.c-command-card__aliases {
+    color: var(--color-text-3);
+    font-size: var(--text-xs);
+}
+
+.c-command-card__examples code {
+    font-family: var(--font-mono);
+}
+
+.c-command-card__foot {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    justify-content: space-between;
+    margin-top: auto;
+}
+
+.c-command-card__who {
+    color: var(--color-text-3);
+    font-size: var(--text-xs);
+}
+
+.c-command-card--restricted .c-command-card__syntax {
+    color: var(--color-text-2);
+}
+
+/* ─── Popover e abas (Nova conversa) ──────────────────────────────── */
+.c-popover {
+    position: fixed;
+    z-index: var(--z-popover);
+    top: 0;
+    left: 0;
+    width: min(20rem, calc(100vw - var(--space-4)));
+    overflow: auto;
+    padding: var(--space-2);
+    border: var(--rule-1) solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-bg-elevated);
+    box-shadow: var(--shadow-3);
+    animation: pop-in var(--duration-base) var(--ease-out);
+}
+
+.c-popover[hidden] {
+    display: none;
+}
+
+.c-tabs {
+    display: flex;
+    gap: var(--space-1);
+    padding: var(--space-0-5);
+    border-radius: var(--radius-md);
+    background-color: var(--color-bg-sidebar);
+}
+
+.c-tabs__tab {
+    flex: 1 1 0;
+    padding: var(--space-1-5) var(--space-1);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-3);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    cursor: pointer;
+}
+
+.c-tabs__tab[aria-selected="true"] {
+    background-color: var(--color-bg-selected);
+    color: var(--color-text-1);
+}
+
+.c-new-conversation__form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-1) var(--space-1);
+}
+
+/* ─── Ir para conversa (diálogo) ──────────────────────────────────── */
+.c-quick {
+    width: min(36rem, calc(100vw - var(--space-4)));
+    max-height: min(32rem, 80dvh);
+    margin: 12dvh auto auto;
+    padding: var(--space-0);
+    overflow: hidden;
+    border: var(--rule-1) solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-bg-elevated);
+    color: var(--color-text-1);
+    box-shadow: var(--shadow-3);
+}
+
+.c-quick[open] {
+    display: flex;
+    flex-direction: column;
+}
+
+.c-quick::backdrop {
+    background-color: color-mix(in srgb, var(--color-scrim) 55%, transparent);
+}
+
+.c-quick__bar {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+    padding: var(--space-3) var(--space-4);
+    border-bottom: var(--rule-1) solid var(--color-border-subtle);
+}
+
+.c-quick__icon {
+    display: inline-flex;
+    color: var(--color-text-3);
+    font-size: var(--text-lg);
+}
+
+.c-quick__input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-text-1);
+    font-size: var(--text-lg);
+}
+
+.c-quick__input:focus-visible {
+    outline: none;
+}
+
+.c-quick__kbd {
+    padding: var(--space-0) var(--space-1-5);
+    border: var(--rule-1) solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-3);
+    font-family: var(--font-text);
+    font-size: var(--text-2xs);
+}
+
+.c-quick__list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--space-2);
+}
+
+.c-quick__group {
+    padding: var(--space-2) var(--space-2) var(--space-1);
+    color: var(--color-text-3);
+    font-size: var(--text-2xs);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-caps);
+    text-transform: uppercase;
+}
+
+.c-quick__empty {
+    padding: var(--space-3) var(--space-2);
+    color: var(--color-text-3);
+    font-size: var(--text-sm);
+}
+
+.c-quick__option {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+    min-height: var(--space-10);
+    padding: var(--space-1-5) var(--space-2);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    --presence-ring: var(--color-bg-elevated);
+}
+
+.c-quick__option[aria-selected="true"] {
+    background-color: var(--color-bg-selected);
+    --presence-ring: var(--color-bg-selected);
+}
+
+.c-quick__lead {
+    display: inline-flex;
+    flex: none;
+    justify-content: center;
+    width: var(--avatar-sm);
+    color: var(--color-text-3);
+}
+
+.c-quick__text {
+    display: flex;
+    flex: 1 1 auto;
+    gap: var(--space-2);
+    align-items: baseline;
+    min-width: 0;
+}
+
+.c-quick__name {
+    overflow: hidden;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.c-quick__sub {
+    flex: none;
+    color: var(--color-text-3);
+    font-size: var(--text-xs);
+}
+
+.c-quick__foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-4);
+    padding: var(--space-2) var(--space-4);
+    border-top: var(--rule-1) solid var(--color-border-subtle);
+    color: var(--color-text-3);
+    font-size: var(--text-xs);
+}
+
+.c-quick__privacy {
+    margin-left: auto;
+}

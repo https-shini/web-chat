@@ -35,6 +35,7 @@
 @import url("./components/brand.css");
 @import url("./components/sidebar.css");
 @import url("./components/conversation-nav.css");
+@import url("./components/nav.css");
 @import url("./components/header.css");
 @import url("./components/members.css");
 @import url("./components/resizer.css");
@@ -55,6 +56,7 @@
 /* camadas flutuantes */
 @import url("./components/member-card.css");
 @import url("./components/menu.css");
+@import url("./components/pages.css");
 @import url("./components/dialog.css");
 @import url("./components/tooltip.css");
 @import url("./components/toast.css");
