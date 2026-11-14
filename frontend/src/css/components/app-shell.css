@@ -1,8 +1,8 @@
 /* Casca da aplicação — três colunas no desktop:
    barra lateral | conversa | pessoas.
 
-   ≥ 64rem  as três colunas lado a lado (o painel de pessoas pode ser fechado);
-   < 64rem  o painel de pessoas vira gaveta à direita;
+   ≥ 80rem  as três colunas lado a lado (o painel de contexto pode ser fechado);
+   < 80rem  o painel de contexto vira folha à direita, sobre a conversa;
    < 48rem  a barra lateral também vira gaveta, à esquerda.
 
    Quem decide o que está aberto é ui/layout.js, pelo atributo `hidden`; o
@@ -52,7 +52,7 @@
     animation: fade-in var(--duration-base) var(--ease-out);
 }
 
-@media (min-width: 64rem) {
+@media (min-width: 80rem) {
     .c-scrim {
         display: none;
     }

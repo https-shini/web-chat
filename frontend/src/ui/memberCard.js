@@ -5,6 +5,7 @@ import { el, must } from "./dom.js";
 import { badge, hueFor, renderIdentity } from "./identity.js";
 import { icon } from "./icons.js";
 import { anchorTo } from "./primitives/position.js";
+import { showMenu } from "./primitives/menu.js";
 
 /**
  * Cartão de pessoa: popover não modal aberto a partir do painel de pessoas.
@@ -21,6 +22,8 @@ import { anchorTo } from "./primitives/position.js";
  *   iconName: string,
  *   danger?: boolean,
  *   run: () => void,
+ *   items?: {label: string, run: () => void}[],
+ *   group?: "moderation",
  * }} Action
  */
 
@@ -74,7 +77,24 @@ export const createMemberCard = ({
         });
         button.appendChild(icon(action.iconName));
         button.appendChild(document.createTextNode(action.label));
-        button.addEventListener("click", action.run);
+        if (action.items) {
+            // Escolha da duração num menu preso ao botão (o cartão continua aberto).
+            button.setAttribute("aria-haspopup", "menu");
+            button.setAttribute("aria-expanded", "false");
+            button.addEventListener("click", () =>
+                showMenu({
+                    label: action.label,
+                    anchor: button,
+                    placement: "right-start",
+                    items: (action.items ?? []).map((item) => ({
+                        label: item.label,
+                        run: item.run,
+                    })),
+                }),
+            );
+        } else {
+            button.addEventListener("click", action.run);
+        }
         return button;
     };
 
@@ -156,19 +176,36 @@ export const createMemberCard = ({
         ) {
             list.push(
                 {
-                    label: strings.memberCard.mute,
+                    // Duração à escolha (decisão D5): o servidor aceita de 1 a
+                    // 1440 minutos, ou sem número (até /unmute).
+                    label: strings.context.mute,
                     iconName: "ban",
-                    run: run(`/mute ${handle} 10`),
+                    group: "moderation",
+                    run: () => {},
+                    items: [
+                        {
+                            label: format(strings.context.minutes, { n: 5 }),
+                            run: run(`/mute ${handle} 5`),
+                        },
+                        {
+                            label: format(strings.context.minutes, { n: 10 }),
+                            run: run(`/mute ${handle} 10`),
+                        },
+                        { label: strings.context.hour, run: run(`/mute ${handle} 60`) },
+                        { label: strings.context.untilUnmute, run: run(`/mute ${handle}`) },
+                    ],
                 },
                 {
                     label: strings.memberCard.unmute,
                     iconName: "check",
+                    group: "moderation",
                     run: run(`/unmute ${handle}`),
                 },
                 {
-                    label: strings.memberCard.kick,
+                    label: `${strings.memberCard.kick}…`,
                     iconName: "logout",
                     danger: true,
+                    group: "moderation",
                     run: () => {
                         close({ restoreFocus: false });
                         void confirm({
@@ -222,6 +259,41 @@ export const createMemberCard = ({
     // reposiciona: o cartão não fecha mais sozinho.
 
     return {
+        /**
+         * As mesmas ações do cartão, como menu (clique direito, Shift+F10,
+         * toque longo e o botão "⋯" de cada pessoa).
+         * @param {Person} person
+         * @returns {import("./primitives/menuModel.js").MenuItem[]}
+         */
+        menuFor(person) {
+            const list = actionsFor(person);
+            /** @param {Action} action @returns {import("./primitives/menuModel.js").MenuItem} */
+            const toItem = (action) =>
+                action.items
+                    ? {
+                          type: "submenu",
+                          label: action.label,
+                          icon: action.iconName,
+                          items: action.items.map((item) => ({ label: item.label, run: item.run })),
+                      }
+                    : {
+                          label: action.label,
+                          icon: action.iconName,
+                          danger: action.danger,
+                          run: action.run,
+                      };
+            const plain = list.filter((action) => action.group !== "moderation").map(toItem);
+            const moderation = list.filter((action) => action.group === "moderation").map(toItem);
+            return moderation.length
+                ? [
+                      ...plain,
+                      { type: "separator" },
+                      { type: "label", label: strings.context.moderation },
+                      ...moderation,
+                  ]
+                : plain;
+        },
+
         /**
          * @param {Person} person
          * @param {HTMLButtonElement} button

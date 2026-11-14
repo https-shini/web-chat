@@ -3,8 +3,8 @@
    perfil fixo embaixo. Itens compactos de uma linha. */
 
 .c-sidebar {
-    flex-basis: var(--layout-nav-width);
-    width: var(--layout-nav-width);
+    flex-basis: var(--sidebar-width);
+    width: var(--sidebar-width);
 }
 
 .c-sidebar__top {

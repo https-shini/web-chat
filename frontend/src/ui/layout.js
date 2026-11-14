@@ -5,10 +5,10 @@ import { must } from "./dom.js";
 /**
  * Painéis e gavetas.
  *
- * ≥ 64rem  barra lateral e pessoas lado a lado com a conversa; o botão de
- *          pessoas só mostra/esconde o painel.
- * < 64rem  pessoas vira gaveta à direita.
- * < 48rem  a barra lateral também vira gaveta, à esquerda.
+ * ≥ 80rem  navegação, conversa e painel de contexto lado a lado; o botão
+ *          "Dados da conversa" só mostra/esconde o painel.
+ * < 80rem  o painel de contexto vira folha sobre a conversa (gaveta à direita).
+ * < 48rem  a navegação também vira gaveta, à esquerda.
  *
  * Gaveta aberta: o resto da tela fica `inert` (foco e leitor de tela não
  * escapam para trás do fundo escurecido), Escape ou clique no fundo fecham,
@@ -30,7 +30,7 @@ export const createLayout = () => {
         ...document.querySelectorAll("[data-drawer-open]"),
     ]);
 
-    const wide = window.matchMedia("(min-width: 64rem)");
+    const wide = window.matchMedia("(min-width: 80rem)");
     const medium = window.matchMedia("(min-width: 48rem)");
 
     let inRoom = false;

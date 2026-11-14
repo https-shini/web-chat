@@ -614,25 +614,6 @@
                         >
                             <span data-icon="copy"></span>
                         </button>
-                        <button
-                            type="button"
-                            class="c-icon-button"
-                            data-conversation-action="block"
-                            aria-label="Bloquear"
-                            data-tooltip="Bloquear"
-                            hidden
-                        >
-                            <span data-icon="ban"></span>
-                        </button>
-                        <button
-                            type="button"
-                            class="c-icon-button"
-                            data-conversation-action="leave"
-                            aria-label="Sair da sala"
-                            data-tooltip="Sair da sala"
-                        >
-                            <span data-icon="logout"></span>
-                        </button>
                         <p class="c-status-pill" data-state="connecting" aria-hidden="true">
                             <span class="c-status-pill__dot"></span>
                             <span class="c-status-pill__label">conectando…</span>
@@ -654,10 +635,10 @@
                             data-drawer-open="members"
                             aria-controls="painel-pessoas"
                             aria-expanded="true"
-                            aria-label="Mostrar pessoas"
-                            data-tooltip="Pessoas"
+                            aria-label="Dados da conversa"
+                            data-tooltip="Dados da conversa"
                         >
-                            <span data-icon="users"></span>
+                            <span data-icon="panel-right"></span>
                             <span class="c-header__count" aria-hidden="true"></span>
                         </button>
                     </header>
@@ -754,28 +735,172 @@
                 </div>
             </main>
 
-            <!-- ─── Painel de pessoas ───────────────────────────────────── -->
-            <aside class="c-members" id="painel-pessoas" aria-labelledby="pessoas-titulo" hidden>
+            <!--
+                Painel de contexto (direita), igual em salas e privadas, na
+                ordem da diretriz: informações, integrantes e ações. Só mostra
+                o que o navegador já recebe do servidor.
+            -->
+            <aside
+                class="c-members c-context"
+                id="painel-pessoas"
+                aria-labelledby="pessoas-titulo"
+                hidden
+            >
                 <div class="c-members__top">
-                    <h2 class="c-members__heading" id="pessoas-titulo">
-                        Pessoas <span class="c-people__count"></span>
-                    </h2>
+                    <h2 class="c-members__heading" id="pessoas-titulo">Dados da sala</h2>
                     <button
                         type="button"
                         class="c-icon-button c-members__close"
                         data-drawer-close="members"
-                        aria-label="Fechar painel de pessoas"
+                        aria-label="Fechar dados da conversa"
                     >
                         <span data-icon="close"></span>
                     </button>
                 </div>
-                <div class="c-members__scroll js-scroll c-people__list"></div>
+                <div class="c-members__scroll js-scroll">
+                    <section
+                        class="c-context__info"
+                        data-context-info
+                        aria-label="Informações"
+                    ></section>
+
+                    <section class="c-context__block" data-context-block="invite">
+                        <h3 class="c-context__heading">
+                            <button
+                                type="button"
+                                class="c-context__toggle"
+                                aria-expanded="false"
+                                aria-controls="contexto-convite"
+                            >
+                                <span class="c-context__chevron" data-icon="chevron-down"></span>
+                                Convite
+                            </button>
+                        </h3>
+                        <div class="c-context__body" id="contexto-convite" hidden>
+                            <div class="c-context__code">
+                                <code data-context-code></code>
+                                <button
+                                    type="button"
+                                    class="c-icon-button"
+                                    data-conversation-action="invite"
+                                    aria-label="Copiar link de convite"
+                                    data-tooltip="Copiar convite"
+                                >
+                                    <span data-icon="copy"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="c-context__block" data-context-block="members">
+                        <h3 class="c-context__heading">
+                            <button
+                                type="button"
+                                class="c-context__toggle"
+                                aria-expanded="true"
+                                aria-controls="contexto-integrantes"
+                            >
+                                <span class="c-context__chevron" data-icon="chevron-down"></span>
+                                Integrantes <span class="c-people__count"></span>
+                            </button>
+                        </h3>
+                        <div class="c-context__body" id="contexto-integrantes">
+                            <label class="sr-only" for="filtro-integrantes"
+                                >Filtrar integrantes</label
+                            >
+                            <span class="c-search c-search--compact">
+                                <span class="c-search__icon" data-icon="search"></span>
+                                <input
+                                    class="c-search__input"
+                                    id="filtro-integrantes"
+                                    type="search"
+                                    autocomplete="off"
+                                    spellcheck="false"
+                                    placeholder="Filtrar por nome ou @"
+                                />
+                            </span>
+                            <div class="c-people__list"></div>
+                        </div>
+                    </section>
+
+                    <section class="c-context__block" data-context-block="actions">
+                        <h3 class="c-context__heading">
+                            <button
+                                type="button"
+                                class="c-context__toggle"
+                                aria-expanded="true"
+                                aria-controls="contexto-acoes"
+                            >
+                                <span class="c-context__chevron" data-icon="chevron-down"></span>
+                                Ações
+                            </button>
+                        </h3>
+                        <div class="c-context__body" id="contexto-acoes">
+                            <button
+                                type="button"
+                                class="c-action"
+                                data-context-action="clear-local"
+                            >
+                                <span class="c-action__icon" data-icon="eraser"></span>
+                                <span class="c-action__text">
+                                    <span>Limpar minha tela</span>
+                                    <span class="c-action__hint"
+                                        >Some só para você. Os outros continuam vendo.</span
+                                    >
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                class="c-action c-action--danger"
+                                data-context-action="clear-room"
+                                hidden
+                            >
+                                <span class="c-action__icon" data-icon="trash"></span>
+                                <span class="c-action__text">
+                                    <span>Apagar histórico para todos…</span>
+                                    <span class="c-action__hint"
+                                        >Só anfitriões e administradores. Pede confirmação.</span
+                                    >
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                class="c-action c-action--danger"
+                                data-conversation-action="leave"
+                                aria-label="Sair da sala"
+                            >
+                                <span class="c-action__icon" data-icon="logout"></span>
+                                <span class="c-action__text">
+                                    <span data-context-leave-label>Sair da sala</span>
+                                    <span class="c-action__hint" data-context-leave-hint
+                                        >Você continua no chat e nas outras conversas.</span
+                                    >
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                class="c-action c-action--danger"
+                                data-conversation-action="block"
+                                aria-label="Bloquear"
+                                hidden
+                            >
+                                <span class="c-action__icon" data-icon="ban"></span>
+                                <span class="c-action__text">
+                                    <span data-context-block-label>Bloquear</span>
+                                    <span class="c-action__hint"
+                                        >Até você sair do chat. A pessoa não é avisada.</span
+                                    >
+                                </span>
+                            </button>
+                        </div>
+                    </section>
+                </div>
                 <div
                     class="c-resizer c-resizer--members"
                     role="separator"
                     aria-orientation="vertical"
                     aria-controls="painel-pessoas"
-                    aria-label="Largura do painel de pessoas"
+                    aria-label="Largura do painel de dados"
                     tabindex="0"
                     data-resize="members"
                     hidden
