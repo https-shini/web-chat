@@ -1,5 +1,7 @@
 // @ts-check
 
+import { initialNav, reconcile } from "./navigation.js";
+
 /**
  * Estado observável da aplicação. Não conhece transporte nem DOM: recebe
  * fatos já traduzidos e avisa quem estiver ouvindo.
@@ -112,6 +114,7 @@ export const authorKey = (username, author) =>
 /**
  * @typedef {object} State
  * @property {"entry" | "home" | "room"} screen  entrada, início (sem conversa aberta) ou conversa
+ * @property {"home" | "commands" | "profile"} page  com `screen: "home"`, qual página ocupa o centro
  * @property {boolean} joining  pediu para entrar e espera o servidor confirmar (na tela de entrada)
  * @property {Person | null} me
  * @property {"member" | "admin"} role
@@ -130,6 +133,7 @@ export const authorKey = (username, author) =>
  * @property {boolean} pageVisible  a aba está à vista (mensagem na conversa aberta com a aba escondida conta como não lida)
  * @property {RoomInfo | null} room  a conversa aberta agora
  * @property {ConversationEntry[]} conversations  todas as conversas desta participação
+ * @property {import("./navigation.js").NavPrefs} nav  organização da lista (fixadas, ordem, seções) — só em memória
  */
 
 /** @typedef {(state: State) => void} Listener */
@@ -154,6 +158,7 @@ const HIDDEN_LIMIT = 2000;
 /** @returns {State} */
 const initialState = () => ({
     screen: "entry",
+    page: "home",
     joining: false,
     me: null,
     role: "member",
@@ -172,6 +177,7 @@ const initialState = () => ({
     pageVisible: true,
     room: null,
     conversations: [],
+    nav: initialNav(),
 });
 
 /**
@@ -248,7 +254,13 @@ export const createStore = () => {
      * @param {Partial<State>} partial
      */
     const patch = (partial) => {
-        state = { ...state, ...partial };
+        const next = { ...state, ...partial };
+        // A organização da lista acompanha as conversas: nova entra no topo,
+        // a que acabou sai das fixadas e da ordem.
+        if (partial.conversations && partial.conversations !== state.conversations) {
+            next.nav = reconcile(next.nav, next.conversations);
+        }
+        state = next;
         notify();
     };
 
@@ -474,7 +486,37 @@ export const createStore = () => {
             goHome() {
                 if (state.screen === "entry") return;
                 stashActive();
-                patch({ screen: "home", room: null, ...CLEAR_VIEW });
+                patch({ screen: "home", page: "home", room: null, ...CLEAR_VIEW });
+            },
+
+            /**
+             * Página no centro sem conversa aberta: Comandos ou Perfil. As
+             * conversas continuam na lista, recebendo mensagens.
+             * @param {"home" | "commands" | "profile"} page
+             */
+            showPage(page) {
+                if (state.screen === "entry") return;
+                stashActive();
+                patch({ screen: "home", page, room: null, ...CLEAR_VIEW });
+            },
+
+            /**
+             * Muda a organização da lista (fixar, mover, recolher, misturar,
+             * filtrar). Só em memória.
+             * @param {(nav: import("./navigation.js").NavPrefs) => import("./navigation.js").NavPrefs} change
+             */
+            updateNav(change) {
+                const nav = reconcile(change(state.nav), state.conversations);
+                if (nav !== state.nav) patch({ nav });
+            },
+
+            /**
+             * Zera as não lidas de uma conversa sem abri-la ("Marcar como lida").
+             * @param {string} id
+             */
+            markRead(id) {
+                if (!state.conversations.some((e) => e.conversationId === id && e.unread)) return;
+                bumpUnread(id, 0);
             },
 
             /**
@@ -513,6 +555,7 @@ export const createStore = () => {
                 patch({
                     conversations,
                     screen: state.screen === "entry" ? "entry" : "home",
+                    page: "home",
                     room: null,
                     ...CLEAR_VIEW,
                 });
@@ -542,7 +585,7 @@ export const createStore = () => {
              */
             completeLogin() {
                 if (!state.joining) return;
-                patch({ screen: "home", joining: false });
+                patch({ screen: "home", page: "home", joining: false });
             },
 
             /**
