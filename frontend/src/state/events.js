@@ -10,6 +10,7 @@ import {
     TONES,
 } from "../protocol.js";
 import { authorKey } from "./store.js";
+import { mentionsOf, parseMarkdown } from "../markdown/parse.js";
 
 /**
  * Tradutor de eventos: recebe um fato já decodificado e o transforma em
@@ -482,6 +483,24 @@ export const createEventHandler = ({
                 store.actions.addMessage(message, scope);
                 if (message.own && message.clientMsgId) onOwnConfirmed(message.clientMsgId);
                 if (!message.own) {
+                    const myName = store.getState().me?.username;
+                    const mention = Boolean(
+                        myName &&
+                        !message.format &&
+                        mentionsOf(parseMarkdown(message.content)).includes(myName),
+                    );
+                    // Menção numa conversa que não está à vista: aviso na tela
+                    // (com a aba à vista) e o selo "@" na lista lateral.
+                    if (mention && !active && store.getState().pageVisible) {
+                        toasts.show(
+                            format(
+                                entry?.kind === "dm"
+                                    ? strings.notify.mentionToastDm
+                                    : strings.notify.mentionToast,
+                                { name: message.userName, where: entry?.name ?? "" },
+                            ),
+                        );
+                    }
                     // Nada do conteúdo nem de quem escreveu sai para a central de
                     // notificações do sistema (que guarda histórico e aparece na
                     // tela bloqueada): só que há mensagem nova, e onde. Uma por
@@ -489,7 +508,7 @@ export const createEventHandler = ({
                     const dm = entry?.kind === "dm";
                     notifier.show(
                         dm ? strings.notify.dmTitle : (entry?.name ?? strings.notify.roomTitle),
-                        strings.notify.body,
+                        mention ? strings.notify.mentionBody : strings.notify.body,
                         scope ?? "web-chat",
                     );
                     if (scope !== null) onConversationMessage(scope, message);

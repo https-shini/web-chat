@@ -55,6 +55,10 @@ import {
 } from "./state/navigation.js";
 import { normalizeRoomCode } from "./state/invite.js";
 import { excerptPlain } from "./markdown/parse.js";
+import { applyDensity, currentDensity, restoreDensity } from "./ui/density.js";
+
+// Densidade escolhida antes (preferência visual, como o tema).
+restoreDensity();
 
 /**
  * Raiz de composição. É o único lugar em que transporte, estado e interface
@@ -1044,6 +1048,28 @@ const afterNewSession = () => {
     if (state.joining) store.actions.completeLogin();
 };
 
+// Voltar da lista no celular (ui/layout.js): confirma antes de encerrar.
+layout.onLeaveRequest(async () => {
+    const leave = await dialog.confirm({
+        title: strings.logout.leaveTitle,
+        body: strings.logout.leaveBody,
+        confirmLabel: strings.logout.leaveConfirm,
+        cancelLabel: strings.logout.leaveCancel,
+    });
+    if (leave) endParticipation();
+    return leave;
+});
+
+// Fechar a aba, recarregar ou ir para outro site no meio do chat: o
+// navegador pergunta antes (o texto da pergunta é dele). Navegar entre as
+// telas e os painéis do próprio app não passa por aqui.
+window.addEventListener("beforeunload", (event) => {
+    if (store.getState().screen === "entry") return;
+    event.preventDefault();
+    // Navegadores antigos só perguntam com `returnValue` preenchido.
+    event.returnValue = "";
+});
+
 for (const button of document.querySelectorAll('[data-action="logout"]')) {
     button.addEventListener("click", () => void logout());
 }
@@ -1629,6 +1655,13 @@ const profilePage = createProfilePage({
     },
     onAway: (away, reason) => setAway(away, reason),
     onTheme: (theme) => themeToggle.set(theme),
+    onDensity: (density) => {
+        applyDensity(density);
+        announcer.say(
+            density === "compact" ? strings.profile.densityCompact : strings.profile.densityDefault,
+            { force: true },
+        );
+    },
     onNotifications: () => void toggleNotifications(),
     onLogout: () => void logout(),
     onCopyHandle: () => void copyText(`@${store.getState().me?.username ?? ""}`),
@@ -1949,10 +1982,14 @@ const render = (state, previous) => {
         syncInviteHash(state);
     }
     if (changed(state, previous, ["conversations"])) {
-        // Total de não lidas no título da aba: "(3) web-chat · …".
+        // Total de não lidas no título da aba: "(3) web-chat · …"; com
+        // menção a você, "(3 · @1) web-chat · …".
         const total = state.conversations.reduce((sum, entry) => sum + entry.unread, 0);
-        document.title = total > 0 ? `(${total > 99 ? "99+" : total}) ${baseTitle}` : baseTitle;
-        unreadTotal.textContent = total > 0 ? String(total > 99 ? "99+" : total) : "";
+        const mentions = state.conversations.reduce((sum, entry) => sum + (entry.mentions ?? 0), 0);
+        const cap = (/** @type {number} */ n) => (n > 99 ? "99+" : String(n));
+        const tag = total > 0 ? `${cap(total)}${mentions > 0 ? ` · @${cap(mentions)}` : ""}` : "";
+        document.title = tag ? `(${tag}) ${baseTitle}` : baseTitle;
+        unreadTotal.textContent = mentions > 0 ? `@${cap(mentions)}` : total > 0 ? cap(total) : "";
     }
     if (changed(state, previous, ["me", "conversations"])) {
         home.render(state.me, state.conversations.length);
@@ -2065,6 +2102,7 @@ const render = (state, previous) => {
             away: selfPresence.status === "away",
             awayText: selfPresence.statusText,
             theme: themeToggle.current(),
+            density: currentDensity(),
             notifications: notifier.state(),
             online: state.link === "online",
         });

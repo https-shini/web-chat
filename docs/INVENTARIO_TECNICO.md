@@ -1,6 +1,6 @@
 # Inventário técnico · web-chat
 
-> Fotografia do repositório em 2026-11-07, **atualizada na Fase 5 (redesign de UI/UX)**. A
+> Fotografia do repositório em 2026-11-07, **atualizada na Fase 5 (redesign de UI/UX)**. Não cobre a evolução com base no Fluxer (PRs #13 a #21): para ela, ver [`RELATORIO_EVOLUCAO_FLUXER.md`](./RELATORIO_EVOLUCAO_FLUXER.md). A
 > fotografia original (commit `34b523c`) foi tirada antes das Fases 1 e 2. Todos os dados foram
 > extraídos dos arquivos do projeto ou de comandos executados sobre ele
 > (`npm outdated`, `npm audit`, `vite build`, `wc -l`). Para diagnóstico e

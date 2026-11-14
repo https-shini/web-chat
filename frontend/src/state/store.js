@@ -1,6 +1,7 @@
 // @ts-check
 
 import { initialNav, reconcile } from "./navigation.js";
+import { mentionsOf, parseMarkdown } from "../markdown/parse.js";
 
 /**
  * Estado observável da aplicação. Não conhece transporte nem DOM: recebe
@@ -59,8 +60,9 @@ export const authorKey = (username, author) =>
  */
 
 /**
- * Conversa na lista lateral: o resumo mais as mensagens não lidas.
- * @typedef {RoomInfo & {unread: number}} ConversationEntry
+ * Conversa na lista lateral: o resumo mais as mensagens não lidas e, entre
+ * elas, quantas mencionam você (`mentions`, ausente = 0).
+ * @typedef {RoomInfo & {unread: number, mentions?: number}} ConversationEntry
  */
 
 /**
@@ -204,7 +206,19 @@ const initialState = () => ({
 const summaryOf = (entry) => {
     const room = { ...entry };
     delete (/** @type {Partial<ConversationEntry>} */ (room).unread);
+    delete (/** @type {Partial<ConversationEntry>} */ (room).mentions);
     return room;
+};
+
+/**
+ * A conversa lida: sem não lidas nem menções.
+ * @param {ConversationEntry} entry
+ * @returns {ConversationEntry}
+ */
+const read = (entry) => {
+    const next = { ...entry, unread: 0 };
+    delete next.mentions;
+    return next;
 };
 
 /** @returns {View} */
@@ -324,15 +338,36 @@ export const createStore = () => {
         return view;
     };
 
-    /** @param {string} id @param {number} delta */
-    const bumpUnread = (id, delta) => {
+    /**
+     * Soma não lidas (0 zera tudo, inclusive as menções).
+     * @param {string} id @param {number} delta @param {number} [mentions] quantas delas citam você
+     */
+    const bumpUnread = (id, delta, mentions = 0) => {
         patch({
             conversations: state.conversations.map((entry) =>
                 entry.conversationId === id
-                    ? { ...entry, unread: delta === 0 ? 0 : entry.unread + delta }
+                    ? delta === 0
+                        ? read(entry)
+                        : {
+                              ...entry,
+                              unread: entry.unread + delta,
+                              mentions: (entry.mentions ?? 0) + mentions,
+                          }
                     : entry,
             ),
         });
+    };
+
+    /** A mensagem é de outra pessoa e cita você (arroba)? @param {Message} message */
+    const mentionsMe = (message) => {
+        const me = state.me?.username;
+        return Boolean(
+            me &&
+            message.kind === "chat" &&
+            !message.own &&
+            !message.format &&
+            mentionsOf(parseMarkdown(message.content)).includes(me),
+        );
     };
 
     /** Guarda a conversa aberta e esvazia a vista. */
@@ -414,7 +449,13 @@ export const createStore = () => {
                         : index === -1
                           ? [...state.conversations, { ...room, unread: 0 }]
                           : state.conversations.map((entry, i) =>
-                                i === index ? { ...room, unread: entry.unread } : entry,
+                                i === index
+                                    ? {
+                                          ...room,
+                                          unread: entry.unread,
+                                          ...(entry.mentions ? { mentions: entry.mentions } : {}),
+                                      }
+                                    : entry,
                             );
                 const opensNow = state.room === null && state.screen !== "home";
                 const isOpen = state.room?.conversationId === room.conversationId;
@@ -449,7 +490,7 @@ export const createStore = () => {
                         patch({
                             screen: "room",
                             conversations: state.conversations.map((item) =>
-                                item === entry ? { ...item, unread: 0 } : item,
+                                item === entry ? read(item) : item,
                             ),
                         });
                     }
@@ -465,7 +506,7 @@ export const createStore = () => {
                     ...view,
                     typing: [],
                     conversations: state.conversations.map((item) =>
-                        item === entry ? { ...item, unread: 0 } : item,
+                        item === entry ? read(item) : item,
                     ),
                 });
                 return true;
@@ -486,7 +527,7 @@ export const createStore = () => {
                         ? {
                               conversations: state.conversations.map((entry) =>
                                   entry.conversationId === openId && entry.unread
-                                      ? { ...entry, unread: 0 }
+                                      ? read(entry)
                                       : entry,
                               ),
                           }
@@ -559,7 +600,7 @@ export const createStore = () => {
                     const room = summaryOf(next);
                     patch({
                         conversations: conversations.map((entry) =>
-                            entry === next ? { ...entry, unread: 0 } : entry,
+                            entry === next ? read(entry) : entry,
                         ),
                         room,
                         ...view,
@@ -670,7 +711,8 @@ export const createStore = () => {
                         return;
                     buffers.set(id, { ...view, messages: bounded([...view.messages, message]) });
                     // Só mensagem de alguém conta como não lida; avisos não.
-                    bumpUnread(id, message.kind === "chat" && !message.own ? 1 : 0);
+                    if (message.kind === "chat" && !message.own)
+                        bumpUnread(id, 1, mentionsMe(message) ? 1 : 0);
                     return;
                 }
                 if (confirm(message)) return;
@@ -679,7 +721,7 @@ export const createStore = () => {
                 // Aba escondida: a conversa aberta não está sendo lida.
                 const openId = state.room?.conversationId;
                 if (!state.pageVisible && openId && message.kind === "chat" && !message.own) {
-                    bumpUnread(openId, 1);
+                    bumpUnread(openId, 1, mentionsMe(message) ? 1 : 0);
                 }
             },
 
@@ -711,11 +753,11 @@ export const createStore = () => {
                         // Conversa que acabou de chegar (alguém começou a falar
                         // com você): o que veio no histórico ainda não foi lido.
                         if (countUnread) {
-                            bumpUnread(
-                                id,
-                                fresh.filter((message) => message.kind === "chat" && !message.own)
-                                    .length,
+                            const unseen = fresh.filter(
+                                (message) => message.kind === "chat" && !message.own,
                             );
+                            if (unseen.length)
+                                bumpUnread(id, unseen.length, unseen.filter(mentionsMe).length);
                         }
                     }
                     return;

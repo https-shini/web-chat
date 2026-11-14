@@ -72,3 +72,5 @@ export const TIMING = {
 
 /** Chave de persistência do tema escolhido. */
 export const THEME_STORAGE_KEY = "web-chat:theme";
+/** Densidade da interface (preferência visual; ver ui/density.js). */
+export const DENSITY_STORAGE_KEY = "web-chat:density";
