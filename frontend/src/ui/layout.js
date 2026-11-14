@@ -1,6 +1,8 @@
 // @ts-check
 
 import { must } from "./dom.js";
+import { setIcon } from "./icons.js";
+import { strings } from "../i18n/strings.js";
 
 /**
  * Painéis e gavetas.
@@ -8,7 +10,12 @@ import { must } from "./dom.js";
  * ≥ 80rem  navegação, conversa e painel de contexto lado a lado; o botão
  *          "Dados da conversa" só mostra/esconde o painel.
  * < 80rem  o painel de contexto vira folha sobre a conversa (gaveta à direita).
- * < 48rem  a navegação também vira gaveta, à esquerda.
+ * < 48rem  celular, em pilha de telas (decisão D2): a lista de conversas é a
+ *          tela de base, a conversa fica por cima e os dados da conversa por
+ *          cima dela, cada uma ocupando a tela toda. O botão do cabeçalho vira
+ *          "Voltar", e cada nível ganha uma entrada no histórico do navegador
+ *          (sem mudar o endereço), então o "voltar" do Android e do navegador
+ *          desce um nível em vez de sair do chat.
  *
  * Gaveta aberta: o resto da tela fica `inert` (foco e leitor de tela não
  * escapam para trás do fundo escurecido), Escape ou clique no fundo fecham,
@@ -45,10 +52,63 @@ export const createLayout = () => {
     /** Avisados a cada mudança de painel (ex.: bordas de redimensionar). @type {(() => void)[]} */
     const listeners = [];
 
+    const membersClosers = /** @type {HTMLButtonElement[]} */ ([
+        ...document.querySelectorAll('[data-drawer-close="members"]'),
+    ]);
+    /**
+     * No celular o botão é "Voltar" (seta); no resto, o original.
+     * @param {HTMLElement} button
+     * @param {string} back
+     * @param {string} label
+     * @param {string} iconName
+     */
+    const backOrMenu = (button, back, label, iconName) => {
+        const name = stacked() ? "chevron-left" : iconName;
+        const host = button.querySelector("[data-icon]");
+        if (host && host.getAttribute("data-icon") !== name) setIcon(host, name);
+        button.setAttribute("aria-label", stacked() ? back : label);
+    };
+
     /** @param {Panel} panel */
     const isDrawer = (panel) => (panel === "sidebar" ? !medium.matches : !wide.matches);
     /** @param {Panel} panel */
     const node = (panel) => (panel === "sidebar" ? sidebar : members);
+
+    /** Níveis da pilha no celular, de baixo para cima. */
+    const LAYERS = /** @type {const} */ (["list", "content", "members"]);
+    /** @param {unknown} state @returns {number} -1: entrada que não é nossa */
+    const depthOf = (state) =>
+        LAYERS.indexOf(
+            /** @type {any} */ (
+                state && typeof state === "object" && "layer" in state ? state.layer : ""
+            ),
+        );
+    /** Celular (pilha de telas)? */
+    const stacked = () => !medium.matches;
+
+    /**
+     * Acerta o histórico com a tela visível: empilha uma entrada por nível que
+     * subiu, ou volta as que desceram (o `popstate` que vem depois encontra
+     * tudo no lugar e não faz nada). O endereço (o convite) não muda.
+     */
+    const syncHistory = () => {
+        if (!inRoom || !stacked()) return;
+        const target = drawer === "sidebar" ? 0 : drawer === "members" ? 2 : 1;
+        let current = depthOf(history.state);
+        if (current === -1) {
+            // Primeira vez (ou entrada criada fora daqui, como um convite
+            // colado na barra): ela vira a base, a lista.
+            history.replaceState({ layer: LAYERS[0] }, "", location.href);
+            current = 0;
+        }
+        if (target > current) {
+            for (let depth = current + 1; depth <= target; depth += 1) {
+                history.pushState({ layer: LAYERS[depth] }, "", location.href);
+            }
+        } else if (target < current) {
+            history.go(target - current);
+        }
+    };
 
     const sync = () => {
         if (drawer && !isDrawer(drawer)) drawer = null;
@@ -72,7 +132,12 @@ export const createLayout = () => {
             const panel = /** @type {Panel} */ (button.dataset.drawerOpen);
             button.setAttribute("aria-expanded", String(!node(panel).hidden));
             if (panel === "members") button.hidden = !membersAvailable;
+            else backOrMenu(button, strings.layout.backToList, strings.layout.openSidebar, "menu");
         }
+        for (const button of membersClosers) {
+            backOrMenu(button, strings.layout.backToChat, strings.layout.closeDetails, "close");
+        }
+        syncHistory();
         for (const listener of listeners) listener();
     };
 
@@ -89,7 +154,8 @@ export const createLayout = () => {
         if (!drawer) return;
         drawer = null;
         sync();
-        if (returnFocus?.isConnected) returnFocus.focus();
+        if (returnFocus?.isConnected && returnFocus.offsetParent !== null) returnFocus.focus();
+        else if (!main.hidden) main.focus({ preventScroll: true });
         returnFocus = null;
     };
 
@@ -136,6 +202,16 @@ export const createLayout = () => {
                 first.focus();
             }
         }
+    });
+    // "Voltar" do navegador ou do Android no celular: a tela segue o nível da
+    // entrada do histórico. Entrada que não é nossa (convite colado na barra)
+    // fica com o tratamento do `hashchange`.
+    window.addEventListener("popstate", (event) => {
+        if (!inRoom || !stacked()) return;
+        const depth = depthOf(event.state);
+        if (depth === 0 && drawer !== "sidebar") open("sidebar", null);
+        else if (depth === 1 && drawer) close();
+        else if (depth === 2 && membersAvailable && drawer !== "members") open("members", null);
     });
     wide.addEventListener("change", sync);
     medium.addEventListener("change", sync);
