@@ -260,6 +260,7 @@
     --z-drawer: 50;
     --z-overlay: 100;
     --z-popover: 200;
+    --z-menu: 300; /* menus de contexto: acima de cartões e gavetas */
     --z-toast: 1000;
 
     /* Alvos de toque (2.5.8) */
@@ -312,6 +313,14 @@
     --avatar-lg: 2.5rem; /*  40px */
     --avatar-xl: 5rem; /*  80px */
     --measure-message: 70ch;
+    /* Arquitetura em três áreas (navegação | conversa | contexto). */
+    --layout-nav-width: 17rem; /* 272px */
+    --layout-rail-width: 4.5rem; /* 72px — navegação recolhida */
+    --layout-panel-width: 21.25rem; /* 340px — painel de contexto */
+    --layout-main-min: 30rem; /* abaixo disso o painel vira folha */
+    --nav-item-height: 2.25rem; /* 36px — item de conversa de uma linha */
+    --menu-min-width: 13.75rem; /* 220px */
+    --menu-item-height: 2.25rem;
     --gutter-message: 4.5rem; /* coluna do avatar nas mensagens */
 }
 

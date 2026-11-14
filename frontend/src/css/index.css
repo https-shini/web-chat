@@ -54,6 +54,7 @@
 
 /* camadas flutuantes */
 @import url("./components/member-card.css");
+@import url("./components/menu.css");
 @import url("./components/dialog.css");
 @import url("./components/tooltip.css");
 @import url("./components/toast.css");

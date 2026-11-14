@@ -1,0 +1,175 @@
+/* Menu de ações (padrão "menu" do APG): flutuante no desktop, folha
+   inferior no celular. Posição pelo @floating-ui/dom (left/top via CSSOM). */
+
+.c-menu {
+    position: fixed;
+    z-index: var(--z-menu);
+    top: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    min-width: var(--menu-min-width);
+    max-width: min(20rem, calc(100vw - var(--space-4)));
+    overflow: auto;
+    padding: var(--space-1-5);
+    border: var(--rule-1) solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-bg-elevated);
+    color: var(--color-text-2);
+    box-shadow: var(--shadow-3);
+    animation: pop-in var(--duration-base) var(--ease-out);
+}
+
+.c-menu__list {
+    display: flex;
+    flex-direction: column;
+}
+
+.c-menu__item {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+    width: 100%;
+    min-height: var(--menu-item-height);
+    padding: var(--space-1-5) var(--space-2);
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: var(--text-sm);
+    text-align: start;
+    cursor: pointer;
+}
+
+.c-menu__item:hover,
+.c-menu__item:focus-visible,
+.c-menu__item:focus {
+    outline: none;
+    background-color: var(--color-bg-selected);
+    color: var(--color-text-1);
+}
+
+.c-menu__item:focus-visible {
+    box-shadow: inset 0 0 0 var(--rule-2) var(--color-focus-ring);
+}
+
+.c-menu__item[aria-disabled="true"] {
+    color: var(--color-text-disabled);
+    cursor: default;
+}
+
+.c-menu__item[aria-disabled="true"]:hover,
+.c-menu__item[aria-disabled="true"]:focus {
+    background-color: transparent;
+}
+
+.c-menu__item--danger {
+    color: var(--color-danger-text);
+}
+
+.c-menu__item--danger:hover,
+.c-menu__item--danger:focus {
+    color: var(--color-danger-text);
+}
+
+.c-menu__icon {
+    display: inline-flex;
+    flex: none;
+    width: var(--text-lg);
+    font-size: var(--text-lg);
+}
+
+.c-menu__text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.c-menu__hint {
+    flex: none;
+    color: var(--color-text-3);
+    font-size: var(--text-xs);
+}
+
+.c-menu__chevron {
+    display: inline-flex;
+    flex: none;
+    color: var(--color-text-3);
+}
+
+.c-menu__separator {
+    height: var(--rule-1);
+    margin: var(--space-1-5) var(--space-1);
+    background-color: var(--color-border-subtle);
+}
+
+.c-menu__label {
+    padding: var(--space-1-5) var(--space-2) var(--space-0-5);
+    color: var(--color-text-3);
+    font-size: var(--text-2xs);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-caps);
+    text-transform: uppercase;
+}
+
+.c-menu__title,
+.c-menu__grabber {
+    display: none;
+}
+
+/* ─── Folha inferior (celular) ─────────────────────────────────────── */
+.c-menu-sheet {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-menu);
+}
+
+.c-menu-sheet__scrim {
+    position: absolute;
+    inset: 0;
+    background-color: var(--color-scrim);
+    opacity: var(--opacity-scrim);
+}
+
+.c-menu--sheet {
+    position: absolute;
+    inset: auto 0 0;
+    max-width: none;
+    max-height: 80dvh;
+    padding: var(--space-2) var(--space-2) calc(var(--space-3) + env(safe-area-inset-bottom));
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    animation: sheet-up var(--duration-slow) var(--ease-out);
+}
+
+.c-menu--sheet .c-menu__item {
+    min-height: var(--tap-comfort);
+    font-size: var(--text-md);
+}
+
+.c-menu--sheet .c-menu__grabber {
+    display: block;
+    width: var(--space-10);
+    height: var(--space-1);
+    margin: var(--space-0) auto var(--space-2);
+    border-radius: var(--radius-full);
+    background-color: var(--color-border-subtle);
+}
+
+.c-menu--sheet .c-menu__title {
+    display: block;
+    padding: var(--space-1) var(--space-2) var(--space-2);
+    color: var(--color-text-3);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+}
+
+/* Submenu no celular: substitui a folha, por cima. */
+.c-menu--sheet.c-menu--sub {
+    z-index: 1;
+}
+
+@keyframes sheet-up {
+    from {
+        transform: translateY(100%);
+    }
+}
