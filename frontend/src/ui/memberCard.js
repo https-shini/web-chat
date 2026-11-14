@@ -4,6 +4,7 @@ import { format, strings } from "../i18n/strings.js";
 import { el, must } from "./dom.js";
 import { badge, hueFor, renderIdentity } from "./identity.js";
 import { icon } from "./icons.js";
+import { anchorTo } from "./primitives/position.js";
 
 /**
  * Cartão de pessoa: popover não modal aberto a partir do painel de pessoas.
@@ -49,10 +50,14 @@ export const createMemberCard = ({
 
     /** @type {HTMLButtonElement | null} */
     let trigger = null;
+    /** Para de acompanhar a posição (cartão fechado). */
+    let unanchor = () => {};
 
     /** @param {{restoreFocus?: boolean}} [options] */
     const close = ({ restoreFocus = true } = {}) => {
         if (card.hidden) return;
+        unanchor();
+        unanchor = () => {};
         card.hidden = true;
         trigger?.setAttribute("aria-expanded", "false");
         if (restoreFocus && trigger?.isConnected) trigger.focus();
@@ -180,21 +185,21 @@ export const createMemberCard = ({
         return list;
     };
 
-    /** Posiciona ao lado do botão; em tela estreita o CSS vira folha. */
+    /**
+     * Posiciona ao lado do botão com o @floating-ui/dom (vira para o outro
+     * lado e desliza na tela quando falta espaço, e acompanha a rolagem).
+     * Em tela estreita o CSS faz do cartão uma folha presa à base.
+     */
     const place = () => {
+        unanchor();
+        unanchor = () => {};
         if (!trigger || window.matchMedia("(max-width: 47.99rem)").matches) {
             card.style.removeProperty("top");
             card.style.removeProperty("left");
+            card.style.removeProperty("max-height");
             return;
         }
-        const box = trigger.getBoundingClientRect();
-        const size = card.getBoundingClientRect();
-        const gap = 12;
-        let left = box.left - size.width - gap;
-        if (left < gap) left = Math.min(box.right + gap, window.innerWidth - size.width - gap);
-        const top = Math.min(Math.max(gap, box.top), window.innerHeight - size.height - gap);
-        card.style.left = `${Math.round(left)}px`;
-        card.style.top = `${Math.round(top)}px`;
+        unanchor = anchorTo(trigger, card, { placement: "left-start", gap: 12, minHeight: 200 });
     };
 
     // Captura: o Escape fecha o cartão antes de chegar à gaveta embaixo dele.
@@ -213,7 +218,8 @@ export const createMemberCard = ({
         if (card.contains(event.target) || trigger?.contains(event.target)) return;
         close({ restoreFocus: false });
     });
-    window.addEventListener("resize", () => close({ restoreFocus: false }));
+    // Mudança de tamanho (inclusive o teclado virtual abrindo) só
+    // reposiciona: o cartão não fecha mais sozinho.
 
     return {
         /**

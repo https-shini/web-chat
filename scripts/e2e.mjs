@@ -254,6 +254,18 @@ const ctx = {
         // A CSP da página bloqueia script inline (como deve). O código do axe
         // entra como expressão avaliada pelo protocolo de depuração, que não
         // passa pela CSP — o teste roda com a CSP real ligada.
+        // Espera as animações finitas terminarem (entrada de mensagem,
+        // menu, painel): o axe mede a cor computada, e no meio de um
+        // esmaecimento ela ainda não é a final. Animações infinitas
+        // (indicadores de carregamento) não entram na espera.
+        await page.evaluate(() =>
+            Promise.all(
+                document
+                    .getAnimations()
+                    .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
+                    .map((a) => a.finished.catch(() => {})),
+            ),
+        );
         await page.evaluate(source);
         const result = await page.evaluate(() =>
             window.axe.run(document, {

@@ -6,11 +6,11 @@
  */
 export const strings = {
     entry: {
-        submit: "Entrar na sala",
+        submit: "Entrar",
         submitting: "Entrando…",
         nameRequired: "Escreva seu nome completo para entrar.",
         usernameRequired: "Escolha um nome de usuário para entrar.",
-        usernameHint: "Único na sala. Letras minúsculas, números, ponto ou _.",
+        usernameHint: "Único entre quem está conectado. Letras minúsculas, números, ponto ou _.",
         usernameSuggested: "Sugerido a partir do seu nome. Você pode trocar.",
         usernameValid: "Formato válido. A disponibilidade é conferida ao entrar.",
         usernameChars: "Use só letras minúsculas sem acento, números, ponto ou _.",

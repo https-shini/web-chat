@@ -21,10 +21,13 @@
         box-shadow var(--duration-fast) var(--ease-standard);
 }
 
-/* O campo em si não desenha anel: o composer inteiro mostra o foco. */
+/* O campo em si não desenha anel: o composer inteiro mostra o foco, com
+   borda neutra e halo carmim suave (antes era uma borda vermelha forte, que
+   competia com a conversa durante a digitação contínua). O contraste da
+   borda de controle continua acima de 3:1 (1.4.11). */
 .c-composer:focus-within {
-    border-color: var(--color-focus-ring);
-    box-shadow: 0 0 0 var(--halo-width) var(--color-brand-soft);
+    border-color: var(--color-outline-control);
+    box-shadow: 0 0 0 var(--halo-width) color-mix(in srgb, var(--color-focus-ring) 35%, transparent);
 }
 
 .c-composer__input {
