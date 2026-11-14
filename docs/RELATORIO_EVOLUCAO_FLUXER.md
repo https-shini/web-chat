@@ -125,19 +125,31 @@ Depois disso, o CI do GitHub rodou de novo em cada PR.
 ### 4.4 Pendências e verificações não realizadas
 
 - **Foco do menu no PR 2** (`08-navegacao`, "o menu abre com o foco no
-  primeiro item"): falhou **1 vez em 41** execuções do CI, no commit 707f793,
-  e não foi reproduzida.
-    - Tentativas: 10 execuções locais com a CPU 6× mais lenta, 40 aberturas
-      de menu com a lista sendo redesenhada sem parar e o roteiro real 25
-      vezes.
-    - Causas descartadas pelo código e por teste: o menu escondido no
-      momento do foco; um segundo atalho Shift+F10; a atualização do próprio
-      menu; o redesenho da lista tomando o foco (ele só devolve o foco se o
-      foco já estava na lista).
-    - Hipótese restante (não comprovada): algo do ambiente do CI, como a
-      emulação de foco com duas páginas no mesmo navegador.
-    - O teste agora diz onde estava o foco quando falha. Continua como
-      pendência.
+  primeiro item"): **problema real, de causa não determinada**.
+    - Ocorrências: 1 vez em 41 execuções do CI (commit 707f793) e 1 vez em 24
+      execuções locais do roteiro real.
+    - O que o diagnóstico mostrou: o menu estava aberto (1 menu), mas o foco
+      tinha voltado para o item da conversa na lista.
+    - Como o menu foca: o primeiro item recebe o foco de forma síncrona, no
+      mesmo passo em que o menu entra na página. Portanto, algo devolve o
+      foco à lista depois.
+    - Causas descartadas pelo código e por teste:
+        - o menu escondido no momento do foco;
+        - um segundo atalho Shift+F10 em outra área;
+        - a atualização dos itens do próprio menu;
+        - outro componente com a mesma classe;
+        - o redesenho da lista (ele só devolve o foco se o foco já estava na
+          lista). Isso foi confirmado com 40 aberturas do menu com a lista
+          sendo redesenhada sem parar e a CPU 4× mais lenta.
+    - Tentativas de capturar a origem: 60 execuções com cada `focus()`
+      registrado, com a pilha de chamadas, sem nenhuma falha. A
+      instrumentação pode ter mudado o tempo das chamadas.
+    - Efeito para quem usa: raramente, ao abrir o menu da conversa pelo
+      teclado, o foco pode ficar no item da lista, e não no menu.
+    - Situação: **pendente**. O teste ficou estrito e passou a dizer onde está
+      o foco quando falha. Uma opção é o menu conferir o foco no quadro
+      seguinte; ela melhora a robustez, mas esconderia o sintoma, então fica
+      para você decidir.
 - **CodeQL:**
     - o PR #13, contra o `main`, deu "No new alerts in code changed by this
       pull request";
