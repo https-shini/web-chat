@@ -81,14 +81,32 @@ export default async ({ open, enter, createRoom, user, ok, axe }) => {
             }
             await phone.waitForSelector('.c-message:has-text("linha 12")');
             await phone.fill("#campo-mensagem", "a\nb\nc\nd\ne");
-            await phone.waitForTimeout(300);
-            const covered = await phone.evaluate(() => {
-                const items = document.querySelectorAll(".c-message");
-                const last = items[items.length - 1]?.getBoundingClientRect();
-                const field = document.querySelector(".c-composer-area")?.getBoundingClientRect();
-                return !last || !field ? true : last.bottom > field.top + 1;
-            });
-            ok(!covered, "320 px: com o campo crescido, a última mensagem continua à vista");
+            // O campo cresce e a lista reage nos quadros seguintes: espera a
+            // condição (até 3 s), em vez de um tempo fixo.
+            const visibleAgain = await phone
+                .waitForFunction(
+                    () => {
+                        const items = document.querySelectorAll(".c-message");
+                        const last = items[items.length - 1]?.getBoundingClientRect();
+                        const field = document
+                            .querySelector(".c-composer-area")
+                            ?.getBoundingClientRect();
+                        const input = document.querySelector("#campo-mensagem");
+                        // Só vale depois de o campo crescer (cinco linhas).
+                        return Boolean(
+                            last &&
+                            field &&
+                            input &&
+                            input.clientHeight > 80 &&
+                            last.bottom <= field.top + 1,
+                        );
+                    },
+                    null,
+                    { timeout: 3000 },
+                )
+                .then(() => true)
+                .catch(() => false);
+            ok(visibleAgain, "320 px: com o campo crescido, a última mensagem continua à vista");
             await phone.fill("#campo-mensagem", "");
         }
         await phone.close();
