@@ -39,7 +39,6 @@ export default async ({ open, enter, createRoom, user, ok, axe }) => {
         ok(Math.abs(listWidth - width) <= 1, `${width} px: a lista ocupa a tela toda`);
         ok(phone.url().endsWith(hash), `${width} px: o endereço continua sendo o convite da sala`);
         if (width === 375) {
-            await phone.waitForTimeout(400);
             const issues = await axe(phone);
             ok(issues.length === 0, `lista no celular sem violações sérias ${issues.join("; ")}`);
         }
