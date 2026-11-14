@@ -86,7 +86,11 @@ export default async ({ open, enter, createRoom, user, ok, axe, RUN }) => {
         !(await ana.isVisible('[data-context-block="members"]')),
         "privada: sem lista de integrantes",
     );
-    ok((await axe(ana)).length === 0, "painel da privada sem violações sérias");
+    // Espera a animação de entrada (conversa e painel): o axe mede a cor
+    // computada, e no meio do esmaecimento ela ainda não é a final.
+    await ana.waitForTimeout(400);
+    const dmIssues = await axe(ana);
+    ok(dmIssues.length === 0, `painel da privada sem violações sérias ${dmIssues.join("; ")}`);
 
     // Telas médias: o painel é folha sobre a conversa, com Escape.
     await ana.setViewportSize({ width: 1100, height: 800 });
