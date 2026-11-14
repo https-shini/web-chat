@@ -42,9 +42,18 @@ export default async ({ open, enter, createRoom, say, user, ok, axe, RUN }) => {
     await ana.focus('.c-conv:has-text("Beta")');
     await ana.keyboard.press("Shift+F10");
     await ana.waitForSelector('.c-menu[role="menu"]');
+    // Diagnóstico (falha rara vista uma vez no CI, não reproduzida): se o
+    // foco não estiver no menu, a mensagem diz onde ele está.
+    const menuFocus = await ana.evaluate(() => {
+        const el = document.activeElement;
+        return {
+            ok: el?.getAttribute("role") === "menuitem",
+            where: `${el?.tagName ?? "nada"}.${el?.className ?? ""} menus=${document.querySelectorAll(".c-menu").length}`,
+        };
+    });
     ok(
-        await ana.evaluate(() => document.activeElement?.getAttribute("role") === "menuitem"),
-        "o menu abre com o foco no primeiro item",
+        menuFocus.ok,
+        `o menu abre com o foco no primeiro item${menuFocus.ok ? "" : ` (foco em ${menuFocus.where})`}`,
     );
     await ana.keyboard.type("Fix");
     await ana.keyboard.press("Enter");
