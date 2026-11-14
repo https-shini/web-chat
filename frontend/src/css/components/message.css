@@ -416,3 +416,150 @@
 .c-message:not(:hover, :focus-within) > .c-message-actions {
     display: none;
 }
+
+/* ─── Resposta, edição, reações e fixada ──────────────────────────── */
+.c-message__reference {
+    display: flex;
+    gap: var(--space-1-5);
+    align-items: center;
+    max-width: 100%;
+    margin-bottom: var(--space-0-5);
+    padding: var(--space-0);
+    overflow: hidden;
+    color: var(--color-text-3);
+    font-size: var(--text-xs);
+    text-align: start;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.c-message__reference:hover {
+    color: var(--color-text-1);
+}
+
+.c-message__reference-icon {
+    display: inline-flex;
+    flex: none;
+}
+
+.c-message__reference-who {
+    flex: none;
+    color: var(--color-text-2);
+    font-weight: var(--weight-semibold);
+}
+
+.c-message__reference-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.c-message__marks {
+    display: inline;
+}
+
+.c-message__edited {
+    margin-left: var(--space-1);
+    color: var(--color-text-3);
+    font-size: var(--text-2xs);
+}
+
+.c-message__edited-slot:empty {
+    display: none;
+}
+
+.c-reactions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    margin-top: var(--space-1);
+}
+
+.c-reactions[hidden] {
+    display: none;
+}
+
+.c-reaction {
+    display: inline-flex;
+    gap: var(--space-1);
+    align-items: center;
+    min-height: var(--space-6);
+    padding: var(--space-0) var(--space-2);
+    border: var(--rule-1) solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-bg-elevated);
+    color: var(--color-text-2);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    cursor: pointer;
+}
+
+.c-reaction:hover {
+    border-color: var(--color-outline-control);
+    color: var(--color-text-1);
+}
+
+.c-reaction[aria-pressed="true"] {
+    border-color: var(--color-brand);
+    background-color: var(--color-brand-soft);
+    color: var(--color-text-1);
+}
+
+.c-reaction__emoji {
+    font-size: var(--text-sm);
+}
+
+.c-reaction--add {
+    color: var(--color-text-3);
+}
+
+.c-message__pinned {
+    display: inline-flex;
+    gap: var(--space-1);
+    align-items: center;
+    color: var(--color-accent-2);
+    font-size: var(--text-2xs);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-caps);
+    text-transform: uppercase;
+}
+
+.c-message__pinned[hidden] {
+    display: none;
+}
+
+/* Ao ir até uma mensagem (resposta, fixada): realce breve. */
+.c-message--flash {
+    animation: flash-message 1.6s var(--ease-out);
+}
+
+@keyframes flash-message {
+    from {
+        background-color: var(--color-brand-soft);
+    }
+}
+
+/* Edição no lugar. */
+.c-message__editor {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    margin-top: var(--space-1);
+}
+
+.c-message__editor-input {
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    border: var(--rule-1) solid var(--color-outline-control);
+    border-radius: var(--radius-md);
+    background-color: var(--color-bg-elevated);
+    color: var(--color-text-1);
+    font: inherit;
+    font-size: var(--text-md);
+    resize: vertical;
+}
+
+.c-message__editor-hint {
+    color: var(--color-text-3);
+    font-size: var(--text-2xs);
+}

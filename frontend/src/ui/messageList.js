@@ -3,7 +3,7 @@
 import { format, strings } from "../i18n/strings.js";
 import { clear, el, must } from "./dom.js";
 import { icon } from "./icons.js";
-import { patchDelivery, renderMessage } from "./message.js";
+import { patchDelivery, patchMessage, renderMessage } from "./message.js";
 import { bindContextMenu } from "./primitives/contextMenu.js";
 import { showMenu } from "./primitives/menu.js";
 
@@ -63,6 +63,8 @@ export const continuesGroup = (previous, message) => {
     }
     const plain = (/** @type {Message} */ m) => (m.variant ?? "text") === "text";
     if (!plain(previous) || !plain(message)) return false;
+    // Resposta mostra a citação e o cabeçalho: começa um grupo novo.
+    if (message.reference) return false;
     if (dayKey(previous.timestamp) !== dayKey(message.timestamp)) return false;
     const gap = Date.parse(message.timestamp) - Date.parse(previous.timestamp);
     return Number.isFinite(gap) && gap >= 0 && gap < GROUP_WINDOW_MS;
@@ -91,7 +93,11 @@ export const continuesGroup = (previous, message) => {
  *   onDiscard?: (message: Message) => void,
  *   onDismiss?: (message: Message) => void,
  *   getMe?: () => string | null,
+ *   getMeKey?: () => string | null,
+ *   onReact?: (message: Message, emoji: string) => void,
+ *   onReactMenu?: (message: Message, anchor: HTMLElement) => void,
  *   actionsFor?: (message: Message) => {items: MenuItem[], quick: {icon: string, label: string, run: () => void}[]} | null,
+ *   onMissing?: (id: string) => void,
  * }} [handlers]
  */
 export const createMessageList = (handlers = {}) => {
@@ -101,6 +107,33 @@ export const createMessageList = (handlers = {}) => {
     const items = /** @type {HTMLOListElement} */ (must(".c-message-list__items", root));
     const jump = /** @type {HTMLButtonElement} */ (must(".c-jump-bar"));
     const getMe = handlers.getMe ?? (() => null);
+    const getMeKey = handlers.getMeKey ?? (() => null);
+    /** Ids das mensagens fixadas (marca "fixada"). @type {Set<string>} */
+    let pinnedIds = new Set();
+    /** @param {HTMLElement} element */
+    const markPinned = (element) => {
+        const pinned = pinnedIds.has(element.dataset.messageId ?? "");
+        element.classList.toggle("c-message--pinned", pinned);
+        const mark = element.querySelector(".c-message__pinned");
+        if (mark instanceof HTMLElement) mark.hidden = !pinned;
+    };
+    const messageHandlers = {
+        ...handlers,
+        onJumpTo: (/** @type {string} */ id) => jumpTo(id),
+    };
+    /** Leva a uma mensagem na tela (ex.: a original de uma resposta). @param {string} id */
+    const jumpTo = (id) => {
+        const target = items.querySelector(`.c-message[data-message-id="${CSS.escape(id)}"]`);
+        if (!(target instanceof HTMLElement)) {
+            handlers.onMissing?.(id);
+            return false;
+        }
+        target.scrollIntoView({ block: "center" });
+        target.classList.add("c-message--flash");
+        setTimeout(() => target.classList.remove("c-message--flash"), 1600);
+        target.focus({ preventScroll: true });
+        return true;
+    };
 
     /** key → elemento e última versão pintada. */
     /** @type {Map<string, {element: HTMLElement, message: Message}>} */
@@ -337,12 +370,36 @@ export const createMessageList = (handlers = {}) => {
                 gone.length > 0 &&
                 firstKept !== undefined &&
                 [...painted.keys()].indexOf(firstKept.key) === gone.length;
-            if (onlyOldest) {
+            const allGone = gone.length > 0 && gone.length === painted.size;
+            if (onlyOldest || (gone.length > 0 && !allGone && messages.length > 0)) {
+                // Só algumas saíram (as mais antigas, ou uma apagada): tira
+                // esses itens um a um, sem redesenhar o resto.
                 for (const key of gone) {
-                    painted.get(key)?.element.remove();
+                    const element = painted.get(key)?.element;
+                    if (element && element === toolbarOwner) attachToolbar(null);
+                    element?.remove();
                     painted.delete(key);
                 }
                 pruneDividers();
+                // Quem continuava o grupo de uma apagada precisa do cabeçalho.
+                for (const [index, message] of messages.entries()) {
+                    const entry = painted.get(message.key);
+                    if (!entry) continue;
+                    const compact =
+                        newMarkerKey !== message.key &&
+                        continuesGroup(messages[index - 1], message);
+                    if (compact !== entry.element.classList.contains("c-message--compact")) {
+                        const fresh = renderMessage(message, messageHandlers, {
+                            compact,
+                            me: getMe(),
+                            meKey: getMeKey(),
+                        });
+                        markDeparted(fresh);
+                        markPinned(fresh);
+                        entry.element.replaceWith(fresh);
+                        entry.element = fresh;
+                    }
+                }
             } else if (gone.length > 0) {
                 // Conversa substituída ou limpa: única situação em que a
                 // lista é reconstruída. Fora dela, adição e atualização no lugar.
@@ -363,7 +420,11 @@ export const createMessageList = (handlers = {}) => {
                     if (entry.message !== message) {
                         const becameFailed =
                             message.delivery === "failed" && entry.message.delivery !== "failed";
-                        patchDelivery(entry.element, message, handlers);
+                        patchDelivery(entry.element, message, messageHandlers);
+                        patchMessage(entry.element, message, entry.message, messageHandlers, {
+                            me,
+                            meKey: getMeKey(),
+                        });
                         entry.message = message;
                         if (becameFailed) handlers.onFailed?.(message);
                     }
@@ -381,12 +442,14 @@ export const createMessageList = (handlers = {}) => {
                     items.appendChild(node);
                 }
                 if (newMarkerKey === message.key) items.appendChild(newMarker());
-                const element = renderMessage(message, handlers, {
+                const element = renderMessage(message, messageHandlers, {
                     // A linha "Novas mensagens" começa um grupo novo.
                     compact: newMarkerKey !== message.key && continuesGroup(previous, message),
                     me,
+                    meKey: getMeKey(),
                 });
                 markDeparted(element);
+                markPinned(element);
                 items.appendChild(element);
                 painted.set(message.key, { element, message });
                 if (message.kind === "chat" && !message.own) added += 1;
@@ -415,6 +478,19 @@ export const createMessageList = (handlers = {}) => {
                 if (element instanceof HTMLElement) markDeparted(element);
             }
         },
+
+        /**
+         * Marca as mensagens fixadas (sem redesenhar).
+         * @param {string[]} ids
+         */
+        setPinned(ids) {
+            pinnedIds = new Set(ids);
+            for (const element of items.querySelectorAll('.c-message[data-kind="chat"]')) {
+                if (element instanceof HTMLElement) markPinned(element);
+            }
+        },
+
+        jumpTo,
 
         /**
          * Onde começam as não lidas ao abrir uma conversa (a linha "Novas

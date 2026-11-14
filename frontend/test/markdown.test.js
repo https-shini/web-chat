@@ -3,7 +3,13 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { mentionsOf, parseInline, parseMarkdown, plainInline } from "../src/markdown/parse.js";
+import {
+    excerptPlain,
+    mentionsOf,
+    parseInline,
+    parseMarkdown,
+    plainInline,
+} from "../src/markdown/parse.js";
 
 /** Árvore compacta para comparar: [tipo, conteúdo]. */
 const compact = (nodes) =>
@@ -156,5 +162,15 @@ describe("entradas hostis", () => {
 
     test("o texto puro devolve o que foi escrito, sem a marcação", () => {
         assert.equal(plainInline(parseInline("**oi** _você_ @ana `x`")), "oi você @ana x");
+    });
+});
+
+describe("excerptPlain", () => {
+    test("tira a marcação e esconde o spoiler", () => {
+        assert.equal(
+            excerptPlain("Entrega na **sexta às 18h**. `npm test` ||segredo||"),
+            "Entrega na sexta às 18h. npm test ▒▒▒",
+        );
+        assert.equal(excerptPlain("> citação\nlinha"), "citação linha");
     });
 });

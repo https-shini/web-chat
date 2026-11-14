@@ -18,9 +18,10 @@
 
 import crypto from "node:crypto";
 import { ERROR_CODES } from "../errors.js";
-import { DM_CLOSED_REASONS, MESSAGE_KINDS, scoped, serverMessage } from "../protocol.js";
+import { DM_CLOSED_REASONS, MESSAGE_KINDS, TONES, scoped, serverMessage } from "../protocol.js";
 import { readClientId, readContent } from "../validation.js";
 import { createTranscript } from "./transcript.js";
+import { createMessageOps } from "./messageOps.js";
 
 /** Limites padrão; configuráveis por variável de ambiente. */
 export const DM_DEFAULTS = Object.freeze({
@@ -91,6 +92,34 @@ export const createDirectConversation = ({
         deliver(identity.holder, JSON.stringify(message));
     };
 
+    /** Para as duas (só quem já sabe da conversa). @param {Record<string, unknown>} message */
+    const broadcast = (message) => {
+        const data = scoped(id, message);
+        for (const identity of participants) if (announced.has(identity)) sendTo(identity, data);
+    };
+
+    /** Responder, editar, apagar, reagir e fixar (comum com as salas). */
+    const ops = createMessageOps({
+        transcript,
+        broadcast,
+        notice: (text) =>
+            broadcast(
+                serverMessage.notice({
+                    id: newMessageId(),
+                    tone: TONES.INFO,
+                    text,
+                    timestamp: now().toISOString(),
+                }),
+            ),
+        timestamp: () => now().toISOString(),
+        log,
+        conversationId: id,
+    });
+
+    /** @param {Identity} identity */
+    const allowed = (identity) =>
+        closed || !has(identity) ? { ok: false, code: ERROR_CODES.CONVERSATION_NOT_FOUND } : null;
+
     /**
      * Resumo do ponto de vista de quem recebe: a outra pessoa e a presença dela.
      * @param {Identity} identity
@@ -122,6 +151,7 @@ export const createDirectConversation = ({
         sendTo(identity, serverMessage.dmOpened(summaryFor(identity), how));
         const recent = transcript.recent(historyOnJoin);
         if (recent.length > 0) sendTo(identity, scoped(id, serverMessage.history(recent)));
+        if (ops.pinCount > 0) sendTo(identity, scoped(id, ops.pinsUpdated()));
     };
 
     /** A outra pessoa (se já sabe da conversa) recebe o resumo atualizado. @param {Identity} identity */
@@ -187,10 +217,39 @@ export const createDirectConversation = ({
             return publish(identity, {
                 content: content.content,
                 clientMsgId: readClientId(payload.clientMsgId),
+                reference: ops.reference(payload.replyTo),
             });
         },
 
         publish,
+
+        /** @param {Identity} identity @param {Record<string, unknown>} payload */
+        edit(identity, payload) {
+            return allowed(identity) ?? ops.edit(persona(identity), payload);
+        },
+
+        /** Numa privada, cada pessoa apaga só as próprias mensagens. @param {Identity} identity @param {Record<string, unknown>} payload */
+        removeMessage(identity, payload) {
+            return (
+                allowed(identity) ??
+                ops.remove(persona(identity), payload, { moderator: false, actorId: identity.id })
+            );
+        },
+
+        /** @param {Identity} identity @param {Record<string, unknown>} payload */
+        react(identity, payload) {
+            return allowed(identity) ?? ops.react(persona(identity), payload);
+        },
+
+        /** Numa privada, as duas pessoas fixam. @param {Identity} identity @param {Record<string, unknown>} payload */
+        pin(identity, payload) {
+            return allowed(identity) ?? ops.pin(persona(identity), payload, true);
+        },
+
+        /** Privada não tem descrição. */
+        describe() {
+            return { ok: false, code: ERROR_CODES.NOT_ALLOWED };
+        },
 
         /**
          * Digitação, só para a outra pessoa — e só se ela já sabe da conversa.

@@ -1,7 +1,7 @@
 // @ts-check
 
 import { SOCKET_URL, TIMING } from "./config.js";
-import { CLIENT_EVENTS, CLOSE_CODES, ERROR_CODES } from "./protocol.js";
+import { CLIENT_EVENTS, CLOSE_CODES, ERROR_CODES, REACTION_EMOJIS } from "./protocol.js";
 import { routeInput } from "./commands/input.js";
 import { helpReply, timeReply } from "./commands/local.js";
 import { createCommandSuggestions } from "./ui/commandSuggestions.js";
@@ -54,6 +54,7 @@ import {
     setPinned,
 } from "./state/navigation.js";
 import { normalizeRoomCode } from "./state/invite.js";
+import { excerptPlain } from "./markdown/parse.js";
 
 /**
  * Raiz de composição. É o único lugar em que transporte, estado e interface
@@ -101,6 +102,16 @@ const messageList = createMessageList({
         composer.focus();
     },
     getMe: () => store.getState().me?.username ?? null,
+    getMeKey: () => {
+        const state = store.getState();
+        return state.me?.username && typeof state.room?.author === "number"
+            ? `${state.me.username}#${state.room.author}`
+            : null;
+    },
+    onReact: (message, emoji) =>
+        sendAction(CLIENT_EVENTS.REACTION_TOGGLE, { id: message.id, emoji }),
+    onReactMenu: (message, anchor) => openReactMenu(message, anchor),
+    onMissing: () => toasts.show(strings.message.replyGone),
     actionsFor: (message) => messageActions(message),
 });
 
@@ -113,8 +124,15 @@ const messageList = createMessageList({
  */
 const messageActions = (message) => {
     if (message.kind !== "chat") return null;
+    const state = store.getState();
     const username = message.username ?? "";
-    const isDm = store.getState().room?.kind === "dm";
+    const isDm = state.room?.kind === "dm";
+    const confirmed = message.delivery === "confirmed" && !message.id.startsWith("local:");
+    const role = effectiveRole(state);
+    const moderates = !isDm && (role === "admin" || role === "host");
+    const pinned = state.pins.some((pin) => pin.id === message.id);
+    const editable =
+        message.own && confirmed && (message.variant ?? "text") === "text" && !message.format;
     const copy = () =>
         void navigator.clipboard
             ?.writeText(message.content)
@@ -125,14 +143,51 @@ const messageActions = (message) => {
         composer.insert(`@${username} `);
     };
     /** @type {{icon: string, label: string, run: () => void}[]} */
-    const quick = [{ icon: "copy", label: strings.message.copyText, run: copy }];
-    if (!message.own && username)
+    const quick = [];
+    if (confirmed) {
+        quick.push({
+            icon: "smile",
+            label: strings.message.react,
+            run: () => openReactMenu(message, null),
+        });
+        quick.push({ icon: "reply", label: strings.message.reply, run: () => startReply(message) });
+    }
+    if (editable)
+        quick.push({ icon: "pencil", label: strings.message.edit, run: () => startEdit(message) });
+    else if (!message.own && username)
         quick.push({ icon: "at", label: strings.message.mention, run: mention });
     /** @type {import("./ui/primitives/menuModel.js").MenuItem[]} */
     const items = [
+        ...(confirmed
+            ? [
+                  { label: strings.message.reply, icon: "reply", run: () => startReply(message) },
+                  {
+                      type: /** @type {const} */ ("submenu"),
+                      label: strings.message.react,
+                      icon: "smile",
+                      items: reactionItems(message),
+                  },
+              ]
+            : []),
+        ...(editable
+            ? [{ label: strings.message.edit, icon: "pencil", run: () => startEdit(message) }]
+            : []),
         { label: strings.message.copyText, icon: "copy", run: copy },
         ...(!message.own && username
             ? [{ label: strings.message.mention, icon: "at", run: mention }]
+            : []),
+        ...(confirmed && (isDm || moderates)
+            ? [
+                  {
+                      label: pinned ? strings.message.unpin : strings.message.pin,
+                      icon: "pin",
+                      run: () =>
+                          sendAction(CLIENT_EVENTS.MESSAGE_PIN, {
+                              id: message.id,
+                              pinned: !pinned,
+                          }),
+                  },
+              ]
             : []),
         { type: "separator" },
         ...(username && !isDm
@@ -156,8 +211,160 @@ const messageActions = (message) => {
                   },
               ]
             : []),
+        ...(confirmed && (message.own || moderates)
+            ? [
+                  { type: /** @type {const} */ ("separator") },
+                  {
+                      label: strings.message.delete,
+                      icon: "trash",
+                      danger: true,
+                      run: () => void deleteMessage(message),
+                  },
+              ]
+            : []),
     ];
     return { items, quick };
+};
+
+/**
+ * Ação sobre uma mensagem ou a conversa aberta (editar, apagar, reagir,
+ * fixar, descrição). Quem autoriza é o servidor; recusas chegam como aviso.
+ * @param {string} type
+ * @param {Record<string, unknown>} payload
+ */
+const sendAction = (type, payload) => transport.send(type, inRoom(payload));
+
+/** Emojis de reação como itens de menu. @param {import("./state/store.js").Message} message */
+const reactionItems = (message) =>
+    REACTION_EMOJIS.map((emoji) => ({
+        label: emoji,
+        run: () => sendAction(CLIENT_EVENTS.REACTION_TOGGLE, { id: message.id, emoji }),
+    }));
+
+/**
+ * Menu de emojis para reagir (botão "+" das reações, barra de ações).
+ * @param {import("./state/store.js").Message} message
+ * @param {HTMLElement | null} anchor
+ */
+const openReactMenu = (message, anchor) => {
+    const target =
+        anchor ??
+        document.querySelector(
+            `.c-message[data-message-id="${CSS.escape(message.id)}"] .c-message-actions button`,
+        );
+    showMenu({
+        label: strings.message.react,
+        anchor: target instanceof HTMLElement ? target : null,
+        placement: "top-end",
+        items: reactionItems(message),
+    });
+};
+
+/** Resposta em preparo (barra acima do campo). @type {{conversationId: string, id: string, userName: string, username: string, excerpt: string, author: number | null} | null} */
+let replyTarget = null;
+
+/** @param {import("./state/store.js").Message} message */
+const startReply = (message) => {
+    const conversationId = store.getState().room?.conversationId;
+    if (!conversationId) return;
+    const excerpt = excerptPlain(message.content).slice(0, 100);
+    replyTarget = {
+        conversationId,
+        id: message.id,
+        userName: message.userName,
+        username: message.username ?? "",
+        author: message.author ?? null,
+        excerpt,
+    };
+    composer.setReply(
+        `${format(strings.message.replyTo, { name: message.userName })} · ${excerpt}`,
+    );
+    composer.focus();
+};
+
+const cancelReply = () => {
+    replyTarget = null;
+    composer.setReply("");
+};
+
+/**
+ * Apagar uma mensagem (sua ou, para quem modera, de outra pessoa).
+ * @param {import("./state/store.js").Message} message
+ */
+const deleteMessage = async (message) => {
+    const ok = await dialog.confirm({
+        title: strings.message.deleteTitle,
+        body: strings.message.deleteBody,
+        confirmLabel: strings.message.deleteConfirm,
+    });
+    if (ok) sendAction(CLIENT_EVENTS.MESSAGE_DELETE, { id: message.id });
+};
+
+/**
+ * Editar a própria mensagem no lugar: o texto vira um campo; Enter salva,
+ * Esc cancela (como no Fluxer e no Discord).
+ * @param {import("./state/store.js").Message} message
+ */
+const startEdit = (message) => {
+    const item = document.querySelector(`.c-message[data-message-id="${CSS.escape(message.id)}"]`);
+    const content = item?.querySelector(".c-message__content");
+    if (!(item instanceof HTMLElement) || !(content instanceof HTMLElement)) return;
+    if (item.querySelector(".c-message__editor")) return;
+    const editor = document.createElement("div");
+    editor.className = "c-message__editor";
+    const field = document.createElement("textarea");
+    field.className = "c-message__editor-input";
+    field.value = message.content;
+    field.maxLength = 1000;
+    field.rows = Math.min(8, message.content.split("\n").length + 1);
+    field.setAttribute("aria-label", strings.message.editing);
+    const hint = document.createElement("p");
+    hint.className = "c-message__editor-hint";
+    hint.textContent = strings.message.editHint;
+    editor.append(field, hint);
+    content.hidden = true;
+    content.after(editor);
+    field.focus();
+    field.setSelectionRange(field.value.length, field.value.length);
+    const close = () => {
+        editor.remove();
+        content.hidden = false;
+        composer.focus();
+    };
+    field.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            close();
+        } else if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+            event.preventDefault();
+            const text = field.value.trim();
+            if (text && text !== message.content) {
+                sendAction(CLIENT_EVENTS.MESSAGE_EDIT, { id: message.id, content: text });
+            }
+            close();
+        }
+    });
+};
+
+/** ↑ com o campo vazio: edita a sua última mensagem de texto. */
+const editLastOwn = () => {
+    const list = store.getState().messages;
+    for (let i = list.length - 1; i >= 0; i -= 1) {
+        const item = list[i];
+        if (
+            item &&
+            item.own &&
+            item.kind === "chat" &&
+            item.delivery === "confirmed" &&
+            (item.variant ?? "text") === "text" &&
+            !item.format
+        ) {
+            startEdit(item);
+            return true;
+        }
+    }
+    return false;
 };
 const typing = createTyping();
 const notifier = createNotifier();
@@ -504,7 +711,13 @@ const sendChat = (content) => {
     const clientMsgId = crypto.randomUUID();
     const conversationId = store.getState().room?.conversationId;
     if (conversationId) inFlight.set(clientMsgId, { conversationId, text: content });
-    const sent = transport.send(CLIENT_EVENTS.CHAT_MESSAGE, inRoom({ content, clientMsgId }));
+    // Resposta: só vale na conversa em que foi preparada.
+    const reply = replyTarget && replyTarget.conversationId === conversationId ? replyTarget : null;
+    cancelReply();
+    const sent = transport.send(
+        CLIENT_EVENTS.CHAT_MESSAGE,
+        inRoom({ content, clientMsgId, ...(reply ? { replyTo: reply.id } : {}) }),
+    );
     store.actions.addMessage({
         id: `local:${clientMsgId}`,
         key: `c:${clientMsgId}`,
@@ -523,6 +736,17 @@ const sendChat = (content) => {
         clientMsgId,
         delivery: "pending",
         sentAt: sent ? Date.now() : null,
+        ...(reply
+            ? {
+                  reference: {
+                      id: reply.id,
+                      userName: reply.userName,
+                      username: reply.username,
+                      author: reply.author,
+                      excerpt: reply.excerpt,
+                  },
+              }
+            : {}),
     });
 };
 
@@ -597,10 +821,22 @@ const composer = createComposer({
     onInput: (text, cursor) => suggestions.update(text, cursor),
     onKeyDown: (event) => {
         if (suggestions.handleKey(event)) return true;
-        // Esc (sem sugestões abertas): vai às mais recentes, como no Discord.
+        // Esc: primeiro cancela a resposta; depois vai às mais recentes.
         if (event.key === "Escape" && !event.defaultPrevented) {
-            messageList.scrollToEnd();
+            if (replyTarget) cancelReply();
+            else messageList.scrollToEnd();
             return false;
+        }
+        // ↑ com o campo vazio: editar a sua última mensagem.
+        if (
+            event.key === "ArrowUp" &&
+            !event.shiftKey &&
+            !event.altKey &&
+            !event.ctrlKey &&
+            !event.metaKey &&
+            composer.getValue() === ""
+        ) {
+            return editLastOwn();
         }
         return false;
     },
@@ -611,6 +847,7 @@ const composer = createComposer({
         else showPage("commands");
     },
     onNotice: (text) => toasts.show(text, "error"),
+    onCancelReply: () => cancelReply(),
 });
 
 // Page Up / Page Down rolam o histórico mesmo com o foco no campo.
@@ -1378,6 +1615,12 @@ const contextPanel = createContextPanel({
         void shortcuts["clear-room"]?.();
     },
     onFilter: (text) => people.setFilter(text),
+    onJumpTo: (id) => {
+        layout.closeDrawer();
+        if (!messageList.jumpTo(id)) toasts.show(strings.pins.gone);
+    },
+    onUnpin: (id) => sendAction(CLIENT_EVENTS.MESSAGE_PIN, { id, pinned: false }),
+    onDescribe: (text) => sendAction(CLIENT_EVENTS.ROOM_UPDATE, { description: text }),
 });
 
 const profilePage = createProfilePage({
@@ -1543,8 +1786,20 @@ handleEvent = createEventHandler({
         // Uma mensagem passou: o silêncio acabou (ou nunca houve).
         composer.setMuted("");
     },
-    onSendRejected: (clientMsgId, code, reason) => {
-        if (code === ERROR_CODES.MUTED) composer.setMuted(strings.composer.muted);
+    onSendRejected: (clientMsgId, code, reason, until) => {
+        if (code === ERROR_CODES.MUTED) {
+            const date = until ? new Date(until) : null;
+            composer.setMuted(
+                date && !Number.isNaN(date.getTime())
+                    ? format(strings.composer.mutedUntil, {
+                          time: date.toLocaleTimeString("pt-BR", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                          }),
+                      })
+                    : strings.composer.muted,
+            );
+        }
         const flight = inFlight.get(clientMsgId);
         if (!flight || !DEFINITE_REJECTIONS.has(code)) return;
         const state = store.getState();
@@ -1744,6 +1999,11 @@ const render = (state, previous) => {
             messageList.scrollToEnd();
         }
     }
+    if (changed(state, previous, ["messages", "pins"])) {
+        messageList.setPinned(state.pins.map((pin) => pin.id));
+    }
+    // Trocou de conversa: a resposta em preparo não vai junto.
+    if (switchedRoom && replyTarget) cancelReply();
     if (changed(state, previous, ["messages", "authorsSeen", "authorsLeft", "room"])) {
         messageList.setDeparted(departedAuthors(state));
     }
@@ -1757,12 +2017,13 @@ const render = (state, previous) => {
         // Numa privada o número de pessoas não informa nada (são duas).
         headerCount.hidden = state.room?.kind === "dm";
     }
-    if (changed(state, previous, ["room", "people", "role", "nav", "me", "link"])) {
+    if (changed(state, previous, ["room", "people", "role", "nav", "me", "link", "pins"])) {
         contextPanel.render(state.room, {
             people: state.people.length,
             role: effectiveRole(state),
             pinned: state.room ? state.nav.pinned.includes(state.room.conversationId) : false,
             online: state.link === "online",
+            pins: state.pins,
         });
     }
     if (changed(state, previous, ["people", "me"])) {

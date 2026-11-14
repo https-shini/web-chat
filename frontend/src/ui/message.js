@@ -6,7 +6,7 @@ import { icon } from "./icons.js";
 import { badge, renderIdentity } from "./identity.js";
 import { authorKey } from "../state/store.js";
 import { renderMarkdown, spoilerNode } from "../markdown/render.js";
-import { mentionsOf, parseMarkdown } from "../markdown/parse.js";
+import { excerptPlain, mentionsOf, parseMarkdown } from "../markdown/parse.js";
 
 /**
  * Renderização de uma entrada da transcrição. Só `textContent` e
@@ -17,8 +17,11 @@ import { mentionsOf, parseMarkdown } from "../markdown/parse.js";
  *   onRetry?: (message: Message) => void,
  *   onDiscard?: (message: Message) => void,
  *   onDismiss?: (message: Message) => void,
+ *   onReact?: (message: Message, emoji: string) => void,
+ *   onReactMenu?: (message: Message, anchor: HTMLElement) => void,
+ *   onJumpTo?: (id: string) => void,
  * }} MessageHandlers
- * @typedef {{compact?: boolean, me?: string | null}} RenderOptions
+ * @typedef {{compact?: boolean, me?: string | null, meKey?: string | null}} RenderOptions
  */
 
 /**
@@ -126,6 +129,113 @@ const fillStatus = (slot, message, handlers) => {
 };
 
 /**
+ * "(editada)", com a hora da edição na dica.
+ * @param {HTMLElement} slot
+ * @param {Message} message
+ */
+const fillEdited = (slot, message) => {
+    slot.replaceChildren();
+    if (!message.editedAt) return;
+    const date = new Date(message.editedAt);
+    const time = Number.isNaN(date.getTime())
+        ? ""
+        : date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const mark = el("span", { class: "c-message__edited", text: strings.message.edited });
+    if (time) mark.title = format(strings.message.editedAt, { time });
+    slot.appendChild(mark);
+};
+
+/**
+ * Reações abaixo da mensagem: um botão por emoji (aperta = a sua), mais o
+ * "+" para escolher outra. O rótulo diz o emoji, quantas e se é sua.
+ * @param {Message} message
+ * @param {MessageHandlers} handlers
+ * @param {string | null} meKey
+ */
+const renderReactions = (message, handlers, meKey) => {
+    const row = el("div", { class: "c-reactions" });
+    const reactions = message.reactions ?? [];
+    row.hidden = reactions.length === 0;
+    for (const reaction of reactions) {
+        const mine = meKey !== null && reaction.authors.includes(meKey);
+        const button = el("button", {
+            class: "c-reaction",
+            attrs: {
+                type: "button",
+                "aria-pressed": String(mine),
+                "aria-label": format(strings.message.reactionLabel, {
+                    emoji: reaction.emoji,
+                    count: reaction.count,
+                    you: mine ? strings.message.reactionYou : "",
+                    action: mine ? strings.message.reactionRemove : strings.message.reactionAdd,
+                }),
+            },
+        });
+        button.append(
+            el("span", {
+                class: "c-reaction__emoji",
+                text: reaction.emoji,
+                attrs: { "aria-hidden": "true" },
+            }),
+            el("span", {
+                class: "c-reaction__count",
+                text: String(reaction.count),
+                attrs: { "aria-hidden": "true" },
+            }),
+        );
+        button.addEventListener("click", () => handlers.onReact?.(message, reaction.emoji));
+        row.appendChild(button);
+    }
+    if (reactions.length && handlers.onReactMenu) {
+        const add = el("button", {
+            class: "c-reaction c-reaction--add",
+            attrs: { type: "button", "aria-label": strings.message.react, "aria-haspopup": "menu" },
+        });
+        add.appendChild(icon("smile"));
+        add.addEventListener("click", () => handlers.onReactMenu?.(message, add));
+        row.appendChild(add);
+    }
+    return row;
+};
+
+/**
+ * Citação da mensagem respondida (cópia feita pelo servidor). O clique leva
+ * até a original, se ela ainda estiver na tela.
+ * @param {NonNullable<Message["reference"]>} reference
+ * @param {MessageHandlers} handlers
+ */
+const renderReference = (reference, handlers) => {
+    const button = el("button", {
+        class: "c-message__reference",
+        attrs: {
+            type: "button",
+            "aria-label": format(strings.message.replyingTo, {
+                name: reference.userName || `@${reference.username}`,
+                excerpt: excerptPlain(reference.excerpt),
+            }),
+        },
+    });
+    const glyph = el("span", { class: "c-message__reference-icon" });
+    glyph.appendChild(icon("reply"));
+    glyph.setAttribute("aria-hidden", "true");
+    button.append(
+        glyph,
+        el("span", {
+            class: "c-message__reference-who",
+            text: `@${reference.username}`,
+            attrs: { "aria-hidden": "true" },
+        }),
+        el("span", {
+            class: "c-message__reference-text",
+            text: excerptPlain(reference.excerpt),
+            attrs: { "aria-hidden": "true" },
+        }),
+    );
+    button.addEventListener("click", () => handlers.onJumpTo?.(reference.id));
+    return button;
+};
+
+/**
  * Enviada: a sua mensagem confirmada pelo servidor ganha um ✓ discreto
  * logo depois do texto, com o estado em texto para o leitor de tela.
  * @param {HTMLElement} slot
@@ -226,7 +336,11 @@ const renderSystem = (item, message) => {
  * @param {RenderOptions} [options]
  * @returns {HTMLLIElement}
  */
-export const renderMessage = (message, handlers = {}, { compact = false, me = null } = {}) => {
+export const renderMessage = (
+    message,
+    handlers = {},
+    { compact = false, me = null, meKey = null } = {},
+) => {
     const item = el("li", { class: "c-message" });
     item.dataset.messageId = message.id;
     item.dataset.kind = message.kind;
@@ -333,19 +447,73 @@ export const renderMessage = (message, handlers = {}, { compact = false, me = nu
     if (mentionsMe)
         body.appendChild(el("span", { class: "sr-only", text: strings.message.mentionsYou }));
 
-    // ✓ logo depois do texto (no último parágrafo), não na ponta da linha.
-    const sent = el("span", { class: "c-message__sent-slot" });
-    fillSent(sent, message);
-    const blocks = body.querySelectorAll(".c-message__content > *");
-    const last = blocks[blocks.length - 1];
-    if (last && last.tagName === "P") last.appendChild(sent);
-    else body.querySelector(".c-message__content")?.appendChild(sent);
+    if (message.reference) {
+        body.insertBefore(renderReference(message.reference, handlers), body.firstChild);
+    }
+    placeMarks(body, message);
+    // Marca de fixada (escondida até a lista dizer que é).
+    const pin = el("span", { class: "c-message__pinned", attrs: { hidden: "" } });
+    pin.appendChild(icon("pin"));
+    pin.appendChild(el("span", { text: strings.message.pinnedMark }));
+    body.querySelector(".c-message__head")?.appendChild(pin);
+    if (!body.querySelector(".c-message__head")) body.insertBefore(pin, body.firstChild);
+    body.appendChild(renderReactions(message, handlers, meKey));
 
     const status = el("p", { class: "c-message__status" });
     fillStatus(status, message, handlers);
     body.appendChild(status);
     item.appendChild(body);
     return item;
+};
+
+/**
+ * "(editada)" e ✓ logo depois do texto (no último parágrafo).
+ * @param {HTMLElement} body
+ * @param {Message} message
+ */
+const placeMarks = (body, message) => {
+    const marks = el("span", { class: "c-message__marks" });
+    const edited = el("span", { class: "c-message__edited-slot" });
+    fillEdited(edited, message);
+    const sent = el("span", { class: "c-message__sent-slot" });
+    fillSent(sent, message);
+    marks.append(edited, sent);
+    const blocks = body.querySelectorAll(".c-message__content > *");
+    const last = blocks[blocks.length - 1];
+    if (last && last.tagName === "P") last.appendChild(marks);
+    else body.querySelector(".c-message__content")?.appendChild(marks);
+};
+
+/**
+ * Atualiza no lugar o que mudou numa mensagem já na tela: texto editado e
+ * reações. Só a parte que mudou é trocada.
+ * @param {HTMLElement} item
+ * @param {Message} message
+ * @param {Message} previous
+ * @param {MessageHandlers} handlers
+ * @param {{me?: string | null, meKey?: string | null}} options
+ */
+export const patchMessage = (
+    item,
+    message,
+    previous,
+    handlers,
+    { me = null, meKey = null } = {},
+) => {
+    if (message.kind !== "chat") return;
+    if (message.content !== previous.content || message.editedAt !== previous.editedAt) {
+        const content = item.querySelector(".c-message__content");
+        if (content instanceof HTMLElement && (message.variant ?? "text") === "text") {
+            const fresh = renderContent(message, me);
+            content.replaceWith(fresh);
+            const body = /** @type {HTMLElement} */ (fresh.parentElement);
+            placeMarks(body, message);
+        }
+    }
+    if (message.reactions !== previous.reactions) {
+        const row = item.querySelector(".c-reactions");
+        if (row instanceof HTMLElement) row.replaceWith(renderReactions(message, handlers, meKey));
+    }
 };
 
 /**
@@ -362,4 +530,6 @@ export const patchDelivery = (item, message, handlers = {}) => {
     if (status instanceof HTMLElement) fillStatus(status, message, handlers);
     const sent = item.querySelector(".c-message__sent-slot");
     if (sent instanceof HTMLElement) fillSent(sent, message);
+    const edited = item.querySelector(".c-message__edited-slot");
+    if (edited instanceof HTMLElement) fillEdited(edited, message);
 };

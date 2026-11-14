@@ -50,6 +50,8 @@ export const LIMITS = Object.freeze({
     awayTextMaxLength: 60,
     /** Nome opcional de uma sala. */
     roomNameMaxLength: 40,
+    /** Descrição de uma sala (definida por quem modera). */
+    roomDescriptionMaxLength: 200,
     /** Código de convite como digitado (com espaços, hífens ou o link inteiro). */
     roomCodeInputMaxLength: 200,
     /** `conversationId` recebido do cliente. */
@@ -83,6 +85,16 @@ export const CLIENT_EVENTS = Object.freeze({
     USER_BLOCK: "user_block",
     /** Desfazer um bloqueio. */
     USER_UNBLOCK: "user_unblock",
+    /** Editar a própria mensagem (`{conversationId, id, content}`). */
+    MESSAGE_EDIT: "message_edit",
+    /** Apagar uma mensagem (sua; ou qualquer uma, para quem modera a sala). */
+    MESSAGE_DELETE: "message_delete",
+    /** Ligar ou desligar a sua reação (`{conversationId, id, emoji}`). */
+    REACTION_TOGGLE: "reaction_toggle",
+    /** Fixar ou desafixar uma mensagem (`{conversationId, id, pinned}`). */
+    MESSAGE_PIN: "message_pin",
+    /** Mudar a descrição da sala (`{conversationId, description}`). */
+    ROOM_UPDATE: "room_update",
 });
 
 /** Eventos que o servidor envia. */
@@ -117,6 +129,14 @@ export const SERVER_EVENTS = Object.freeze({
     DM_CLOSED: "dm_closed",
     /** Quem você bloqueou nesta sessão (resposta a bloquear/desbloquear). */
     BLOCK_LIST: "block_list",
+    /** Uma mensagem foi editada por quem a escreveu. */
+    MESSAGE_UPDATED: "message_updated",
+    /** Uma mensagem foi apagada (por quem escreveu ou pela moderação). */
+    MESSAGE_DELETED: "message_deleted",
+    /** As reações de uma mensagem mudaram. */
+    MESSAGE_REACTIONS: "message_reactions",
+    /** As mensagens fixadas da conversa mudaram (ou o estado ao entrar). */
+    PINS_UPDATED: "pins_updated",
 });
 
 /**
@@ -263,6 +283,7 @@ const authorOf = (user) => (typeof user.author === "number" ? { author: user.aut
  * @property {number | null} author   o SEU número de autor nesta sala
  * @property {number} memberCount
  * @property {number} historyVersion
+ * @property {string} [description]  descrição da sala, quando houver
  */
 
 /**
@@ -391,6 +412,7 @@ export const serverMessage = Object.freeze({
         kind = MESSAGE_KINDS.TEXT,
         format = null,
         clientMsgId = null,
+        reference = null,
     }) => ({
         id,
         type: SERVER_EVENTS.CHAT_MESSAGE,
@@ -403,7 +425,50 @@ export const serverMessage = Object.freeze({
             ...(kind !== MESSAGE_KINDS.TEXT ? { kind } : {}),
             ...(format ? { format } : {}),
             ...(clientMsgId ? { clientMsgId } : {}),
+            ...(reference ? { reference } : {}),
         },
+    }),
+
+    /**
+     * Mensagem editada por quem a escreveu.
+     * @param {string} id
+     * @param {string} content
+     * @param {string} editedAt
+     */
+    messageUpdated: (id, content, editedAt) => ({
+        type: SERVER_EVENTS.MESSAGE_UPDATED,
+        payload: { id, content, editedAt },
+    }),
+
+    /**
+     * Mensagem apagada. `by` diz se foi quem escreveu ou a moderação (sem
+     * dizer quem moderou).
+     * @param {string} id
+     * @param {"author" | "moderation"} by
+     */
+    messageDeleted: (id, by) => ({
+        type: SERVER_EVENTS.MESSAGE_DELETED,
+        payload: { id, by },
+    }),
+
+    /**
+     * Reações de uma mensagem. `authors` são chaves `@username#número` desta
+     * conversa (já públicas nela); nenhum id interno.
+     * @param {string} id
+     * @param {{emoji: string, count: number, authors: string[]}[]} reactions
+     */
+    messageReactions: (id, reactions) => ({
+        type: SERVER_EVENTS.MESSAGE_REACTIONS,
+        payload: { id, reactions },
+    }),
+
+    /**
+     * Mensagens fixadas da conversa (cópias de trecho e autoria).
+     * @param {unknown[]} pins
+     */
+    pinsUpdated: (pins) => ({
+        type: SERVER_EVENTS.PINS_UPDATED,
+        payload: { pins },
     }),
 
     /** @param {{name: string, username?: string}} user @param {string} timestamp */
@@ -467,10 +532,15 @@ export const serverMessage = Object.freeze({
      * @param {string | null} [ref] `clientMsgId` ou `requestId` recusado, quando houver
      * @param {string | null} [conversationId] conversa a que o erro se refere
      */
-    error: (code, ref = null, conversationId = null) => ({
+    error: (code, ref = null, conversationId = null, detail = null) => ({
         type: SERVER_EVENTS.ERROR,
         ...(conversationId ? { conversationId } : {}),
-        payload: { code, message: describeError(code).message, ...(ref ? { ref } : {}) },
+        payload: {
+            code,
+            message: describeError(code).message,
+            ...(ref ? { ref } : {}),
+            ...(detail ?? {}),
+        },
     }),
 
     /** @param {unknown[]} commands metadados do registro (ver commands/registry.js) */

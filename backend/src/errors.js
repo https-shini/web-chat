@@ -52,6 +52,13 @@ export const ERROR_CODES = Object.freeze({
     LOOKUP_LIMITED: "lookup_limited",
     DM_OPEN_LIMITED: "dm_open_limited",
     BLOCK_LIMIT: "block_limit",
+    // Recursos de mensagem (responder, editar, apagar, reagir, fixar)
+    MESSAGE_NOT_FOUND: "message_not_found",
+    NOT_ALLOWED: "not_allowed",
+    INVALID_REACTION: "invalid_reaction",
+    REACTION_LIMIT: "reaction_limit",
+    PIN_LIMIT: "pin_limit",
+    INVALID_DESCRIPTION: "invalid_description",
 });
 
 const { PROTOCOL, VALIDATION, AUTHORIZATION, RATE_LIMIT, INTERNAL } = ERROR_CATEGORIES;
@@ -88,7 +95,7 @@ const CATALOG = Object.freeze({
     },
     [ERROR_CODES.MUTED]: {
         category: AUTHORIZATION,
-        message: "Você foi silenciado por um administrador e não pode enviar mensagens agora.",
+        message: "Quem modera a sala silenciou você por enquanto. Você pode continuar lendo.",
     },
     [ERROR_CODES.INTERNAL_ERROR]: { category: INTERNAL, message: "Erro interno do servidor" },
     [ERROR_CODES.INVALID_ROOM_CODE]: {
@@ -162,6 +169,27 @@ const CATALOG = Object.freeze({
     [ERROR_CODES.BLOCK_LIMIT]: {
         category: AUTHORIZATION,
         message: "Você já bloqueou o número máximo de pessoas nesta sessão.",
+    },
+    [ERROR_CODES.MESSAGE_NOT_FOUND]: {
+        category: VALIDATION,
+        message: "Esta mensagem não está mais disponível.",
+    },
+    [ERROR_CODES.NOT_ALLOWED]: {
+        category: AUTHORIZATION,
+        message: "Você não pode fazer isso nesta conversa.",
+    },
+    [ERROR_CODES.INVALID_REACTION]: { category: VALIDATION, message: "Reação inválida." },
+    [ERROR_CODES.REACTION_LIMIT]: {
+        category: VALIDATION,
+        message: "Esta mensagem já tem o número máximo de reações diferentes.",
+    },
+    [ERROR_CODES.PIN_LIMIT]: {
+        category: VALIDATION,
+        message: "Esta conversa já tem o número máximo de mensagens fixadas. Desafixe uma antes.",
+    },
+    [ERROR_CODES.INVALID_DESCRIPTION]: {
+        category: VALIDATION,
+        message: "Descrição inválida. Use até 200 caracteres.",
     },
 });
 

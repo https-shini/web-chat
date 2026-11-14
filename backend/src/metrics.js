@@ -48,6 +48,8 @@ export const createMetrics = ({ now = () => Date.now(), startedAt = Date.now() }
         dmsOpened: 0,
         dmsClosed: 0,
         blocks: 0,
+        // Recursos de mensagem (editar, apagar, reagir, fixar, descrição)
+        messageActions: {},
     };
 
     const buckets = new Array(PROCESSING_BUCKETS_MS.length + 1).fill(0);

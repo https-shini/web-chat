@@ -59,7 +59,8 @@ export default async ({ open, enter, createRoom, user, ok, axe, RUN }) => {
     await caio.waitForSelector('.c-message:has-text("foi silenciado por")');
     await caio.fill("#campo-mensagem", `silenciado ${RUN}`);
     await caio.press("#campo-mensagem", "Enter");
-    await caio.waitForSelector('.c-toast:has-text("silenciad")');
+    await caio.waitForSelector('.c-toast:has-text("silenciou você")');
+    await caio.waitForSelector('.c-composer__notice[data-kind="muted"]');
     ok(true, "silenciar por 5 minutos vale no servidor");
 
     // Participante não vê moderação no menu.
