@@ -37,6 +37,7 @@ import { createTooltips } from "./ui/tooltip.js";
 import { createUserPanel } from "./ui/userPanel.js";
 import { createHome, readUsername } from "./ui/home.js";
 import { createConversationNav } from "./ui/conversationNav.js";
+import { createContextPanel } from "./ui/contextPanel.js";
 import { createSidebarNav } from "./ui/nav/sidebarNav.js";
 import { createQuickSwitcher } from "./ui/nav/quickSwitcher.js";
 import { createNewConversation } from "./ui/nav/newConversation.js";
@@ -537,8 +538,17 @@ const memberCard = createMemberCard({
 });
 
 const roomHeader = createRoomHeader();
+const headerCount = /** @type {HTMLElement} */ (must(".c-header__count"));
 
-const people = createPeople({ onSelect: (person, button) => memberCard.open(person, button) });
+const people = createPeople({
+    onSelect: (person, button) => memberCard.open(person, button),
+    onDirect: (person) => {
+        if (!person.username) return;
+        layout.closeDrawer();
+        requestDm(person.username);
+    },
+    menuFor: (person) => memberCard.menuFor(person),
+});
 
 const userPanel = createUserPanel({ onMenu: (button) => openProfileMenu(button) });
 
@@ -1210,6 +1220,21 @@ const commandsPage = createCommandsPage({
     },
 });
 
+const contextPanel = createContextPanel({
+    onInvite: () => void conversationActions.invite?.(),
+    onCopyHandle: (username) => void copyText(`@${username}`),
+    onPin: (id, value) => pinConversation(id, value),
+    onClearLocal: () => {
+        layout.closeDrawer();
+        submit("/clear");
+    },
+    onClearRoom: () => {
+        layout.closeDrawer();
+        void shortcuts["clear-room"]?.();
+    },
+    onFilter: (text) => people.setFilter(text),
+});
+
 const profilePage = createProfilePage({
     onRename: (name) => {
         submit(`/nick ${name}`);
@@ -1487,7 +1512,8 @@ const render = (state, previous) => {
         }
         room.hidden = !inRoom;
         composer.setVisible(inRoom);
-        layout.setInRoom(inApp, inRoom && !isDm);
+        // O painel de contexto vale para salas e privadas (mesmo esqueleto).
+        layout.setInRoom(inApp, inRoom);
         if (!inRoom) memberCard.close({ restoreFocus: false });
     }
     if (inRoom && state.room) lastConversationId = state.room.conversationId;
@@ -1550,7 +1576,21 @@ const render = (state, previous) => {
     if (changed(state, previous, ["people", "me", "link"])) {
         people.render(state.people, state.me?.id ?? null, state.link === "online");
     }
-    if (changed(state, previous, ["room"])) roomHeader.render(state.room);
+    if (changed(state, previous, ["room"])) {
+        roomHeader.render(state.room);
+        if (previous?.room?.conversationId !== state.room?.conversationId)
+            contextPanel.resetFilter();
+        // Numa privada o número de pessoas não informa nada (são duas).
+        headerCount.hidden = state.room?.kind === "dm";
+    }
+    if (changed(state, previous, ["room", "people", "role", "nav", "me", "link"])) {
+        contextPanel.render(state.room, {
+            people: state.people.length,
+            role: effectiveRole(state),
+            pinned: state.room ? state.nav.pinned.includes(state.room.conversationId) : false,
+            online: state.link === "online",
+        });
+    }
     if (changed(state, previous, ["people", "me"])) {
         const listed = state.people.find((person) => person.id === state.me?.id);
         if (listed) {

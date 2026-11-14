@@ -19,10 +19,10 @@ const both = /** @type {const} */ (["sidebar", "members"]);
 
 describe("limites", () => {
     test("convertidos de rem pelo tamanho da letra da raiz", () => {
-        assert.deepEqual(limits.sidebar, { min: 224, default: 256, max: 448 });
-        assert.deepEqual(limits.members, { min: 192, default: 240, max: 416 });
+        assert.deepEqual(limits.sidebar, { min: 224, default: 272, max: 448 });
+        assert.deepEqual(limits.members, { min: 256, default: 336, max: 448 });
         // Zoom de texto: tudo acompanha.
-        assert.equal(limitsInPixels(20).sidebar.default, 320);
+        assert.equal(limitsInPixels(20).sidebar.default, 340);
     });
 
     test("padrões espelham os tokens de largura do CSS", async () => {
@@ -42,7 +42,7 @@ describe("limites", () => {
 describe("fitWidths: largura aplicada", () => {
     test("sem escolha, usa o padrão de cada painel visível", () => {
         const widths = fitWidths({ desired: {}, visible: both, available: 1440, limits, mainMin });
-        assert.deepEqual(widths, { sidebar: 256, members: 240 });
+        assert.deepEqual(widths, { sidebar: 272, members: 336 });
     });
 
     test("painel não visível não ocupa espaço nem aparece", () => {
@@ -53,7 +53,7 @@ describe("fitWidths: largura aplicada", () => {
             limits,
             mainMin,
         });
-        assert.deepEqual(widths, { sidebar: 256 });
+        assert.deepEqual(widths, { sidebar: 272 });
     });
 
     test("escolha fora dos limites é contida", () => {
@@ -64,7 +64,7 @@ describe("fitWidths: largura aplicada", () => {
             limits,
             mainMin,
         });
-        assert.deepEqual(widths, { sidebar: 224, members: 416 });
+        assert.deepEqual(widths, { sidebar: 224, members: 448 });
     });
 
     test("janela estreita: pessoas encolhe primeiro, a conversa mantém o mínimo", () => {
@@ -78,7 +78,7 @@ describe("fitWidths: largura aplicada", () => {
     test("sem espaço nem com pessoas no mínimo: a barra lateral também cede", () => {
         const desired = { sidebar: 448, members: 416 };
         const widths = fitWidths({ desired, visible: both, available: 1024, limits, mainMin });
-        assert.deepEqual(widths, { sidebar: 1024 - mainMin - 192, members: 192 });
+        assert.deepEqual(widths, { sidebar: 1024 - mainMin - 256, members: 256 });
         assert.equal((widths.sidebar ?? 0) + (widths.members ?? 0) + mainMin, 1024);
     });
 
@@ -91,9 +91,9 @@ describe("fitWidths: largura aplicada", () => {
     });
 
     test("em toda largura onde os painéis ficam encaixados, nada fica abaixo do mínimo", () => {
-        // Barra lateral encaixa a partir de 48rem (768px); pessoas a partir de 64rem.
+        // Barra lateral encaixa a partir de 48rem (768px); o painel de contexto a partir de 80rem.
         for (let available = 768; available <= 2560; available += 16) {
-            const visible = available >= 1024 ? both : /** @type {const} */ (["sidebar"]);
+            const visible = available >= 1280 ? both : /** @type {const} */ (["sidebar"]);
             const widths = fitWidths({
                 desired: { sidebar: 448, members: 416 },
                 visible,

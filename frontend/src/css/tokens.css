@@ -301,8 +301,8 @@
     --tracking-caps: 0.06em;
 
     /* Medidas de layout */
-    --sidebar-width: 16rem; /* 256px — cabe nome, @username e 3 botões no painel "você" */
-    --members-width: 15rem; /* 240px */
+    --sidebar-width: 17rem; /* 272px — navegação: nome e @ inteiros no perfil do pé */
+    --members-width: 21rem; /* 336px — painel de contexto (dados, integrantes, ações) */
     /* Larguras padrão das barras; a pessoa pode arrastar as bordas
        (ui/panelResize.js, limites em state/panelSizes.js). */
     --resizer-hit: 0.5rem; /*  8px — área de arraste da borda */
@@ -314,9 +314,7 @@
     --avatar-xl: 5rem; /*  80px */
     --measure-message: 70ch;
     /* Arquitetura em três áreas (navegação | conversa | contexto). */
-    --layout-nav-width: 17rem; /* 272px */
     --layout-rail-width: 4.5rem; /* 72px — navegação recolhida */
-    --layout-panel-width: 21.25rem; /* 340px — painel de contexto */
     --layout-main-min: 30rem; /* abaixo disso o painel vira folha */
     --nav-item-height: 2.25rem; /* 36px — item de conversa de uma linha */
     --menu-min-width: 13.75rem; /* 220px */
