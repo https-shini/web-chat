@@ -89,8 +89,6 @@ export default async ({ open, enter, createRoom, user, ok, axe, RUN }) => {
             .map((b) => b.getAttribute("aria-label") ?? b.textContent?.trim()),
     );
     ok(smallTargets.length === 0, `compacta mantém áreas de toque ≥ 24 px ${smallTargets}`);
-    // Espera a animação de entrada das mensagens: o axe mede a cor computada.
-    await ana.waitForTimeout(400);
     const roomIssues = await axe(ana);
     ok(roomIssues.length === 0, `conversa compacta sem violações sérias ${roomIssues.join("; ")}`);
 
