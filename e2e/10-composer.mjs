@@ -73,13 +73,15 @@ export default async ({ open, enter, createRoom, user, ok, axe, RUN }) => {
     // Silenciada: o aviso aparece no campo e some quando o silêncio acaba.
     await ana.fill("#campo-mensagem", `/mute @${biaUser} 1`);
     await ana.keyboard.press("Enter");
+    // O comando vale quando o aviso dele chega à sala (outra conexão).
+    await bia.waitForSelector('.c-message:has-text("foi silenciado por")');
     await bia.fill("#campo-mensagem", `calada ${RUN}`);
     await bia.keyboard.press("Enter");
     await bia.waitForSelector('.c-composer__notice[data-kind="muted"]:not(:empty)');
     ok(true, "silenciada: o aviso aparece no campo");
     await ana.fill("#campo-mensagem", `/unmute @${biaUser}`);
     await ana.keyboard.press("Enter");
-    await bia.waitForTimeout(400);
+    await bia.waitForSelector('.c-message:has-text("pode voltar a enviar mensagens")');
     await bia.fill("#campo-mensagem", `liberada ${RUN}`);
     await bia.keyboard.press("Enter");
     await ana.waitForSelector(`.c-message:has-text("liberada ${RUN}")`);
