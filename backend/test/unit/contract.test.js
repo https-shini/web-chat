@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import * as server from "../../src/protocol.js";
 import { ERROR_CODES } from "../../src/errors.js";
 import * as client from "../../../frontend/src/protocol.js";
+import { REACTION_EMOJIS } from "../../src/room/messageOps.js";
 
 const indexHtml = fs.readFileSync(
     fileURLToPath(new URL("../../../frontend/index.html", import.meta.url)),
@@ -38,6 +39,8 @@ test("variedades, formatos, tons e códigos de fechamento coincidem", () => {
     assert.deepEqual(client.CLOSE_CODES, server.CLOSE_CODES);
     assert.equal(client.LIMITS.commandMaxLength, server.LIMITS.commandMaxLength);
     assert.equal(client.LIMITS.roomNameMaxLength, server.LIMITS.roomNameMaxLength);
+    assert.equal(client.LIMITS.roomDescriptionMaxLength, server.LIMITS.roomDescriptionMaxLength);
+    assert.deepEqual(client.REACTION_EMOJIS, REACTION_EMOJIS);
     assert.deepEqual(client.ROLES, server.ROLES);
     assert.deepEqual(client.ROOM_LEFT_REASONS, server.ROOM_LEFT_REASONS);
     assert.deepEqual(client.CONVERSATION_KINDS, server.CONVERSATION_KINDS);

@@ -416,6 +416,20 @@ export const createHub = ({
         },
 
         /**
+         * Editar, apagar, reagir, fixar ou mudar a descrição, numa conversa
+         * de que a conexão participa. Permissão decidida pela conversa.
+         * @param {unknown} member
+         * @param {Record<string, unknown>} payload
+         * @param {"edit" | "removeMessage" | "react" | "pin" | "describe"} action
+         * @returns {{ok: true} | {ok: false, code: string, until?: string}}
+         */
+        conversationAction(member, payload, action) {
+            const found = resolveConversation(member, payload.conversationId);
+            if (!found.ok) return found;
+            return found.conversation[action](found.identity, payload);
+        },
+
+        /**
          * Procura alguém conectado pelo @ EXATO. Nunca lista, completa ou
          * sugere: sem o @ certo, nada aparece. Quem bloqueou você também não
          * aparece (a resposta não diz por quê).

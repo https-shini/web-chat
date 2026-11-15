@@ -43,13 +43,19 @@ export const createTranscript = ({
          * Registra uma mensagem. Reenvio com o mesmo `clientMsgId` devolve a
          * original em `duplicate`, sem registrar de novo.
          * @param {Identity} identity
-         * @param {{content: string, kind?: string, format?: string | null, clientMsgId?: string | null}} message
+         * @param {{content: string, kind?: string, format?: string | null, clientMsgId?: string | null, reference?: Record<string, unknown> | null}} message
          * @param {number} [author] número de autor de quem escreve nesta conversa
          * @returns {{message: ChatMessage, duplicate: boolean}}
          */
         append(
             identity,
-            { content, kind = MESSAGE_KINDS.TEXT, format = null, clientMsgId = null },
+            {
+                content,
+                kind = MESSAGE_KINDS.TEXT,
+                format = null,
+                clientMsgId = null,
+                reference = null,
+            },
             author,
         ) {
             const recentKey = clientMsgId ? prefix + clientMsgId : null;
@@ -69,6 +75,7 @@ export const createTranscript = ({
                 kind,
                 format,
                 clientMsgId,
+                reference,
             });
             history.push(message);
             if (history.length > historySize) history.shift();
@@ -80,6 +87,24 @@ export const createTranscript = ({
                 }
             }
             return { message, duplicate: false };
+        },
+
+        /**
+         * Uma mensagem do histórico pelo id (null se não existe ou já saiu).
+         * @param {string} messageId
+         */
+        find: (messageId) => history.find((message) => message.id === messageId) ?? null,
+
+        /**
+         * Tira uma mensagem do histórico (apagada).
+         * @param {string} messageId
+         * @returns {boolean}
+         */
+        remove(messageId) {
+            const index = history.findIndex((message) => message.id === messageId);
+            if (index === -1) return false;
+            history.splice(index, 1);
+            return true;
         },
 
         /** As `count` mais recentes. @param {number} count */

@@ -174,3 +174,31 @@
         min-height: var(--tap-comfort);
     }
 }
+
+/* "Respondendo a…" acima do texto. */
+.c-composer__reply {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    padding: var(--space-1-5) var(--space-1-5) var(--space-1-5) var(--space-4);
+    border-bottom: var(--rule-1) solid var(--color-border-subtle);
+    color: var(--color-text-2);
+    font-size: var(--text-xs);
+}
+
+.c-composer__reply[hidden] {
+    display: none;
+}
+
+.c-composer__reply-icon {
+    display: inline-flex;
+    color: var(--color-text-3);
+}
+
+.c-composer__reply-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

@@ -21,6 +21,7 @@ export const LIMITS = Object.freeze({
     messageMaxLines: 20,
     commandMaxLength: 1000,
     roomNameMaxLength: 40,
+    roomDescriptionMaxLength: 200,
 });
 
 /** Eventos que o cliente envia. */
@@ -40,6 +41,11 @@ export const CLIENT_EVENTS = Object.freeze({
     DM_CLOSE: "dm_close",
     USER_BLOCK: "user_block",
     USER_UNBLOCK: "user_unblock",
+    MESSAGE_EDIT: "message_edit",
+    MESSAGE_DELETE: "message_delete",
+    REACTION_TOGGLE: "reaction_toggle",
+    MESSAGE_PIN: "message_pin",
+    ROOM_UPDATE: "room_update",
 });
 
 /** Eventos que o servidor envia. */
@@ -65,6 +71,10 @@ export const SERVER_EVENTS = Object.freeze({
     DM_UPDATED: "dm_updated",
     DM_CLOSED: "dm_closed",
     BLOCK_LIST: "block_list",
+    MESSAGE_UPDATED: "message_updated",
+    MESSAGE_DELETED: "message_deleted",
+    MESSAGE_REACTIONS: "message_reactions",
+    PINS_UPDATED: "pins_updated",
 });
 
 /** Tipos de conversa (o prefixo do `conversationId` diz qual é). */
@@ -143,4 +153,29 @@ export const ERROR_CODES = Object.freeze({
     LOOKUP_LIMITED: "lookup_limited",
     DM_OPEN_LIMITED: "dm_open_limited",
     BLOCK_LIMIT: "block_limit",
+    MESSAGE_NOT_FOUND: "message_not_found",
+    NOT_ALLOWED: "not_allowed",
+    INVALID_REACTION: "invalid_reaction",
+    REACTION_LIMIT: "reaction_limit",
+    PIN_LIMIT: "pin_limit",
+    INVALID_DESCRIPTION: "invalid_description",
 });
+
+/**
+ * Emojis de reação aceitos pelo servidor (lista fixa, sem texto livre).
+ * Espelho de `REACTION_EMOJIS` em `backend/src/room/messageOps.js`.
+ */
+export const REACTION_EMOJIS = Object.freeze([
+    "👍",
+    "❤️",
+    "😂",
+    "🎉",
+    "😮",
+    "😢",
+    "🙏",
+    "🔥",
+    "👀",
+    "✅",
+    "❓",
+    "💯",
+]);

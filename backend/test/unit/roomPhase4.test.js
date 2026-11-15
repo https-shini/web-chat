@@ -65,10 +65,13 @@ describe("publicação", () => {
         const hostIdentity = hub.entryOf(host).identity;
         const targetIdentity = hub.entryOf(target).identity;
         room.setMuted(hostIdentity, targetIdentity, BASE + 5 * 60 * 1000);
-        assert.deepEqual(post(target, { content: "x" }), { ok: false, code: "muted" });
+        // A recusa diz até quando vale o silêncio (decisão F7).
+        const until = new Date(BASE + 5 * 60 * 1000).toISOString();
+        assert.deepEqual(post(target, { content: "x" }), { ok: false, code: "muted", until });
         assert.deepEqual(room.publish(targetIdentity, { content: "/me x", kind: "action" }), {
             ok: false,
             code: "muted",
+            until,
         });
         ctx.tick(5 * 60 * 1000);
         assert.equal(post(target, { content: "voltei" }).ok, true);

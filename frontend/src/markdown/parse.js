@@ -267,3 +267,30 @@ export const mentionsOf = (blocks) => {
     for (const block of blocks) if (block.type !== "codeblock") walk(block.children);
     return found;
 };
+
+/**
+ * Trecho de uma linha para citações (resposta e fixadas): sem marcação,
+ * e com o spoiler escondido — a citação não pode revelar o que foi ocultado.
+ * @param {string} text
+ * @returns {string}
+ */
+export const excerptPlain = (text) => {
+    /** @param {Inline[]} nodes @returns {string} */
+    const walk = (nodes) =>
+        nodes
+            .map((node) =>
+                node.type === "spoiler"
+                    ? "▒▒▒"
+                    : node.type === "br"
+                      ? " "
+                      : "children" in node
+                        ? walk(node.children)
+                        : node.type === "mention"
+                          ? `@${node.username}`
+                          : node.text,
+            )
+            .join("");
+    return walk(parseInline(text.replace(/```/g, "").replace(/^>\s?/gm, "")))
+        .replace(/\s+/g, " ")
+        .trim();
+};

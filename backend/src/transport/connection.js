@@ -113,7 +113,7 @@ export const createConnectionHandler = ({
          * `requestId`) para que ele saiba QUAL envio falhou; `conversationId`
          * diz a que conversa o erro se refere.
          */
-        const reject = (operation, code, ref = null, conversationId = null) => {
+        const reject = (operation, code, ref = null, conversationId = null, detail = null) => {
             const { category } = describeError(code);
             metrics.count("requestsRejected", code);
             metrics.count("errorsByCategory", category);
@@ -124,7 +124,28 @@ export const createConnectionHandler = ({
                 category,
                 ...(hub.isLoggedIn(ws) ? { user: hub.userIdOf(ws) } : {}),
             });
-            send(serverMessage.error(code, ref, conversationId));
+            send(serverMessage.error(code, ref, conversationId, detail));
+        };
+
+        /**
+         * Operação sobre uma mensagem ou a conversa (editar, apagar, reagir,
+         * fixar, descrição). A recusa leva o id da mensagem como referência.
+         * @param {string} operation
+         * @param {"edit" | "removeMessage" | "react" | "pin" | "describe"} action
+         * @param {Record<string, unknown>} payload
+         */
+        const conversationAction = (operation, action, payload) => {
+            const result = hub.conversationAction(ws, payload, action);
+            if (!result.ok) {
+                return reject(
+                    operation,
+                    result.code,
+                    readClientId(payload.id),
+                    readConversationId(payload.conversationId),
+                    "until" in result && result.until ? { until: result.until } : null,
+                );
+            }
+            metrics.count("messageActions", action);
         };
 
         /** Id de correlação de um pedido de sala. @param {Record<string, unknown>} payload */
@@ -150,6 +171,8 @@ export const createConnectionHandler = ({
                         result.code,
                         readClientId(payload.clientMsgId),
                         readConversationId(payload.conversationId),
+                        // Silêncio com prazo: o cliente mostra até quando (F7).
+                        "until" in result && result.until ? { until: result.until } : null,
                     );
                 }
                 if (!result.duplicate) metrics.count("messagesAccepted");
@@ -248,6 +271,16 @@ export const createConnectionHandler = ({
                 metrics.count("blocks");
                 send(serverMessage.blockList(result.blocked, requestIdOf(payload)));
             },
+            [CLIENT_EVENTS.MESSAGE_EDIT]: (payload) =>
+                conversationAction(CLIENT_EVENTS.MESSAGE_EDIT, "edit", payload),
+            [CLIENT_EVENTS.MESSAGE_DELETE]: (payload) =>
+                conversationAction(CLIENT_EVENTS.MESSAGE_DELETE, "removeMessage", payload),
+            [CLIENT_EVENTS.REACTION_TOGGLE]: (payload) =>
+                conversationAction(CLIENT_EVENTS.REACTION_TOGGLE, "react", payload),
+            [CLIENT_EVENTS.MESSAGE_PIN]: (payload) =>
+                conversationAction(CLIENT_EVENTS.MESSAGE_PIN, "pin", payload),
+            [CLIENT_EVENTS.ROOM_UPDATE]: (payload) =>
+                conversationAction(CLIENT_EVENTS.ROOM_UPDATE, "describe", payload),
             [CLIENT_EVENTS.USER_UNBLOCK]: (payload) => {
                 const result = hub.unblock(ws, payload);
                 if (!result.ok) {

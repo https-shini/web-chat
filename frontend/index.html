@@ -714,6 +714,19 @@
                         </div>
 
                         <form class="c-composer" novalidate>
+                            <div class="c-composer__reply" hidden>
+                                <span class="c-composer__reply-icon" data-icon="reply"></span>
+                                <span class="c-composer__reply-text" data-reply-text></span>
+                                <button
+                                    type="button"
+                                    class="c-icon-button c-icon-button--sm"
+                                    data-reply-cancel
+                                    aria-label="Cancelar resposta"
+                                    data-tooltip="Cancelar resposta (Esc)"
+                                >
+                                    <span data-icon="close"></span>
+                                </button>
+                            </div>
                             <label class="sr-only" for="campo-mensagem">Mensagem</label>
                             <textarea
                                 class="c-composer__input"
@@ -865,6 +878,24 @@
                                     <span data-icon="copy"></span>
                                 </button>
                             </div>
+                        </div>
+                    </section>
+
+                    <section class="c-context__block" data-context-block="pins" hidden>
+                        <h3 class="c-context__heading">
+                            <button
+                                type="button"
+                                class="c-context__toggle"
+                                aria-expanded="true"
+                                aria-controls="contexto-fixadas"
+                            >
+                                <span class="c-context__chevron" data-icon="chevron-down"></span>
+                                Mensagens fixadas
+                                <span class="c-context__count" data-pins-count></span>
+                            </button>
+                        </h3>
+                        <div class="c-context__body" id="contexto-fixadas">
+                            <ul class="c-pins" data-pins-list></ul>
                         </div>
                     </section>
 

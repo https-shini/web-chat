@@ -66,7 +66,7 @@ export const createRoomHeader = () => {
                                   ? strings.conversations.online
                                   : strings.conversations.offline,
                           })
-                        : strings.room.topicPending;
+                        : room?.description || strings.room.topicPending;
             }
             if (welcome) {
                 welcome.textContent = dm
