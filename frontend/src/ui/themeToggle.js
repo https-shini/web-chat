@@ -65,5 +65,13 @@ export const createThemeToggle = ({ onChange }) => {
 
     paint(currentTheme());
 
-    return { current: currentTheme };
+    return {
+        current: currentTheme,
+        /** Escolha explícita (menu do perfil, página Perfil). @param {Theme} theme */
+        set(theme) {
+            if (theme === currentTheme()) return;
+            apply(theme);
+            onChange(theme, theme === "light" ? strings.theme.nowLight : strings.theme.nowDark);
+        },
+    };
 };

@@ -1,30 +1,31 @@
 // @ts-check
 
-import { strings } from "../i18n/strings.js";
+import { format, strings } from "../i18n/strings.js";
 import { must } from "./dom.js";
 import { renderIdentity } from "./identity.js";
 
 /**
- * Painel "você" no pé da barra lateral: avatar, nome, presença e o botão de
- * ausência (que envia o comando real /afk). Mostra também, para
- * administradores, a seção de administração da barra.
+ * Painel "você", fixo no pé da navegação (padrão do painel de usuário do
+ * Discord e do Fluxer): avatar com presença, nome e @ por inteiro, e dois
+ * botões (notificações e preferências). O próprio nome é o botão do menu
+ * rápido: status, notificações, tema, perfil e sair.
  *
  * @typedef {import("../state/store.js").Person} Person
  */
 
 /**
- * @param {{onToggleAway: () => void}} handlers
+ * @param {{onMenu: (button: HTMLButtonElement) => void}} handlers
  */
-export const createUserPanel = ({ onToggleAway }) => {
+export const createUserPanel = ({ onMenu }) => {
+    const who = /** @type {HTMLButtonElement} */ (must("[data-profile-menu]"));
     const avatar = /** @type {HTMLElement} */ (must(".c-user-panel__avatar"));
     const name = /** @type {HTMLElement} */ (must(".c-user-panel__name"));
     const status = /** @type {HTMLElement} */ (must(".c-user-panel__status"));
-    const away = /** @type {HTMLButtonElement} */ (must('[data-action="toggle-away"]'));
     const adminOnly = /** @type {HTMLElement[]} */ ([
         ...document.querySelectorAll("[data-admin-only]"),
     ]);
 
-    away.addEventListener("click", onToggleAway);
+    who.addEventListener("click", () => onMenu(who));
 
     return {
         /**
@@ -56,24 +57,15 @@ export const createUserPanel = ({ onToggleAway }) => {
                 : isAway
                   ? strings.userPanel.away
                   : strings.userPanel.online;
-            const parts = [
-                me.username ? `@${me.username}` : "",
-                role === "admin"
-                    ? strings.userPanel.admin
-                    : role === "host"
-                      ? strings.userPanel.host
-                      : "",
-                presence,
-            ].filter(Boolean);
+            // Só @ e presença: o papel (anfitrião) é de cada sala e aparece no
+            // painel da conversa; aqui ele cortava o nome.
+            const parts = [me.username ? `@${me.username}` : "", presence].filter(Boolean);
             status.textContent = parts.join(" · ");
             status.title = status.textContent;
-
-            // Nome fixo + aria-pressed: o estado é anunciado, o nome não muda.
-            // Só a dica visual diz o que o próximo clique faz.
-            away.setAttribute("aria-pressed", String(isAway));
-            away.setAttribute("aria-label", strings.userPanel.goAway);
-            away.dataset.tooltip = isAway ? strings.userPanel.comeBack : strings.userPanel.goAway;
-            away.disabled = !online;
+            who.setAttribute(
+                "aria-label",
+                `${format(strings.profile.menu, { name: me.name })}, ${status.textContent}`,
+            );
         },
     };
 };

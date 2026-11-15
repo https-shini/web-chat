@@ -57,8 +57,8 @@ export const initialsFor = (name) => {
  *   own: boolean,
  *   withName?: boolean,
  *   withMonogram?: boolean,
- *   size?: "md" | "lg" | "xl",
- *   presence?: "online" | "away" | null,
+ *   size?: "sm" | "md" | "lg" | "xl",
+ *   presence?: "online" | "away" | "offline" | null,
  *   author?: number | null,
  * }} person
  * @returns {HTMLElement}

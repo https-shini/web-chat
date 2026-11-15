@@ -73,13 +73,15 @@ export const createTooltips = () => {
     document.addEventListener("click", hide);
     document.addEventListener("scroll", hide, true);
     // Captura: com a dica aberta, o primeiro Escape só a dispensa (1.4.13),
-    // sem fechar gaveta nem mover o foco.
+    // sem mover o foco. Exceção: dentro de uma gaveta aberta (modal), o
+    // Escape é da gaveta — ela fecha e a dica some junto, como num diálogo.
     document.addEventListener(
         "keydown",
         (event) => {
             if (event.key === "Escape" && !tip.hidden) {
-                event.preventDefault();
                 hide();
+                if (document.querySelector("[data-scrim]:not([hidden])")) return;
+                event.preventDefault();
             }
         },
         true,

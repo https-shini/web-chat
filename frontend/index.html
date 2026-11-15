@@ -77,13 +77,38 @@
             ui/icons.js (uma fonte só para HTML e JS).
         -->
         <div class="c-app" data-screen="entry">
-            <!-- ─── Barra lateral: a sala, atalhos reais e você ─────────── -->
-            <nav class="c-sidebar" id="barra-lateral" aria-label="Conversas e atalhos" hidden>
+            <!--
+                Navegação (esquerda), na ordem da diretriz: Início e Comandos
+                fixos no topo; as conversas (Fixadas, Salas, Privadas) no meio,
+                a única parte que rola; e você, fixo embaixo.
+            -->
+            <nav class="c-sidebar" id="barra-lateral" aria-label="Navegação" hidden>
                 <div class="c-sidebar__top">
-                    <span class="c-brand">
+                    <span class="c-brand c-sidebar__brand">
                         <span class="c-brand__logo" data-icon="logo"></span>
                         <span class="c-brand__name">web-chat</span>
                     </span>
+                    <button
+                        type="button"
+                        class="c-icon-button c-icon-button--brand c-sidebar__new"
+                        data-nav-new
+                        aria-haspopup="dialog"
+                        aria-expanded="false"
+                        aria-label="Nova conversa"
+                        data-tooltip="Nova conversa"
+                    >
+                        <span data-icon="plus"></span>
+                    </button>
+                    <button
+                        type="button"
+                        class="c-icon-button c-sidebar__rail"
+                        data-nav-rail
+                        aria-pressed="false"
+                        aria-label="Recolher o menu"
+                        data-tooltip="Recolher o menu"
+                    >
+                        <span data-icon="sidebar"></span>
+                    </button>
                     <button
                         type="button"
                         class="c-icon-button c-sidebar__close"
@@ -94,70 +119,66 @@
                     </button>
                 </div>
 
-                <div class="c-sidebar__scroll js-scroll">
-                    <section class="c-nav-section" aria-labelledby="secao-conversas">
-                        <h2 class="c-nav-section__title" id="secao-conversas">Conversas</h2>
-                        <button type="button" class="c-nav-item" data-go-home>
-                            <span class="c-nav-item__icon" data-icon="home"></span>
-                            <span class="c-nav-item__label">Início</span>
-                        </button>
-                        <div class="c-conversation-nav" data-conversation-nav></div>
-                    </section>
+                <!-- Conexão: só aparece quando há problema (região de status). -->
+                <p class="c-connection" data-state="connecting" role="status">
+                    <span class="c-connection__dot" aria-hidden="true"></span>
+                    <span class="c-connection__label">conectando…</span>
+                </p>
 
-                    <section class="c-nav-section" aria-labelledby="secao-atalhos">
-                        <h2 class="c-nav-section__title" id="secao-atalhos">Atalhos</h2>
-                        <button type="button" class="c-nav-item" data-action="help">
-                            <span class="c-nav-item__icon" data-icon="terminal"></span>
-                            <span class="c-nav-item__label">Comandos</span>
-                        </button>
-                        <button type="button" class="c-nav-item" data-action="clear-local">
-                            <span class="c-nav-item__icon" data-icon="eraser"></span>
-                            <span class="c-nav-item__label">Limpar minha tela</span>
-                        </button>
-                    </section>
+                <button
+                    type="button"
+                    class="c-jump"
+                    data-quick-switcher
+                    aria-haspopup="dialog"
+                    aria-keyshortcuts="Control+K Meta+K"
+                >
+                    <span class="c-jump__icon" data-icon="search"></span>
+                    <span class="c-jump__label">Ir para conversa</span>
+                    <kbd class="c-jump__kbd" aria-hidden="true">Ctrl K</kbd>
+                </button>
 
-                    <section
-                        class="c-nav-section"
-                        aria-labelledby="secao-admin"
-                        data-admin-only
-                        hidden
-                    >
-                        <h2 class="c-nav-section__title" id="secao-admin">Moderação</h2>
-                        <button
-                            type="button"
-                            class="c-nav-item c-nav-item--danger"
-                            data-action="clear-room"
-                        >
-                            <span class="c-nav-item__icon" data-icon="trash"></span>
-                            <span class="c-nav-item__label">Apagar para todos</span>
-                        </button>
-                    </section>
-
-                    <section class="c-nav-section" aria-labelledby="secao-conexao">
-                        <h2 class="c-nav-section__title" id="secao-conexao">Conexão</h2>
-                        <p class="c-connection" data-state="connecting" role="status">
-                            <span class="c-connection__dot" aria-hidden="true"></span>
-                            <span class="c-connection__label">conectando…</span>
-                        </p>
-                    </section>
+                <div class="c-sidebar__fixed">
+                    <button type="button" class="c-nav-item" data-go-home>
+                        <span class="c-nav-item__icon" data-icon="home"></span>
+                        <span class="c-nav-item__label">Início</span>
+                    </button>
+                    <button type="button" class="c-nav-item" data-go-commands>
+                        <span class="c-nav-item__icon" data-icon="terminal"></span>
+                        <span class="c-nav-item__label">Comandos</span>
+                    </button>
                 </div>
 
-                <!-- Você: identidade, presença e preferências -->
-                <section class="c-user-panel" aria-label="Você">
-                    <span class="c-user-panel__avatar"></span>
-                    <span class="c-user-panel__info">
-                        <span class="c-user-panel__name"></span>
-                        <span class="c-user-panel__status">Online</span>
-                    </span>
+                <div class="c-nav-filter" role="group" aria-label="Mostrar">
+                    <button type="button" class="c-chip" data-nav-filter="all" aria-pressed="true">
+                        Tudo
+                    </button>
                     <button
                         type="button"
-                        class="c-icon-button"
-                        data-action="toggle-away"
+                        class="c-chip"
+                        data-nav-filter="unread"
                         aria-pressed="false"
-                        aria-label="Ficar ausente"
-                        data-tooltip="Ficar ausente"
                     >
-                        <span data-icon="clock"></span>
+                        Não lidas <span class="c-chip__count" data-unread-total></span>
+                    </button>
+                </div>
+
+                <div class="c-sidebar__scroll js-scroll" data-conversation-tree></div>
+                <button type="button" class="c-unread-pill" data-unread-pill hidden></button>
+
+                <!-- Você: fixo no pé da navegação, sempre visível. -->
+                <section class="c-user-panel" aria-label="Você">
+                    <button
+                        type="button"
+                        class="c-user-panel__who"
+                        data-profile-menu
+                        aria-haspopup="menu"
+                        aria-expanded="false"
+                    >
+                        <span class="c-user-panel__avatar"></span>
+                        <span class="c-user-panel__info">
+                            <span class="c-user-panel__name"></span>
+                            <span class="c-user-panel__status">Online</span>
+                        </span>
                     </button>
                     <button
                         type="button"
@@ -172,22 +193,12 @@
                     </button>
                     <button
                         type="button"
-                        class="c-icon-button c-theme-toggle"
-                        data-theme-toggle
-                        aria-pressed="false"
-                        aria-label="Mudar para tema claro"
-                        data-tooltip="Mudar para tema claro"
+                        class="c-icon-button"
+                        data-go-profile
+                        aria-label="Perfil e preferências"
+                        data-tooltip="Perfil e preferências"
                     >
-                        <span class="c-theme-toggle__icon" data-icon="theme"></span>
-                    </button>
-                    <button
-                        type="button"
-                        class="c-icon-button c-user-panel__logout"
-                        data-action="logout"
-                        aria-label="Sair do chat"
-                        data-tooltip="Sair do chat"
-                    >
-                        <span data-icon="logout"></span>
+                        <span data-icon="settings"></span>
                     </button>
                 </section>
                 <div
@@ -504,6 +515,79 @@
                     </div>
                 </section>
 
+                <!-- ─── Comandos: catálogo vindo do servidor ─────────────── -->
+                <section
+                    class="c-page"
+                    data-page="commands"
+                    aria-labelledby="comandos-titulo"
+                    hidden
+                >
+                    <header class="c-page__bar">
+                        <button
+                            type="button"
+                            class="c-icon-button c-page__menu"
+                            data-drawer-open="sidebar"
+                            aria-controls="barra-lateral"
+                            aria-expanded="false"
+                            aria-label="Abrir barra lateral"
+                        >
+                            <span data-icon="menu"></span>
+                        </button>
+                        <span class="c-page__glyph" data-icon="terminal"></span>
+                        <h1 class="c-page__title" id="comandos-titulo" tabindex="-1">Comandos</h1>
+                    </header>
+                    <div class="c-page__scroll js-scroll">
+                        <div class="c-page__content c-page__content--wide">
+                            <p class="c-page__lead" data-commands-lead></p>
+                            <div class="c-commands__tools">
+                                <label class="sr-only" for="comandos-busca">Procurar comando</label>
+                                <span class="c-search">
+                                    <span class="c-search__icon" data-icon="search"></span>
+                                    <input
+                                        class="c-search__input"
+                                        id="comandos-busca"
+                                        type="search"
+                                        autocomplete="off"
+                                        spellcheck="false"
+                                        placeholder="Nome ou descrição"
+                                    />
+                                </span>
+                                <div
+                                    class="c-chips"
+                                    role="group"
+                                    aria-label="Categoria"
+                                    data-commands-categories
+                                ></div>
+                            </div>
+                            <p class="sr-only" role="status" data-commands-status></p>
+                            <ul class="c-commands" data-commands-list></ul>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ─── Perfil e preferências ───────────────────────────── -->
+                <section class="c-page" data-page="profile" aria-labelledby="perfil-titulo" hidden>
+                    <header class="c-page__bar">
+                        <button
+                            type="button"
+                            class="c-icon-button c-page__menu"
+                            data-drawer-open="sidebar"
+                            aria-controls="barra-lateral"
+                            aria-expanded="false"
+                            aria-label="Abrir barra lateral"
+                        >
+                            <span data-icon="menu"></span>
+                        </button>
+                        <span class="c-page__glyph" data-icon="settings"></span>
+                        <h1 class="c-page__title" id="perfil-titulo" tabindex="-1">
+                            Perfil e preferências
+                        </h1>
+                    </header>
+                    <div class="c-page__scroll js-scroll">
+                        <div class="c-page__content" data-profile-page></div>
+                    </div>
+                </section>
+
                 <div class="c-room" hidden>
                     <header class="c-header">
                         <button
@@ -556,11 +640,13 @@
                         <button
                             type="button"
                             class="c-icon-button"
-                            data-action="help"
-                            aria-label="Comandos"
-                            data-tooltip="Comandos"
+                            data-conversation-menu
+                            aria-haspopup="menu"
+                            aria-expanded="false"
+                            aria-label="Mais opções da conversa"
+                            data-tooltip="Mais opções"
                         >
-                            <span data-icon="help"></span>
+                            <span data-icon="dots"></span>
                         </button>
                         <button
                             type="button"

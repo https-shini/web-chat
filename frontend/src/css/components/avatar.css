@@ -60,6 +60,18 @@
 }
 
 /* Tamanhos */
+.c-identity--sm .c-identity__monogram {
+    width: var(--avatar-sm);
+    height: var(--avatar-sm);
+    font-size: var(--text-2xs);
+}
+
+.c-identity--sm .c-identity__presence {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-width: var(--rule-2);
+}
+
 .c-identity--lg .c-identity__monogram {
     width: var(--avatar-lg);
     height: var(--avatar-lg);
@@ -88,6 +100,12 @@
 .c-identity__presence[data-status="away"] {
     background-color: var(--presence-ring, var(--color-bg-sidebar));
     box-shadow: inset 0 0 0 var(--rule-2) var(--color-warn);
+}
+
+/* Fora do chat (privada): anel cinza vazado. */
+.c-identity__presence[data-status="offline"] {
+    background-color: var(--presence-ring, var(--color-bg-sidebar));
+    box-shadow: inset 0 0 0 var(--rule-2) var(--color-text-3);
 }
 
 /* "você": selo em texto, não só cor. */
