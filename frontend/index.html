@@ -671,8 +671,16 @@
                             aria-relevant="additions"
                             aria-labelledby="conversa-titulo"
                         >
+                            <!-- Começo da conversa: decorativo (o cabeçalho e o anúncio
+                                 de troca de conversa já dizem o mesmo ao leitor). -->
+                            <div class="c-conversation-intro" aria-hidden="true">
+                                <span class="c-conversation-intro__glyph" data-intro-glyph></span>
+                                <p class="c-conversation-intro__title" data-intro-title></p>
+                                <p class="c-conversation-intro__body" data-intro-body></p>
+                            </div>
                             <ol class="c-message-list__items"></ol>
                         </div>
+                        <button type="button" class="c-jump-bar" hidden></button>
 
                         <div class="c-failure" hidden>
                             <span class="c-failure__icon" data-icon="alert"></span>

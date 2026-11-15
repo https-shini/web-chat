@@ -88,7 +88,77 @@ const messageList = createMessageList({
                 force: true,
             },
         ),
+    // "Apagar" uma mensagem que não foi enviada (só na sua tela).
+    onDiscard: (message) => {
+        if (!message.clientMsgId) return;
+        inFlight.delete(message.clientMsgId);
+        store.actions.discardFailed(message.clientMsgId);
+        composer.focus();
+    },
+    // "Dispensar" uma resposta de comando (só sua).
+    onDismiss: (message) => {
+        store.actions.removeLocal(message.id);
+        composer.focus();
+    },
+    getMe: () => store.getState().me?.username ?? null,
+    actionsFor: (message) => messageActions(message),
 });
+
+/**
+ * Ações de uma mensagem (barra ao passar o ponteiro, "⋯", clique direito,
+ * Shift+F10, toque longo). Só ações reais: copiar, mencionar, perfil,
+ * conversa privada e copiar o arroba.
+ * @param {import("./state/store.js").Message} message
+ * @returns {{items: import("./ui/primitives/menuModel.js").MenuItem[], quick: {icon: string, label: string, run: () => void}[]} | null}
+ */
+const messageActions = (message) => {
+    if (message.kind !== "chat") return null;
+    const username = message.username ?? "";
+    const isDm = store.getState().room?.kind === "dm";
+    const copy = () =>
+        void navigator.clipboard
+            ?.writeText(message.content)
+            .then(() => toasts.show(strings.message.copied))
+            .catch(() => toasts.show(strings.message.copyFailed, "error"));
+    const mention = () => {
+        if (!username) return;
+        composer.insert(`@${username} `);
+    };
+    /** @type {{icon: string, label: string, run: () => void}[]} */
+    const quick = [{ icon: "copy", label: strings.message.copyText, run: copy }];
+    if (!message.own && username)
+        quick.push({ icon: "at", label: strings.message.mention, run: mention });
+    /** @type {import("./ui/primitives/menuModel.js").MenuItem[]} */
+    const items = [
+        { label: strings.message.copyText, icon: "copy", run: copy },
+        ...(!message.own && username
+            ? [{ label: strings.message.mention, icon: "at", run: mention }]
+            : []),
+        { type: "separator" },
+        ...(username && !isDm
+            ? [
+                  {
+                      label: strings.message.viewProfile,
+                      icon: "user",
+                      run: () => submit(`/profile @${username}`),
+                  },
+              ]
+            : []),
+        ...(!message.own && username && !isDm
+            ? [{ label: strings.message.directMessage, icon: "at", run: () => requestDm(username) }]
+            : []),
+        ...(username
+            ? [
+                  {
+                      label: format(strings.message.copyHandle, { username }),
+                      icon: "copy",
+                      run: () => void copyText(`@${username}`),
+                  },
+              ]
+            : []),
+    ];
+    return { items, quick };
+};
 const typing = createTyping();
 const notifier = createNotifier();
 
@@ -298,8 +368,40 @@ const openConversation = (conversationId) => {
     typingSignal.stop();
     typingTracker.clear();
     memberCard.close({ restoreFocus: false });
-    if (store.actions.openConversation(conversationId)) syncDraft(conversationId);
+    // Onde começam as não lidas: a linha "Novas mensagens" fica antes da
+    // primeira delas (contadas do fim, só mensagens de outras pessoas).
+    const unread =
+        store.getState().conversations.find((e) => e.conversationId === conversationId)?.unread ??
+        0;
+    if (store.actions.openConversation(conversationId)) {
+        syncDraft(conversationId);
+        let marker = null;
+        if (unread > 0) {
+            let left = unread;
+            const list = store.getState().messages;
+            for (let i = list.length - 1; i >= 0; i -= 1) {
+                const item = list[i];
+                if (item && item.kind === "chat" && !item.own) {
+                    left -= 1;
+                    if (left === 0) {
+                        marker = item.key;
+                        break;
+                    }
+                }
+            }
+        }
+        pendingMarker = { conversationId, key: marker };
+    }
 };
+
+/**
+ * Linha "Novas mensagens" a pôr na próxima pintura da conversa aberta.
+ * @type {{conversationId: string, key: string | null} | null}
+ */
+let pendingMarker = null;
+
+/** Onde cada conversa estava rolada (só em memória). @type {Map<string, {top: number, atBottom: boolean}>} */
+const scrollPositions = new Map();
 
 /**
  * Conversa da lista por id.
@@ -493,7 +595,15 @@ const composer = createComposer({
     onSend: submit,
     onTyping: () => typingSignal.input(),
     onInput: (text, cursor) => suggestions.update(text, cursor),
-    onKeyDown: (event) => suggestions.handleKey(event),
+    onKeyDown: (event) => {
+        if (suggestions.handleKey(event)) return true;
+        // Esc (sem sugestões abertas): vai às mais recentes, como no Discord.
+        if (event.key === "Escape" && !event.defaultPrevented) {
+            messageList.scrollToEnd();
+            return false;
+        }
+        return false;
+    },
     // Botão "Comandos" do campo: abre as sugestões como se a pessoa
     // digitasse "/" (sem apagar o que já estava escrito).
     onCommands: () => {
@@ -517,6 +627,22 @@ const suggestions = createCommandSuggestions({
     input: composer.input,
     getCatalog: () => store.getState().catalog,
     onChoose: (text) => composer.setValue(text),
+    // "@": só quem está na conversa aberta (na privada, a outra pessoa).
+    getPeople: () => {
+        const state = store.getState();
+        if (state.room?.kind === "dm" && state.room.peer) {
+            return [
+                {
+                    id: state.room.peer.username,
+                    name: state.room.peer.name,
+                    username: state.room.peer.username,
+                },
+            ];
+        }
+        return state.people;
+    },
+    getMe: () => store.getState().me?.username ?? null,
+    onMention: (start, end, text) => composer.replaceRange(start, end, text),
 });
 
 /**
@@ -1591,7 +1717,33 @@ const render = (state, previous) => {
     if (changed(state, previous, ["screen", "room"])) {
         syncDraft(inRoom ? (state.room?.conversationId ?? null) : null);
     }
-    if (changed(state, previous, ["messages"])) messageList.render(state.messages);
+    const switchedRoom = previous?.room?.conversationId !== state.room?.conversationId;
+    if (switchedRoom && previous?.room?.conversationId && previous.screen === "room") {
+        scrollPositions.set(previous.room.conversationId, messageList.position());
+    }
+    if (switchedRoom) messageList.setNewMarker(null);
+    if (changed(state, previous, ["messages"])) {
+        const marker =
+            pendingMarker && pendingMarker.conversationId === state.room?.conversationId
+                ? pendingMarker
+                : null;
+        if (marker) messageList.setNewMarker(marker.key);
+        messageList.render(state.messages);
+        if (marker) {
+            pendingMarker = null;
+            // Com não lidas: abre na linha "Novas mensagens"; sem, onde estava.
+            if (marker.key) messageList.revealNewMarker();
+            else {
+                const saved = state.room
+                    ? scrollPositions.get(state.room.conversationId)
+                    : undefined;
+                if (saved) messageList.restore(saved);
+                else messageList.scrollToEnd();
+            }
+        } else if (switchedRoom) {
+            messageList.scrollToEnd();
+        }
+    }
     if (changed(state, previous, ["messages", "authorsSeen", "authorsLeft", "room"])) {
         messageList.setDeparted(departedAuthors(state));
     }

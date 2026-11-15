@@ -83,6 +83,8 @@
 
 .c-message__code {
     padding: var(--space-0-5) var(--space-1-5);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
     border: var(--rule-1) solid var(--color-border-subtle);
     border-radius: var(--radius-sm);
     background-color: var(--color-bg-app);
@@ -301,16 +303,116 @@
     color: var(--color-text-2);
 }
 
-/* Enviada: ✓ discreto ao lado, sem ocupar uma linha própria. */
-.c-message__status[data-state="confirmed"] {
-    position: absolute;
-    right: var(--space-2);
-    bottom: var(--space-1);
+/* Enviada: ✓ logo depois do texto, no fim do último parágrafo. */
+.c-message__status[hidden] {
+    display: none;
+}
+
+.c-message__sent-slot:empty {
+    display: none;
 }
 
 .c-message__sent {
     display: inline-flex;
     align-items: center;
-    color: var(--color-text-2);
+    margin-left: var(--space-1-5);
+    color: var(--color-text-3);
     font-size: var(--text-xs);
+    vertical-align: middle;
+}
+
+/* ─── Conteúdo em Markdown ────────────────────────────────────────── */
+.c-message__content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.c-message__pre {
+    max-width: 100%;
+    margin: var(--space-0-5) var(--space-0);
+    padding: var(--space-2) var(--space-3);
+    overflow-x: auto;
+    border: var(--rule-1) solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    background-color: var(--color-bg-app);
+    color: var(--color-text-1);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+    white-space: pre;
+}
+
+.c-message__quote {
+    padding-left: var(--space-3);
+    border-left: var(--rule-3) solid var(--color-border-subtle);
+    color: var(--color-text-2);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.c-message__link {
+    color: var(--color-accent-2);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+    overflow-wrap: anywhere;
+}
+
+.c-message__text del {
+    color: var(--color-text-2);
+}
+
+.c-mention {
+    padding: var(--space-0) var(--space-0-5);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-accent-2-soft);
+    color: var(--color-accent-2);
+    font-weight: var(--weight-semibold);
+}
+
+.c-mention--self {
+    background-color: color-mix(in srgb, var(--color-warn) 18%, transparent);
+    color: var(--color-warn-text);
+}
+
+/* Menção a você: faixa à esquerda (forma) e fundo âmbar suave (cor). */
+.c-message--mention,
+.c-message--mention:hover {
+    box-shadow: inset var(--rule-3) 0 0 var(--color-warn);
+    background-color: color-mix(in srgb, var(--color-warn) 8%, transparent);
+}
+
+/* Foco por teclado na mensagem (↑/↓ na lista). */
+.c-message:focus-visible {
+    outline: var(--rule-2) solid var(--color-focus-ring);
+    outline-offset: calc(var(--rule-2) * -1);
+}
+
+.c-message__dismiss {
+    align-self: flex-start;
+    min-height: var(--space-6);
+}
+
+/* ─── Barra de ações da mensagem ──────────────────────────────────── */
+.c-message-actions {
+    position: absolute;
+    z-index: var(--z-sticky);
+    top: calc(var(--space-3) * -1);
+    right: var(--space-4);
+    display: flex;
+    gap: var(--space-0-5);
+    padding: var(--space-0-5);
+    border: var(--rule-1) solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    background-color: var(--color-bg-elevated);
+    box-shadow: var(--shadow-2);
+}
+
+.c-message--compact .c-message-actions {
+    top: calc(var(--space-4) * -1);
+}
+
+/* Some quando o ponteiro sai e nada dela tem o foco. */
+.c-message:not(:hover, :focus-within) > .c-message-actions {
+    display: none;
 }
