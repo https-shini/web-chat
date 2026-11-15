@@ -107,10 +107,10 @@ Tudo precisa passar. O CI repete essas etapas no PR.
 4. Verificar:
 
 ```bash
-curl -sS https://chat-backend-3sxv.onrender.com/healthz
+curl -sS https://webchat-api.gcruz.dev.br/healthz
 ```
 
-5. No navegador, em https://chat-frontend-g42t.onrender.com: entrar, conferir que
+5. No navegador, em https://webchat.gcruz.dev.br: entrar, conferir que
    o endereço virou `…/#/s/código`, abrir o link em outra aba anônima, trocar
    mensagens, `/ping`, Sair.
 
