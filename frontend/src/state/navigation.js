@@ -26,7 +26,7 @@
  *   mixed: boolean,
  *   unreadOnly: boolean,
  * }} NavPrefs
- * @typedef {{id: SectionId, items: ConversationEntry[], unread: number, total: number, collapsed: boolean}} Section
+ * @typedef {{id: SectionId, items: ConversationEntry[], unread: number, mentions: number, total: number, collapsed: boolean}} Section
  */
 
 /** @returns {NavPrefs} */
@@ -101,6 +101,7 @@ export const sectionsOf = (nav, conversations, currentId = null) => {
         id,
         items: visible(list),
         unread: list.reduce((sum, entry) => sum + entry.unread, 0),
+        mentions: list.reduce((sum, entry) => sum + (entry.mentions ?? 0), 0),
         total: list.length,
         collapsed: nav.collapsed[id],
     });

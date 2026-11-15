@@ -30,6 +30,8 @@ para dizer se a experiência faz sentido ouvida.
 - `11-historico`: Markdown sem HTML, menções com aviso em texto, separador de dia, "Novas mensagens", ações da mensagem por barra, menu e teclado.
 - `12-recursos`: responder (Esc cancela), reagir com `aria-pressed`, editar com ↑, apagar, fixadas no painel, descrição, silêncio com prazo.
 - `13-pilha`: no celular (320, 375 e 430 px) lista, conversa e dados em pilha; "Voltar" com rótulo; voltar do navegador desce um nível; botões do cabeçalho com 44 px.
+- `14-preferencias`: selo "@N" e rótulo com as menções, aviso na tela, título da aba; densidade como grupo de opções (setas), sem reduzir texto nem áreas de toque; axe na lista, no perfil e na conversa compacta.
+- `13-pilha` (também): voltar da lista abre "Sair do chat?" com o foco em "Ficar no chat"; navegar entre telas não pergunta.
 - `03-reconexao`: depois de uma queda, o foco continua no campo de mensagem e o texto meio escrito continua lá.
 - axe sem violações sérias no início, na sala, na privada, no celular e com a gaveta aberta.
 
@@ -196,6 +198,28 @@ importar), **onde o foco ficou**, e o resultado — ✅ (como esperado), ⚠️
 2. No integrante, Shift+F10 abre o menu; o submenu "Silenciar" é anunciado
    e as opções (5, 10, 60 min, até liberar) são lidas.
 3. Silenciado(a), o aviso do campo diz até que horas.
+
+### 14. Avisos de menção, densidade e saída
+
+1. Com outra pessoa mencionando você numa conversa que não está aberta: o
+   aviso na tela deve ser lido uma vez ("… mencionou você em …"), e o item da
+   conversa deve ser lido com "N não lidas, 1 menção a você".
+2. Perfil › Preferências › Densidade: o grupo deve ser lido como grupo de
+   opções com "Padrão" e "Compacta"; as setas trocam, e a escolha é anunciada.
+   Em compacta, conferir que a leitura das mensagens continua igual.
+3. No celular, na lista, o gesto de voltar deve abrir "Sair do chat?" com o
+   foco em "Ficar no chat". "Ficar" volta para a lista; "Sair do chat" leva à
+   tela de entrada, e o anúncio da saída é lido.
+
+## Limitação do ambiente de desenvolvimento
+
+O desenvolvimento e os testes automáticos rodam num contêiner Linux sem
+interface gráfica, sem som e sem acesso a Windows, macOS, iOS ou Android. Por
+isso **NVDA, VoiceOver e TalkBack não podem ser executados nele**, e nenhum
+resultado manual foi registrado. O que foi verificado ali é só o que a
+automação alcança: estrutura e nomes acessíveis (axe-core), teclado e foco
+(Playwright). A execução deste roteiro precisa de uma pessoa, nos ambientes da
+tabela acima.
 
 ## Registro de execuções
 

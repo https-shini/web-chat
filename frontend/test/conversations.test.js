@@ -398,3 +398,71 @@ describe("conversas privadas", () => {
         assert.deepEqual(calls.refused, ["user_unavailable", "lookup_limited"]);
     });
 });
+
+describe("menções", () => {
+    const mentions = (store, id) =>
+        store.getState().conversations.find((c) => c.conversationId === id)?.mentions ?? 0;
+
+    test("menção em outra conversa conta à parte, avisa e some ao abrir", () => {
+        const toasts = [];
+        const notes = [];
+        const store = createStore();
+        const handle = createEventHandler({
+            store,
+            toasts: { show: (text) => toasts.push(text) },
+            notifier: { show: (title, body) => notes.push(body) },
+            typingTracker: { set: () => {} },
+        });
+        store.actions.startJoin({ id: "eva", name: "Eva", username: "eva" });
+        handle({ type: "session", payload: { username: "eva", name: "Eva", resumeToken: "t" } });
+        for (const [id, name] of [
+            [A, "Sala A"],
+            [B, "Sala B"],
+        ]) {
+            handle({
+                type: "room_joined",
+                conversationId: id,
+                payload: {
+                    code: "abc-defg-hij",
+                    name,
+                    role: "member",
+                    author: 1,
+                    historyVersion: 0,
+                },
+            });
+        }
+        const say = (id, msgId, content) =>
+            handle({
+                type: "chat_message",
+                id: msgId,
+                conversationId: id,
+                payload: { username: "bia", userName: "Bia", author: 2, content },
+            });
+        say(B, "b1", "oi pessoal");
+        say(B, "b2", "@eva olha isso");
+        say(B, "b3", "`@eva` em código não é menção");
+        assert.equal(unread(store, B), 3);
+        assert.equal(mentions(store, B), 1);
+        assert.deepEqual(toasts, ["Bia mencionou você em Sala B."]);
+        assert.deepEqual(notes, ["Nova mensagem", "Mencionaram você", "Nova mensagem"]);
+        // Na conversa aberta, a menção não vira aviso (a mensagem já se destaca).
+        say(A, "a1", "@eva aqui");
+        assert.equal(toasts.length, 1);
+        store.actions.openConversation(B);
+        assert.equal(unread(store, B), 0);
+        assert.equal(mentions(store, B), 0);
+    });
+
+    test("aviso de sistema numa conversa de fundo não zera as não lidas", () => {
+        const { store, room, say, handle } = setup();
+        room(A, "Sala A", 1);
+        room(B, "Sala B", 1);
+        say(B, "b1", "beto", "na B");
+        handle({
+            type: "user_joined",
+            conversationId: B,
+            payload: { userName: "Caio", username: "caio" },
+        });
+        assert.equal(unread(store, B), 1);
+    });
+});

@@ -74,3 +74,10 @@
     background-color: var(--color-ok);
     box-shadow: none;
 }
+
+/* Menção a você: o selo ganha "@" no texto e um anel, para não depender
+   só da cor. */
+.c-conversation-nav__badge--mention {
+    box-shadow: 0 0 0 var(--rule-2) var(--color-bg-sidebar);
+    font-weight: var(--weight-bold);
+}

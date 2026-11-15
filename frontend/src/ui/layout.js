@@ -75,7 +75,9 @@ export const createLayout = () => {
     const node = (panel) => (panel === "sidebar" ? sidebar : members);
 
     /** Níveis da pilha no celular, de baixo para cima. */
-    const LAYERS = /** @type {const} */ (["list", "content", "members"]);
+    // "guard" fica abaixo da lista: voltar da lista cai nela, e a pessoa
+    // confirma antes de sair (decisão do PR 12) em vez de perder o chat.
+    const LAYERS = /** @type {const} */ (["guard", "list", "content", "members"]);
     /** @param {unknown} state @returns {number} -1: entrada que não é nossa */
     const depthOf = (state) =>
         LAYERS.indexOf(
@@ -83,6 +85,11 @@ export const createLayout = () => {
                 state && typeof state === "object" && "layer" in state ? state.layer : ""
             ),
         );
+    /** Esperando a resposta de "Sair do chat?" (na entrada de guarda). */
+    let leaving = false;
+    /** Quem decide se sai (devolve true para sair). @type {() => boolean | Promise<boolean>} */
+    let onLeave = () => false;
+
     /** Celular (pilha de telas)? */
     const stacked = () => !medium.matches;
 
@@ -93,14 +100,16 @@ export const createLayout = () => {
      */
     const syncHistory = () => {
         if (!inRoom || !stacked()) return;
-        const target = drawer === "sidebar" ? 0 : drawer === "members" ? 2 : 1;
+        const target = drawer === "sidebar" ? 1 : drawer === "members" ? 3 : 2;
         let current = depthOf(history.state);
         if (current === -1) {
             // Primeira vez (ou entrada criada fora daqui, como um convite
-            // colado na barra): ela vira a base, a lista.
+            // colado na barra): ela vira a base, a guarda de saída.
             history.replaceState({ layer: LAYERS[0] }, "", location.href);
             current = 0;
         }
+        // Na guarda, esperando a confirmação de saída: nada se mexe.
+        if (current === 0 && leaving) return;
         if (target > current) {
             for (let depth = current + 1; depth <= target; depth += 1) {
                 history.pushState({ layer: LAYERS[depth] }, "", location.href);
@@ -209,9 +218,19 @@ export const createLayout = () => {
     window.addEventListener("popstate", (event) => {
         if (!inRoom || !stacked()) return;
         const depth = depthOf(event.state);
-        if (depth === 0 && drawer !== "sidebar") open("sidebar", null);
-        else if (depth === 1 && drawer) close();
-        else if (depth === 2 && membersAvailable && drawer !== "members") open("members", null);
+        if (depth === 0) {
+            // Voltou da lista: pergunta antes de sair. "Ficar" sobe de novo.
+            leaving = true;
+            void Promise.resolve(onLeave()).then((leave) => {
+                leaving = false;
+                if (!leave && inRoom) {
+                    drawer = "sidebar";
+                    sync();
+                }
+            });
+        } else if (depth === 1 && drawer !== "sidebar") open("sidebar", null);
+        else if (depth === 2 && drawer) close();
+        else if (depth === 3 && membersAvailable && drawer !== "members") open("members", null);
     });
     wide.addEventListener("change", sync);
     medium.addEventListener("change", sync);
@@ -240,6 +259,14 @@ export const createLayout = () => {
          * @param {Panel} panel
          */
         isDocked: (panel) => inRoom && !node(panel).hidden && !isDrawer(panel),
+
+        /**
+         * Quem confirma a saída quando a pessoa volta da lista (celular).
+         * @param {() => boolean | Promise<boolean>} handler  true: sai
+         */
+        onLeaveRequest(handler) {
+            onLeave = handler;
+        },
 
         /** @param {() => void} listener chamado depois de cada mudança de painel */
         onChange(listener) {

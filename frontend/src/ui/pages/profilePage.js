@@ -10,8 +10,9 @@ import { renderIdentity } from "../identity.js";
  * que já existem:
  * - nome de exibição → comando /nick (validado pelo servidor);
  * - ausente e motivo → comando /afk;
- * - tema → o mesmo alternador do resto do app (único dado guardado no
- *   navegador, como antes);
+ * - tema → o mesmo alternador do resto do app (guardado no navegador);
+ * - densidade → padrão ou compacta (ui/density.js; guardada no navegador,
+ *   como o tema: só preferência visual);
  * - notificações → o mesmo controle opt-in do painel "você";
  * - sair do chat → a mesma confirmação de sempre.
  *
@@ -23,6 +24,7 @@ import { renderIdentity } from "../identity.js";
  *   away: boolean,
  *   awayText: string,
  *   theme: "dark" | "light",
+ *   density: "default" | "compact",
  *   notifications: "on" | "off" | "denied" | "unsupported",
  *   online: boolean,
  * }} ProfileView
@@ -33,6 +35,7 @@ import { renderIdentity } from "../identity.js";
  *   onRename: (name: string) => void,
  *   onAway: (away: boolean, reason: string) => void,
  *   onTheme: (theme: "dark" | "light") => void,
+ *   onDensity: (density: "default" | "compact") => void,
  *   onNotifications: () => void,
  *   onLogout: () => void,
  *   onCopyHandle: () => void,
@@ -42,6 +45,7 @@ export const createProfilePage = ({
     onRename,
     onAway,
     onTheme,
+    onDensity,
     onNotifications,
     onLogout,
     onCopyHandle,
@@ -203,6 +207,55 @@ export const createProfilePage = ({
     themeRow.appendChild(themeGroup);
     prefs.appendChild(themeRow);
 
+    const densityRow = el("div", { class: "c-profile__switch" });
+    const densityText = el("span", { class: "c-profile__switch-text" });
+    densityText.append(
+        el("span", { text: strings.profile.density, attrs: { id: "perfil-densidade" } }),
+        el("span", {
+            class: "c-field__hint",
+            text: strings.profile.densityHint,
+            attrs: { id: "perfil-densidade-dica" },
+        }),
+    );
+    const densityGroup = el("div", {
+        class: "c-segmented",
+        attrs: {
+            role: "radiogroup",
+            "aria-labelledby": "perfil-densidade",
+            "aria-describedby": "perfil-densidade-dica",
+        },
+    });
+    const densities = /** @type {const} */ (["default", "compact"]).map((density) => {
+        const radio = el("button", {
+            class: "c-segmented__option",
+            text:
+                density === "default"
+                    ? strings.profile.densityDefault
+                    : strings.profile.densityCompact,
+            attrs: { type: "button", role: "radio", "aria-checked": "false" },
+        });
+        radio.dataset.density = density;
+        densityGroup.appendChild(radio);
+        return radio;
+    });
+    densityRow.append(densityText, densityGroup);
+    prefs.appendChild(densityRow);
+
+    /** @param {"default" | "compact"} value */
+    const paintDensity = (value) => {
+        for (const radio of densities) {
+            const on = radio.dataset.density === value;
+            radio.setAttribute("aria-checked", String(on));
+            radio.tabIndex = on ? 0 : -1;
+        }
+    };
+    /** @param {"default" | "compact"} value */
+    const chooseDensity = (value) => {
+        onDensity(value);
+        if (view) view = { ...view, density: value };
+        paintDensity(value);
+    };
+
     const notifyRow = el("div", { class: "c-profile__switch" });
     const notifyText = el("span", { class: "c-profile__switch-text" });
     notifyText.append(
@@ -268,6 +321,18 @@ export const createProfilePage = ({
         onTheme(next);
         themes.find((radio) => radio.dataset.theme === next)?.focus();
     });
+    densityGroup.addEventListener("click", (event) => {
+        const radio = /** @type {Element} */ (event.target).closest("[data-density]");
+        if (radio instanceof HTMLElement)
+            chooseDensity(/** @type {"default" | "compact"} */ (radio.dataset.density));
+    });
+    densityGroup.addEventListener("keydown", (event) => {
+        if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+        event.preventDefault();
+        const next = view?.density === "compact" ? "default" : "compact";
+        chooseDensity(next);
+        densities.find((radio) => radio.dataset.density === next)?.focus();
+    });
     notifySwitch.addEventListener("click", onNotifications);
     logout.addEventListener("click", onLogout);
 
@@ -305,6 +370,7 @@ export const createProfilePage = ({
                 radio.setAttribute("aria-checked", String(on));
                 radio.tabIndex = on ? 0 : -1;
             }
+            paintDensity(next.density);
             notifySwitch.setAttribute("aria-checked", String(next.notifications === "on"));
             notifyRow.hidden = next.notifications === "unsupported";
         },

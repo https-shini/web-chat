@@ -41,9 +41,10 @@
 
 ## Sobre o projeto
 
-Uma sala só. Você entra com um nome, conversa com quem estiver conectado e sai.
-Não há cadastro, login, canais ou banco de dados. Quando você fecha a aba, sua
-sessão acaba.
+Chat efêmero em tempo real. Você entra com um nome e um `@`, cria salas ou entra
+com um código de convite, conversa em particular com quem estiver conectado e
+sai. Não há cadastro, senha ou banco de dados. Quando você sai (ou fecha a aba e
+não volta em 2 minutos), sua participação acaba.
 
 O objetivo técnico é mostrar comunicação em tempo real, um design system com
 acessibilidade verificada e dois temas usando apenas HTML, CSS e JavaScript
@@ -80,6 +81,15 @@ Cada item corresponde a código neste repositório.
 | Pessoas agrupadas (administradores, online, ausentes) com cartão de cada uma: ver perfil, copiar o @ e, para quem modera a sala, silenciar, liberar e remover (com confirmação) — tudo por comandos verificados no servidor                                                                                                               | `frontend/src/ui/people.js`, `frontend/src/ui/memberCard.js`                                   |
 | Moderação por sala: o anfitrião (ou um administrador, pela chave `ADMIN_KEY`) usa `/clearall`, `/announce`, `/mute`, `/unmute`, `/kick` só naquela sala, com permissões verificadas no servidor                                                                                                                                           | `backend/src/commands/handlers/admin.js`, `backend/src/room/policy.js`                         |
 | Reconexão sem avisos repetidos: queda e volta em até 10 s não geram "saiu"/"entrou" para os outros                                                                                                                                                                                                                                        | `backend/src/room/room.js`                                                                     |
+| **Navegação lateral** na ordem Início, Comandos, Fixadas, Salas, Privadas e Perfil (no pé): fixar e reordenar conversas (arrastando ou com Ctrl+Shift+↑/↓), filtro "Não lidas", Ctrl K para ir a uma conversa, botão "+" para criar sala, entrar com código ou abrir privada; trilho recolhido em telas médias                            | `frontend/src/ui/nav/`, `frontend/src/state/navigation.js`                                     |
+| **Painel de contexto** igual para sala e privada: informações, descrição da sala (editável por quem modera), mensagens fixadas, integrantes com filtro e menu (silenciar por 5/10/60 min ou até liberar, remover) e ações (limpar a tela, apagar para todos, sair, encerrar e bloquear)                                                   | `frontend/src/ui/contextPanel.js`, `frontend/src/ui/people.js`                                 |
+| **Mensagens**: várias linhas (até 20), Markdown seguro (negrito, itálico, código, spoiler, citação, links), menções com destaque, agrupamento por autor e tempo, separador de dia, "Novas mensagens" e voltar ao fim                                                                                                                      | `frontend/src/markdown/`, `frontend/src/ui/messageList.js`, `backend/src/validation.js`        |
+| **Responder, editar, apagar, reagir e fixar**: citação clicável, edição no lugar (↑ edita a última), apagar a própria (ou qualquer uma, para quem modera), 12 reações fixas, até 25 fixadas por conversa — tudo conferido no servidor                                                                                                     | `backend/src/room/messageOps.js`, `frontend/src/ui/message.js`                                 |
+| **Menus acessíveis**: barra de ações e menu de contexto em cada mensagem, pessoa e conversa (clique direito, Shift+F10, tecla Menu ou toque longo); no celular, folha inferior                                                                                                                                                            | `frontend/src/ui/primitives/`                                                                  |
+| **Avisos de menção**: selo "@N" na conversa, aviso na tela, título da aba e notificação ("Mencionaram você", sem o texto)                                                                                                                                                                                                                 | `frontend/src/state/store.js`, `frontend/src/state/events.js`                                  |
+| **Celular em pilha**: lista → conversa → dados, cada uma na tela toda; o "voltar" do Android desce um nível; voltar da lista pergunta antes de sair                                                                                                                                                                                       | `frontend/src/ui/layout.js`                                                                    |
+| **Densidade** padrão ou compacta (Perfil › Preferências), sem diminuir o texto nem as áreas de toque                                                                                                                                                                                                                                      | `frontend/src/ui/density.js`, `frontend/src/css/tokens.css`                                    |
+| Confirmação ao fechar, recarregar ou sair do site no meio do chat                                                                                                                                                                                                                                                                         | `frontend/src/main.js`                                                                         |
 | Content-Security-Policy no HTML                                                                                                                                                                                                                                                                                                           | `frontend/index.html`                                                                          |
 
 ### O que o servidor guarda
@@ -95,17 +105,15 @@ existir. Nada é gravado em disco ou banco: **reiniciar o servidor apaga tudo**.
 
 Nenhum destes itens está implementado.
 
-| Recurso                                  | Situação                                                                                                                                       |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Banimento e avisos de moderação          | Não implementado: o chat é anônimo; `/kick` e `/mute` valem para a identidade atual naquela sala (quem abre outra aba entra como pessoa nova). |
-| Interface das mensagens privadas         | Planejado (Fases 4 e 5). O servidor já tem conversas privadas, busca por `@` e bloqueio; a interface atual ainda não as mostra.                |
-| Navegar entre várias salas na interface  | Planejado (Fases 4 e 5). O servidor já aceita várias salas por pessoa; a interface atual mostra uma por vez.                                   |
-| Excluir, editar ou responder mensagens   | Não implementado (só a limpeza da sala inteira por administrador).                                                                             |
-| Fixar mensagens                          | Não implementado. `localStorage` guarda apenas o tema.                                                                                         |
-| Autenticação e registro                  | Não implementado, e fora do escopo.                                                                                                            |
-| Upload de arquivos, voz, emojis, reações | Não implementado.                                                                                                                              |
-| Mensagens com várias linhas              | Não implementado (o servidor remove quebras de linha).                                                                                         |
-| Criptografia ponta a ponta               | Não implementado.                                                                                                                              |
+| Recurso                          | Situação                                                                                                                                       |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Banimento                        | Não implementado: o chat é anônimo; `/kick` e `/mute` valem para a identidade atual naquela sala (quem abre outra aba entra como pessoa nova). |
+| Autenticação e registro          | Não implementado, e fora do escopo.                                                                                                            |
+| Guardar conversas entre sessões  | Não implementado: sem contas, fixadas e ordem da lista valem só durante a participação.                                                        |
+| Upload de arquivos, voz e vídeo  | Não implementado.                                                                                                                              |
+| Emojis próprios e reações livres | Não implementado (as reações são uma lista fixa de 12).                                                                                        |
+| Busca no histórico               | Não implementado.                                                                                                                              |
+| Criptografia ponta a ponta       | Não implementado.                                                                                                                              |
 
 ## Tecnologias
 
@@ -159,11 +167,11 @@ Navegador                                      Servidor (Node.js, tudo em memór
 
 ### Quem pode o quê
 
-| Papel         | Como se obtém                  | Pode                                                                                        |
-| ------------- | ------------------------------ | ------------------------------------------------------------------------------------------- |
-| Participante  | Entrando com nome e `@`        | Criar e entrar em salas, conversar, conversa privada, bloquear                              |
-| Anfitrião     | Criando a sala (ou herdando)   | Moderar **a própria sala**, pelo `@`: `/mute`, `/unmute`, `/kick`, `/clearall`, `/announce` |
-| Administrador | `/admin <chave>` (`ADMIN_KEY`) | Moderar qualquer sala em que esteja e ver ids internos                                      |
+| Papel         | Como se obtém                  | Pode                                                                                                                                              |
+| ------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Participante  | Entrando com nome e `@`        | Criar e entrar em salas, conversar, conversa privada, bloquear; responder, reagir, editar e apagar **as próprias** mensagens; numa privada, fixar |
+| Anfitrião     | Criando a sala (ou herdando)   | Moderar **a própria sala**, pelo `@`: `/mute`, `/unmute`, `/kick`, `/clearall`, `/announce`; apagar qualquer mensagem, fixar e mudar a descrição  |
+| Administrador | `/admin <chave>` (`ADMIN_KEY`) | Moderar qualquer sala em que esteja e ver ids internos                                                                                            |
 
 Toda permissão é conferida no servidor, a cada operação.
 
@@ -456,24 +464,24 @@ conexões por IP no proxy.
 
 ## Integrações
 
-| Integração              | Uso                                                    |
-| ----------------------- | ------------------------------------------------------ |
-| WebSocket (`ws`)        | Comunicação em tempo real                              |
-| Google Fonts            | Fontes da interface (requisição externa a cada visita) |
-| Notifications API       | Aviso de mensagem nova com a aba oculta                |
-| `localStorage`          | Apenas a preferência de tema (`web-chat:theme`)        |
-| GitHub Actions + CodeQL | CI e análise de segurança                              |
+| Integração              | Uso                                                                                   |
+| ----------------------- | ------------------------------------------------------------------------------------- |
+| WebSocket (`ws`)        | Comunicação em tempo real                                                             |
+| Google Fonts            | Fontes da interface (requisição externa a cada visita)                                |
+| Notifications API       | Aviso de mensagem nova com a aba oculta                                               |
+| `localStorage`          | Apenas preferências visuais: tema (`web-chat:theme`) e densidade (`web-chat:density`) |
+| GitHub Actions + CodeQL | CI e análise de segurança                                                             |
 
 Não há banco de dados, APIs de terceiros ou serviços de autenticação.
 
 ## Acessibilidade
 
-Verificada por comando, não por afirmação: `npm run check:contrast` mede 71 pares
-de cor nos dois temas (142 verificações) a partir de `frontend/src/css/tokens.css`.
+Verificada por comando, não por afirmação: `npm run check:contrast` mede 94 pares
+de cor nos dois temas (188 verificações) a partir de `frontend/src/css/tokens.css`.
 Na Fase 5, uma auditoria com axe-core (WCAG 2.0/2.1/2.2 A e AA) não encontrou
 violações em 16 telas e estados, nos dois temas.
 
-- **1.4.3** — todo texto ≥ 4.5:1 (menor par medido: 4.52:1).
+- **1.4.3** — todo texto ≥ 4.5:1 (menor par medido: 4.70:1).
 - **1.4.11** — contorno de controle, preenchimento e anel de foco ≥ 3:1.
 - **1.4.1** — cor nunca é o único sinal: selo "você", selo "admin", presença em
   texto ("Ausente"), estado da conexão com rótulo.
@@ -491,8 +499,15 @@ violações em 16 telas e estados, nos dois temas.
   temporários saem numa região `role="status"`, sem repetir o que já foi anunciado.
 - **2.3.3** — `prefers-reduced-motion` desliga animações decorativas.
 
-Falta a verificação manual com leitores de tela (NVDA, VoiceOver, TalkBack),
-prevista no roadmap (F5-06).
+- **Navegação por teclado** nos menus (padrão APG: setas, submenu, busca por
+  letra), na lista lateral (setas, Ctrl+Shift+↑/↓ para reordenar) e nas
+  mensagens (setas, Shift+F10 para as ações). Verificado no E2E.
+
+**Falta a verificação manual com leitores de tela** (NVDA, VoiceOver, TalkBack).
+O roteiro está em
+[`docs/ACESSIBILIDADE_TESTES_MANUAIS.md`](./docs/ACESSIBILIDADE_TESTES_MANUAIS.md)
+e ainda não foi executado. Os testes automáticos (axe e teclado) não substituem
+essa verificação.
 
 ## Documentação complementar
 

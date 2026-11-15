@@ -12,8 +12,8 @@
     position: relative;
     display: grid;
     grid-template-columns: var(--gutter-message) minmax(0, 1fr);
-    margin-top: var(--space-4);
-    padding: var(--space-0-5) var(--space-4) var(--space-0-5) var(--space-0);
+    margin-top: var(--message-gap-group);
+    padding: var(--message-pad-y) var(--space-4) var(--message-pad-y) var(--space-0);
     animation: fade-in var(--duration-base) var(--ease-out);
 }
 
@@ -33,8 +33,8 @@
 }
 
 .c-message__aside .c-identity__monogram {
-    width: var(--avatar-lg);
-    height: var(--avatar-lg);
+    width: var(--message-avatar);
+    height: var(--message-avatar);
     font-size: var(--text-sm);
 }
 

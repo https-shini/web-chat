@@ -128,74 +128,102 @@ Pesos: `regular 400`, `medium 500`, `semibold 600`, `bold 700`, `display 800`.
 
 ### 2.4 Layout
 
-| Token               | Valor                    |
-| ------------------- | ------------------------ |
-| `--sidebar-width`   | 15rem                    |
-| `--members-width`   | 15rem                    |
-| `--header-height`   | 3rem                     |
-| `--gutter-message`  | 4.5rem (calha do avatar) |
-| `--measure-message` | 70ch                     |
+| Token                 | Valor                                                     |
+| --------------------- | --------------------------------------------------------- |
+| `--sidebar-width`     | 17rem (navegação; a pessoa pode arrastar a borda)         |
+| `--members-width`     | 21rem (painel de contexto; também ajustável)              |
+| `--layout-rail-width` | 4.5rem (navegação recolhida em trilho)                    |
+| `--header-height`     | 3rem                                                      |
+| `--nav-item-height`   | 2.25rem (2rem na densidade compacta)                      |
+| `--menu-item-height`  | 2.25rem (2rem na densidade compacta)                      |
+| `--gutter-message`    | 4.5rem (3.5rem na compacta) — calha do avatar             |
+| `--message-gap-group` | `--space-4` (`--space-2` na compacta) — antes de um grupo |
+| `--message-pad-y`     | `--space-0-5` (`--space-0` na compacta)                   |
+| `--message-avatar`    | `--avatar-lg` (`--avatar-md` na compacta)                 |
+| `--measure-message`   | 70ch                                                      |
+| `--tap-min`           | 24px (mínimo de área de toque, WCAG 2.5.8)                |
+| `--tap-comfort`       | 44px (cabeçalhos no toque e no celular)                   |
 
-Pontos de quebra (usados como literais nas media queries): `30rem` (celular),
-`48rem` (tablet), `64rem` (notebook).
+**Densidade** (`ui/density.js`): `:root[data-density="compact"]` troca só os
+tokens acima. Tamanho de texto, contraste e o mínimo de 24px não mudam. A
+escolha (Perfil › Preferências) fica no navegador, como o tema.
+
+Pontos de quebra (usados como literais nas media queries): `30rem` (celular
+estreito), `48rem` (celular × tablet) e `80rem` (painel de contexto encaixado).
 
 ## 3. Layout e responsividade
 
 ```
-≥ 64rem   [ barra lateral | conversa | pessoas ]   pessoas pode ser fechado
-48–64rem  [ barra lateral | conversa ]  + gaveta de pessoas à direita
-< 48rem   [ conversa ]  + gaveta da barra (☰) à esquerda e de pessoas à direita
+≥ 80rem    [ navegação | conversa | contexto ]   o contexto pode ser fechado
+48–80rem   [ trilho | conversa ]  + folha de contexto à direita
+           (o trilho pode ser expandido para a navegação inteira)
+< 48rem    pilha de telas: lista → conversa → dados, cada uma na tela toda
 ```
 
 `ui/layout.js` decide o que está aberto pelo atributo `hidden`; o CSS decide
-onde cada painel mora. Com gaveta aberta: fundo escurecido, todo o resto
-`inert`, foco entra na gaveta, `Escape` ou toque no fundo fecham e o foco volta
-para quem abriu. Sem rolagem horizontal em 360, 390, 900 e 1280px
-(verificado no E2E).
+onde cada painel mora.
+
+- **Folhas e gavetas:** com uma delas aberta, o fundo escurece e todo o resto
+  fica `inert`. O foco entra nela e circula dentro dela. `Escape` ou um toque no
+  fundo fecham, e o foco volta para quem abriu.
+- **Celular:** cada tela ganha uma entrada no histórico do navegador, sem mudar
+  o endereço. O "voltar" do Android desce um nível. Voltar da lista pergunta
+  "Sair do chat?", com o foco em "Ficar no chat".
+- **Saída da página:** fechar, recarregar ou sair do site no meio do chat passa
+  pela confirmação do navegador (`beforeunload`).
+- **Larguras verificadas no E2E:** sem rolagem horizontal em 320, 375 e 430px
+  (`01-salas`, `07-celular`, `13-pilha`). O computador é testado a 1280 e 1440px.
 
 ## 4. Componentes
 
-| Componente                                | CSS                       | JS                         | Observações                                                                     |
-| ----------------------------------------- | ------------------------- | -------------------------- | ------------------------------------------------------------------------------- |
-| Botão `.c-button`                         | `button.css`              | —                          | `--primary`, `--secondary`, `--danger`, `--ghost`, `--sm`, `--block`            |
-| Botão de ícone `.c-icon-button`           | `button.css`              | —                          | nome em `aria-label`; dica em `data-tooltip`                                    |
-| Ícone                                     | `icon.css`                | `ui/icons.js`              | SVG por `createElementNS`, `aria-hidden`                                        |
-| Campo `.c-field`                          | `field.css`               | `ui/entry.js`              | rótulo, ajuda, erro com `aria-invalid`                                          |
-| Marca `.c-brand`                          | `brand.css`               | —                          |                                                                                 |
-| Barra lateral `.c-sidebar`                | `sidebar.css`             | `main.js` (atalhos)        | sala, atalhos, administração (só admin), conexão                                |
-| Painel "você" `.c-user-panel`             | `sidebar.css`             | `ui/userPanel.js`          | ausência = `/afk`; tema                                                         |
-| Cabeçalho `.c-header`                     | `header.css`              | `ui/layout.js`             | ☰, sala, tópico, pílula de estado, ajuda, pessoas                              |
-| Estado `.c-connection` / `.c-status-pill` | `connection.css`          | `ui/connection.js`         | texto + ponto; pílula some quando conectado                                     |
-| Identidade `.c-identity`                  | `avatar.css`              | `ui/identity.js`           | avatar, nome, ponto de presença, selo `.c-badge`                                |
-| Mensagem `.c-message`                     | `message.css`             | `ui/message.js`            | agrupada (`--compact`), sistema, aviso privado, ação, anúncio, spoiler, entrega |
-| Lista `.c-message-list`                   | `message-list.css`        | `ui/messageList.js`        | `div[role=log]` com `ol` dentro; agrupa por 5 min                               |
-| Composer                                  | `composer.css`            | `ui/composer.js`           | aviso de fila, sugestões, envio por ícone                                       |
-| Sugestões                                 | `command-suggestions.css` | `ui/commandSuggestions.js` | combobox ARIA                                                                   |
-| Digitando                                 | `typing.css`              | `ui/typing.js`             | altura reservada (o composer não pula)                                          |
-| Pessoas `.c-members`                      | `members.css`             | `ui/people.js`             | grupos Administradores / Online / Ausentes                                      |
-| Cartão de pessoa                          | `member-card.css`         | `ui/memberCard.js`         | popover; folha na base em < 48rem                                               |
-| Modal `.c-dialog`                         | `dialog.css`              | `ui/dialog.js`             | `<dialog>` nativo; foco começa em Cancelar                                      |
-| Dica `.c-tooltip`                         | `tooltip.css`             | `ui/tooltip.js`            | hover/foco; `Escape` dispensa (1.4.13)                                          |
-| Toast `.c-toast`                          | `toast.css`               | `ui/toast.js`              | `role=status`; visual-only quando o fato já foi anunciado                       |
-| Esqueleto `.c-skeleton`                   | `conversation.css`        | `main.js`                  | primeira conexão sem mensagens                                                  |
-| Vazio `.c-empty`                          | `empty.css`               | `ui/empty.js`              | "Boas-vindas à #sala-aberta!"                                                   |
-| Falha `.c-failure`                        | `failure.css`             | `ui/failure.js`            | queda definitiva ou remoção                                                     |
+| Componente                                | CSS                       | JS                                   | Observações                                                                                                                                             |
+| ----------------------------------------- | ------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Botão `.c-button`                         | `button.css`              | —                                    | `--primary`, `--secondary`, `--danger`, `--ghost`, `--sm`, `--block`                                                                                    |
+| Botão de ícone `.c-icon-button`           | `button.css`              | —                                    | nome em `aria-label`; dica em `data-tooltip`                                                                                                            |
+| Ícone                                     | `icon.css`                | `ui/icons.js`                        | SVG por `createElementNS`, `aria-hidden`                                                                                                                |
+| Campo `.c-field`                          | `field.css`               | `ui/entry.js`                        | rótulo, ajuda, erro com `aria-invalid`                                                                                                                  |
+| Marca `.c-brand`                          | `brand.css`               | —                                    |                                                                                                                                                         |
+| Barra lateral `.c-sidebar`                | `sidebar.css`, `nav.css`  | `ui/nav/sidebarNav.js`               | Início, Comandos, Fixadas, Salas, Privadas, Perfil no pé; setas, arrastar, Ctrl+Shift+↑/↓; selo de não lidas e "@N" de menções                          |
+| Ir para conversa (Ctrl K)                 | `nav.css`                 | `ui/nav/quickSwitcher.js`            | combobox; só as suas conversas e o `@` exato                                                                                                            |
+| Nova conversa (+)                         | `pages.css`               | `ui/nav/newConversation.js`          | popover com abas: criar sala, entrar com código, conversa privada                                                                                       |
+| Painel "você" `.c-user-panel`             | `sidebar.css`             | `ui/userPanel.js`                    | ausência = `/afk`; notificações; menu rápido; abre o Perfil                                                                                             |
+| Páginas Comandos e Perfil `.c-page`       | `pages.css`               | `ui/pages/*.js`                      | catálogo do servidor; nome, ausência, tema, densidade, notificações, sair                                                                               |
+| Cabeçalho `.c-header`                     | `header.css`              | `ui/roomHeader.js`                   | Voltar (celular) ou ☰, conversa, descrição, convite, mais opções, contexto                                                                             |
+| Menu `.c-menu`                            | `menu.css`                | `ui/primitives/menu.js`              | padrão APG: setas, submenu, busca por letra; folha inferior em < 48rem                                                                                  |
+| Menu de contexto                          | `menu.css`                | `ui/primitives/contextMenu.js`       | clique direito, Shift+F10, tecla Menu, toque longo (500 ms)                                                                                             |
+| Posicionamento                            | —                         | `ui/primitives/position.js`          | `@floating-ui/dom` (MIT, versão fixa)                                                                                                                   |
+| Estado `.c-connection` / `.c-status-pill` | `connection.css`          | `ui/connection.js`                   | texto + ponto; pílula some quando conectado                                                                                                             |
+| Identidade `.c-identity`                  | `avatar.css`              | `ui/identity.js`                     | avatar, nome, ponto de presença, selo `.c-badge`                                                                                                        |
+| Mensagem `.c-message`                     | `message.css`             | `ui/message.js`                      | Markdown (nós DOM), menção, citação da resposta, (editada), reações, fixada, entrega                                                                    |
+| Lista `.c-message-list`                   | `message-list.css`        | `ui/messageList.js`                  | `div[role=log]` com `ol`; agrupa (mesmo autor, mesmo dia, < 7 min); separador de dia; "Novas mensagens"; voltar ao fim; presa ao fim quando a área muda |
+| Composer                                  | `composer.css`            | `ui/composer.js`                     | `<textarea>` que cresce; barra de formatação; resposta; contador; aviso de silêncio                                                                     |
+| Sugestões                                 | `command-suggestions.css` | `ui/commandSuggestions.js`           | combobox ARIA: comandos e `@pessoa`                                                                                                                     |
+| Digitando                                 | `typing.css`              | `ui/typing.js`                       | altura reservada (o composer não pula)                                                                                                                  |
+| Painel de contexto `.c-members`           | `members.css`             | `ui/contextPanel.js`, `ui/people.js` | informações, descrição, fixadas, integrantes com filtro, ações                                                                                          |
+| Cartão de pessoa                          | `member-card.css`         | `ui/memberCard.js`                   | popover (floating-ui); folha na base em < 48rem                                                                                                         |
+| Modal `.c-dialog`                         | `dialog.css`              | `ui/dialog.js`                       | `<dialog>` nativo; foco começa no botão de cancelar                                                                                                     |
+| Dica `.c-tooltip`                         | `tooltip.css`             | `ui/tooltip.js`                      | hover/foco; `Escape` dispensa (1.4.13)                                                                                                                  |
+| Toast `.c-toast`                          | `toast.css`               | `ui/toast.js`                        | `role=status`; avisos de menção; visual-only quando o fato já foi anunciado                                                                             |
+| Esqueleto `.c-skeleton`                   | `conversation.css`        | `main.js`                            | primeira conexão sem mensagens                                                                                                                          |
+| Vazio `.c-empty`                          | `empty.css`               | `ui/empty.js`                        | "Boas-vindas à #sala-aberta!"                                                                                                                           |
+| Falha `.c-failure`                        | `failure.css`             | `ui/failure.js`                      | queda definitiva ou remoção                                                                                                                             |
 
 ### 4.1 O que cada controle faz (sem botão de enfeite)
 
-| Controle                                         | Ação real                               |
-| ------------------------------------------------ | --------------------------------------- |
-| Comandos (barra e cabeçalho)                     | `/help` (local)                         |
-| Limpar minha tela                                | `/clear` (local)                        |
-| Apagar para todos (só admin)                     | confirmação → `/clearall confirmar`     |
-| Relógio no painel "você"                         | `/afk` (alterna)                        |
-| Sol/lua                                          | troca de tema (salvo em `localStorage`) |
-| Pessoa no painel                                 | abre o cartão com dados de `user_list`  |
-| Ver perfil completo                              | `/profile <id>`                         |
-| Copiar id                                        | área de transferência                   |
-| Ficar ausente / Trocar meu nome (próprio cartão) | `/afk` / preenche `/nick `              |
-| Silenciar / Liberar (admin)                      | `/mute <id> 10` / `/unmute <id>`        |
-| Remover da sala (admin)                          | confirmação → `/kick <id>`              |
+| Controle                                          | Ação real                                                                         |
+| ------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Comandos (navegação)                              | página com o catálogo do servidor                                                 |
+| Limpar minha tela                                 | `/clear` (local)                                                                  |
+| Apagar histórico para todos (quem modera)         | confirmação → `/clearall confirmar`                                               |
+| Ausente (painel "você" e Perfil)                  | `/afk` (alterna; motivo opcional)                                                 |
+| Tema e densidade                                  | troca na hora; guardados em `localStorage`                                        |
+| Pessoa no painel                                  | abre o cartão com dados de `user_list`                                            |
+| Ver perfil completo                               | `/profile @username`                                                              |
+| Copiar `@`                                        | área de transferência                                                             |
+| Silenciar ▸ 5 min / 10 min / 1 hora / Até liberar | `/mute @username 5` · `10` · `60` · sem número; Liberar = `/unmute`               |
+| Remover da sala (quem modera)                     | confirmação → `/kick @username`                                                   |
+| Responder / Editar / Apagar / Reagir / Fixar      | `replyTo` · `message_edit` · `message_delete` · `reaction_toggle` · `message_pin` |
+| Descrição da sala (quem modera)                   | `room_update`                                                                     |
 
 Ações de moderação só aparecem para quem a lista do servidor marca como admin.
 É conveniência de interface: o servidor recusa o comando de quem não é.

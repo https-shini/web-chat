@@ -49,6 +49,27 @@ const emptyText = (id) =>
           ? strings.nav.emptyDms
           : strings.nav.emptyRooms;
 
+/** @param {number} mentions */
+const mentionLabel = (mentions) =>
+    mentions === 1
+        ? strings.conversations.mentionsOne
+        : format(strings.conversations.mentions, { n: mentions });
+
+/**
+ * Selo de não lidas; com menção, o selo mostra "@" e o número de menções
+ * (a forma, não só a cor, diz que é com você).
+ * @param {number} unread @param {number} mentions @param {string} [extra]
+ */
+const unreadBadge = (unread, mentions, extra = "") => {
+    const count = mentions > 0 ? mentions : unread;
+    const badge = el("span", {
+        class: `c-conversation-nav__badge${mentions > 0 ? " c-conversation-nav__badge--mention" : ""}${extra}`,
+        text: `${mentions > 0 ? "@" : ""}${count > 99 ? "99+" : String(count)}`,
+    });
+    badge.setAttribute("aria-hidden", "true");
+    return badge;
+};
+
 /** @param {number} unread */
 const unreadLabel = (unread) =>
     unread === 1
@@ -171,13 +192,10 @@ export const createSidebarNav = ({
             );
         }
         if (entry.unread > 0) {
-            const badge = el("span", {
-                class: "c-conversation-nav__badge",
-                text: entry.unread > 99 ? "99+" : String(entry.unread),
-            });
-            badge.setAttribute("aria-hidden", "true");
-            button.appendChild(badge);
+            const mentions = entry.mentions ?? 0;
+            button.appendChild(unreadBadge(entry.unread, mentions));
             parts.push(unreadLabel(entry.unread));
+            if (mentions > 0) parts.push(mentionLabel(mentions));
         }
         if (section === "pinned") parts.push(strings.nav.pinnedState);
         button.setAttribute("aria-label", parts.join(", "));
@@ -247,15 +265,13 @@ export const createSidebarNav = ({
                 name,
                 format(section.total === 1 ? "1 conversa" : "{n} conversas", { n: section.total }),
                 ...(section.unread > 0 ? [unreadLabel(section.unread)] : []),
+                ...(section.mentions > 0 ? [mentionLabel(section.mentions)] : []),
             ].join(", "),
         );
         if (section.collapsed && section.unread > 0) {
-            const badge = el("span", {
-                class: "c-conversation-nav__badge c-nav-group__badge",
-                text: section.unread > 99 ? "99+" : String(section.unread),
-            });
-            badge.setAttribute("aria-hidden", "true");
-            toggle.appendChild(badge);
+            toggle.appendChild(
+                unreadBadge(section.unread, section.mentions, " c-nav-group__badge"),
+            );
         } else {
             toggle.appendChild(
                 el("span", {

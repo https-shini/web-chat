@@ -1,6 +1,7 @@
 // @ts-check
 
 import { must } from "./dom.js";
+import { strings } from "../i18n/strings.js";
 
 /**
  * Confirmação para ações destrutivas, sobre o `<dialog>` nativo: foco
@@ -31,7 +32,7 @@ export const createDialog = () => {
 
     return {
         /**
-         * @param {{title: string, body: string, confirmLabel: string}} options
+         * @param {{title: string, body: string, confirmLabel: string, cancelLabel?: string}} options
          * @returns {Promise<boolean>}
          */
         confirm(options) {
@@ -39,6 +40,9 @@ export const createDialog = () => {
             title.textContent = options.title;
             body.textContent = options.body;
             confirmButton.textContent = options.confirmLabel;
+            const cancelButton = dialog.querySelector('button[value="cancel"]');
+            if (cancelButton)
+                cancelButton.textContent = options.cancelLabel ?? strings.dialog.cancel;
             returnFocus =
                 document.activeElement instanceof HTMLElement ? document.activeElement : null;
             dialog.returnValue = "";

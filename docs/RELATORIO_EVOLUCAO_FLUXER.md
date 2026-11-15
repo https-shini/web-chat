@@ -17,10 +17,12 @@
 | [#17](https://github.com/https-shini/web-chat/pull/17) | `feat/ui-05-historico` | Markdown seguro (só nós DOM), menções, agrupamento por autor e tempo, separador de dia, "Novas mensagens", voltar ao fim, ações da mensagem por barra, menu e teclado                                                                           |
 | [#18](https://github.com/https-shini/web-chat/pull/18) | `feat/ui-06-mensagens` | Servidor e interface: responder, editar, apagar (própria e moderação), reações (12 emojis fixos), mensagens fixadas, descrição da sala, silêncio com prazo                                                                                      |
 | [#19](https://github.com/https-shini/web-chat/pull/19) | `feat/ui-10-celular`   | Celular em pilha: lista → conversa → dados, cada uma na tela toda; voltar do Android/navegador desce um nível; 44 px no cabeçalho                                                                                                               |
-| PR 11                                                  | `feat/ui-11-validacao` | Validação final, a conversa fica presa ao fim quando o campo cresce, roteiro manual de acessibilidade atualizado e este relatório                                                                                                               |
+| [#20](https://github.com/https-shini/web-chat/pull/20) | `feat/ui-11-validacao` | Validação final, a conversa fica presa ao fim quando o campo cresce, roteiro manual de acessibilidade atualizado e este relatório                                                                                                               |
+| [#21](https://github.com/https-shini/web-chat/pull/21) | `feat/ui-12-decisoes`  | Aviso ao sair, densidade compacta, avisos de menção; revisão da documentação                                                                                                                                                                    |
 
-Ordem de merge: #13 → #14 → … → #19 → PR 11, um por vez, com a sua
-autorização. Nada foi mesclado nem publicado.
+Ordem de merge: #13 → #14 → #15 → #16 → #17 → #18 → #19 → #20 → #21, um por
+vez, com a sua autorização e com o CI verde em cada etapa. Nada foi mesclado
+nem publicado.
 
 ## 2. O que veio do Fluxer
 
@@ -60,40 +62,112 @@ Nenhum arquivo do Fluxer foi copiado: não há código AGPL no repositório.
 - **Armazenamento:** o navegador só guarda o tema. Fixadas, ordem, rascunhos e posição de rolagem ficam em memória.
 - **Testes antigos:** nenhum foi apagado nem enfraquecido. Quando um lugar ou um texto mudou, o seletor foi atualizado e a verificação continua a mesma, por exemplo o `09-painel`, que agora procura o texto neutro do silêncio.
 
-## 4. Testes (último ciclo, branch `feat/ui-11-validacao`)
+## 4. Revisão final (PR 12)
 
-| Suíte                                    | Resultado                                                               |
-| ---------------------------------------- | ----------------------------------------------------------------------- |
-| Backend (`npm run test:back`)            | 374/374                                                                 |
-| Frontend (`npm run test:front`)          | 236/236                                                                 |
-| E2E com axe (`npm run test:e2e`)         | 188/188 (arquivos 01 a 13; axe sem violações sérias nas telas cobertas) |
-| Lint (ESLint, Stylelint, tsc, contraste) | ok                                                                      |
-| Prettier                                 | ok                                                                      |
-| Build de produção (`vite build`)         | ok — JS 193 kB (64 kB gzip), CSS 89 kB (14 kB gzip)                     |
-| Memória (`npm run test:memory`)          | ver seção 4.1                                                           |
+A tabela com o commit validado de cada PR, o resultado do CI e dos testes
+locais está na descrição do PR #21. Ela fica lá e não num commit, porque um
+commit novo mudaria o que foi validado.
 
-Capturas conferidas a 1440, 1024 (trilho), 768 e 375 px, além de 320 e 430 px
-no E2E.
+### 4.1 Como cada PR foi validado
 
-### 4.1 Memória
+Em cada branch, no commit mais recente, numa cópia separada (worktree), foram
+rodados os mesmos passos do CI:
 
-`node scripts/memory-test.mjs` (padrão: 2 ciclos de 90 s de rotatividade a 8
-pessoas/s, com repousos de 160 s, mais longos que a janela de retomada de 2 min).
-**Todos os critérios passaram.**
+- `format:check`, `lint` (ESLint, Stylelint, tipos e contraste), `build` e
+  `npm test` (frontend e backend);
+- auditoria das dependências de produção;
+- o E2E completo **três vezes**, para expor instabilidade.
 
-| Medida                                    | Valor                                  |
-| ----------------------------------------- | -------------------------------------- |
-| Mensagens enviadas e recebidas            | 2880 / 2880, sem perda                 |
-| Retomadas com o mesmo @ e a sala de volta | 360 / 360                              |
-| Saídas por logout e por queda             | 540 + 540                              |
-| Pico de identidades                       | 308                                    |
-| Identidades depois de cada repouso        | 2 (só as residentes)                   |
-| Privadas que sobraram                     | 0                                      |
-| Memória (RSS) no fim do 1º repouso        | 92,9 MB                                |
-| Memória (RSS) no fim do 2º repouso        | 94,2 MB (sem crescimento contínuo)     |
-| Erros                                     | 0; o servidor ficou no ar o tempo todo |
+Depois disso, o CI do GitHub rodou de novo em cada PR.
 
-## 5. Pendências
+### 4.2 Problemas encontrados e corrigidos na revisão
+
+- **Teste instável no PR 3** (`09-painel`): o axe media o contraste durante a
+  animação de entrada. A causa foi corrigida na raiz: o `axe()` do harness
+  espera as animações finitas terminarem (`document.getAnimations()`).
+- **Esperas por tempo fixo:** oito delas podiam falhar sem motivo numa
+  máquina lenta e foram trocadas por esperas pela condição:
+    - axe depois de animação;
+    - aviso do servidor depois de `/mute` e `/unmute`, que antes era uma
+      corrida entre conexões;
+    - dois quadros depois de uma rolagem;
+    - a condição de "última mensagem à vista".
+- **Falha real no CI do PR 12** (3 de 3 execuções): "Ficar no chat" conferia o
+  histórico antes de a resposta do diálogo ser aplicada. O teste passou a
+  esperar o estado final. Depois disso, o CI ficou verde.
+- **Esperas por tempo que ficaram:** seis, todas em verificações de
+  _ausência_ ("a mensagem silenciada não chega", "não pede de novo"). Uma
+  espera assim pode deixar passar um erro, mas nunca falha sem motivo; três
+  delas já existiam no `main`.
+- **Documentação desatualizada:**
+    - `PROTOCOLO.md` não tinha os eventos do PR 6 nem as várias linhas do
+      PR 4. Foi corrigido no PR de origem e levado adiante por merge;
+    - o README dizia "nenhuma dependência de runtime no frontend" e tinha a
+      tabela "O que não existe" e os números de contraste desatualizados;
+    - o `design-system.md` descrevia o layout antigo;
+    - um comentário do `ci.yml` estava desatualizado.
+
+    Hoje, todos os eventos (20 do cliente, 25 do servidor), os 34 códigos de
+    erro, os limites e os 12 emojis estão no protocolo, conferidos por script.
+
+- **Bug antigo:** um aviso de sistema numa conversa de fundo zerava as não
+  lidas. Foi corrigido, e há teste.
+
+### 4.3 Regressões
+
+- **Testes unitários:** dos 510 títulos do `main`, três mudaram de nome, por
+  mudanças de regra aprovadas: várias linhas (C1) e a janela de 7 minutos do
+  agrupamento. As asserções continuam exatas nos limites (6:59 agrupa, 7:00
+  não). Nenhum teste foi removido.
+- **E2E:** as 81 verificações dos roteiros 01 a 07 do `main` continuam
+  presentes e passando.
+
+### 4.4 Pendências e verificações não realizadas
+
+- **Foco do menu no PR 2** (`08-navegacao`, "o menu abre com o foco no
+  primeiro item"): **problema real, de causa não determinada**.
+    - Ocorrências: 1 vez em 41 execuções do CI (commit 707f793) e 1 vez em 24
+      execuções locais do roteiro real.
+    - O que o diagnóstico mostrou: o menu estava aberto (1 menu), mas o foco
+      tinha voltado para o item da conversa na lista.
+    - Como o menu foca: o primeiro item recebe o foco de forma síncrona, no
+      mesmo passo em que o menu entra na página. Portanto, algo devolve o
+      foco à lista depois.
+    - Causas descartadas pelo código e por teste:
+        - o menu escondido no momento do foco;
+        - um segundo atalho Shift+F10 em outra área;
+        - a atualização dos itens do próprio menu;
+        - outro componente com a mesma classe;
+        - o redesenho da lista (ele só devolve o foco se o foco já estava na
+          lista). Isso foi confirmado com 40 aberturas do menu com a lista
+          sendo redesenhada sem parar e a CPU 4× mais lenta.
+    - Tentativas de capturar a origem: 60 execuções com cada `focus()`
+      registrado, com a pilha de chamadas, sem nenhuma falha. A
+      instrumentação pode ter mudado o tempo das chamadas.
+    - Efeito para quem usa: raramente, ao abrir o menu da conversa pelo
+      teclado, o foco pode ficar no item da lista, e não no menu.
+    - Situação: **pendente**. O teste ficou estrito e passou a dizer onde está
+      o foco quando falha. Uma opção é o menu conferir o foco no quadro
+      seguinte; ela melhora a robustez, mas esconderia o sintoma, então fica
+      para você decidir.
+- **CodeQL:**
+    - o PR #13, contra o `main`, deu "No new alerts in code changed by this
+      pull request";
+    - a análise do código da pilha inteira rodou com sucesso na branch final
+      (execução 43561215646, 167 arquivos JS);
+    - **a lista de alertas não pôde ser lida neste ambiente**: não há
+      ferramenta de _code scanning_, e baixar a CLI do CodeQL foi bloqueado.
+      A consulta fica na aba Security do GitHub;
+    - cada PR ganha a sua própria verificação do CodeQL quando a base dele
+      passar a ser o `main`.
+- **Leitores de tela** (NVDA, VoiceOver, TalkBack): **não executados**. O
+  ambiente não tem interface gráfica nem esses sistemas. A limitação está em
+  `ACESSIBILIDADE_TESTES_MANUAIS.md`.
+- **PR #5** (`feat/connection-feedback`, anterior a esta pilha): continua
+  aberto contra o `main`, sem conflito com a pilha (conferido com um merge de
+  teste).
+
+## 5. Pendências (registro anterior, PR 11)
 
 1. **Testes manuais com leitores de tela** (NVDA, VoiceOver, TalkBack): o roteiro está em `ACESSIBILIDADE_TESTES_MANUAIS.md` (seções 10 a 13 novas) e **ainda não foi executado**. A acessibilidade não pode ser declarada só pela automação.
 2. **CodeQL:** só roda nos PRs contra `main`. Como os PRs estão empilhados, cada um passa pelo CodeQL quando o anterior for mesclado e a base dele mudar para `main`.
