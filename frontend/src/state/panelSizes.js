@@ -30,11 +30,12 @@
  * em tokens.css.
  *  - barra lateral: abaixo de 14rem o painel "você" (nome, @username e três
  *    botões) começa a cortar o nome;
- *  - pessoas: abaixo de 12rem o @username some quase inteiro.
+ *  - painel de contexto (dados, integrantes e ações): abaixo de 16rem as
+ *    ações rápidas e os nomes com selos começam a cortar.
  */
 export const PANEL_LIMITS_REM = Object.freeze({
-    sidebar: Object.freeze({ min: 14, default: 16, max: 28 }),
-    members: Object.freeze({ min: 12, default: 15, max: 26 }),
+    sidebar: Object.freeze({ min: 14, default: 17, max: 28 }),
+    members: Object.freeze({ min: 16, default: 21, max: 28 }),
 });
 
 /** Largura mínima da conversa, para a leitura e a caixa de mensagem caberem. */

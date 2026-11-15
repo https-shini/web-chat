@@ -3,21 +3,34 @@
 import { format, peopleCount, strings } from "../i18n/strings.js";
 import { el, must } from "./dom.js";
 import { badge, renderIdentity } from "./identity.js";
+import { icon } from "./icons.js";
+import { bindContextMenu } from "./primitives/contextMenu.js";
+import { showMenu } from "./primitives/menu.js";
 
 /**
  * Painel de pessoas, agrupado como nos chats em grupo:
  * Administradores — N · Online — N · Ausentes — N.
  *
  * Todo dado vem da lista `user_list` do servidor — nada é inventado aqui.
- * Cada pessoa é um botão que abre o cartão dela (ui/memberCard.js).
+ * Cada pessoa é um botão que abre o cartão dela (ui/memberCard.js). Ao
+ * passar o ponteiro aparecem "Mensagem privada" e "⋯"; o mesmo menu abre
+ * com clique direito, Shift+F10 e toque longo. O filtro (nome ou arroba) é só
+ * no navegador.
  *
  * @typedef {import("../state/store.js").Person} Person
  */
 
+/** Sem acento e em minúsculas. @param {string} text */
+const fold = (text) => text.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase("pt-BR");
+
 /**
- * @param {{onSelect: (person: Person, trigger: HTMLButtonElement) => void}} handlers
+ * @param {{
+ *   onSelect: (person: Person, trigger: HTMLButtonElement) => void,
+ *   onDirect?: (person: Person) => void,
+ *   menuFor?: (person: Person) => import("./primitives/menuModel.js").MenuItem[],
+ * }} handlers
  */
-export const createPeople = ({ onSelect }) => {
+export const createPeople = ({ onSelect, onDirect, menuFor }) => {
     const count = /** @type {HTMLElement} */ (must(".c-people__count"));
     const list = /** @type {HTMLElement} */ (must(".c-people__list"));
     const headerCount = /** @type {HTMLElement} */ (must(".c-header__count"));
@@ -26,12 +39,52 @@ export const createPeople = ({ onSelect }) => {
     /** @type {Map<string, Person>} */
     let byId = new Map();
 
+    /** Filtro atual (nome ou arroba). */
+    let query = "";
+    /** Última lista desenhada, para refazer com outro filtro. @type {[Person[], string | null, boolean]} */
+    let last = [[], null, false];
+
     list.addEventListener("click", (event) => {
         const target = event.target instanceof Element ? event.target : null;
-        const button = /** @type {HTMLButtonElement | null} */ (target?.closest(".c-member"));
+        const direct = target?.closest("[data-person-direct]");
+        const more = target?.closest("[data-person-more]");
+        const row = target?.closest(".c-member-row");
+        const button = /** @type {HTMLButtonElement | null} */ (
+            row?.querySelector(".c-member") ?? null
+        );
         const person = button ? byId.get(button.dataset.personId ?? "") : undefined;
-        if (button && person) onSelect(person, button);
+        if (!button || !person) return;
+        if (direct) {
+            onDirect?.(person);
+            return;
+        }
+        if (more instanceof HTMLElement && menuFor) {
+            showMenu({
+                label: format(strings.context.memberMenu, { name: person.name }),
+                anchor: more,
+                placement: "bottom-end",
+                returnFocus: button,
+                items: menuFor(person),
+            });
+            return;
+        }
+        if (target?.closest(".c-member")) onSelect(person, button);
     });
+
+    if (menuFor) {
+        bindContextMenu(list, {
+            selector: ".c-member",
+            resolve: (target) => {
+                const person = byId.get(target.dataset.personId ?? "");
+                return person
+                    ? {
+                          label: format(strings.context.memberMenu, { name: person.name }),
+                          items: menuFor(person),
+                      }
+                    : null;
+            },
+        });
+    }
 
     /**
      * @param {Person} person
@@ -80,7 +133,43 @@ export const createPeople = ({ onSelect }) => {
         const sub = [handle, presence].filter(Boolean).join(" · ");
         if (sub) info.appendChild(el("span", { class: "c-member__sub", text: sub }));
         button.appendChild(info);
-        return button;
+        const row = el("div", { class: "c-member-row" });
+        row.appendChild(button);
+        // Ações ao passar o ponteiro (fora do Tab: o teclado usa o cartão
+        // ou o menu de contexto).
+        const actions = el("span", { class: "c-member-row__actions" });
+        if (!own && onDirect && person.username) {
+            const direct = el("button", {
+                class: "c-icon-button c-icon-button--sm",
+                attrs: {
+                    type: "button",
+                    tabindex: "-1",
+                    "data-person-direct": "",
+                    "aria-label": `${strings.memberCard.direct}: ${person.name}`,
+                    "data-tooltip": strings.memberCard.direct,
+                },
+            });
+            direct.appendChild(icon("at"));
+            actions.appendChild(direct);
+        }
+        if (menuFor) {
+            const more = el("button", {
+                class: "c-icon-button c-icon-button--sm",
+                attrs: {
+                    type: "button",
+                    tabindex: "-1",
+                    "data-person-more": "",
+                    "aria-haspopup": "menu",
+                    "aria-expanded": "false",
+                    "aria-label": format(strings.context.memberMenu, { name: person.name }),
+                    "data-tooltip": strings.context.more,
+                },
+            });
+            more.appendChild(icon("dots"));
+            actions.appendChild(more);
+        }
+        row.appendChild(actions);
+        return row;
     };
 
     /**
@@ -112,6 +201,7 @@ export const createPeople = ({ onSelect }) => {
          * @param {boolean} known  Falso enquanto a conexão está fora do ar.
          */
         render(people, meId, known) {
+            last = [people, meId, known];
             // Fora do ar o título fica só "Pessoas"; o motivo vai no corpo do painel.
             count.textContent = known ? peopleCount(people.length) : "";
             headerCount.textContent = known ? String(people.length) : "";
@@ -131,8 +221,20 @@ export const createPeople = ({ onSelect }) => {
                 return;
             }
 
-            const admins = people.filter((person) => person.role === "admin");
-            const rest = people.filter((person) => person.role !== "admin");
+            const q = fold(query.trim().replace(/^@/, ""));
+            const shown = q
+                ? people.filter((person) =>
+                      [person.name, person.username ?? ""].some((text) => fold(text).includes(q)),
+                  )
+                : people;
+            if (shown.length === 0) {
+                list.replaceChildren(
+                    el("p", { class: "c-people__empty", text: strings.context.noMatch }),
+                );
+                return;
+            }
+            const admins = shown.filter((person) => person.role === "admin");
+            const rest = shown.filter((person) => person.role !== "admin");
             const online = rest.filter((person) => person.status !== "away");
             const away = rest.filter((person) => person.status === "away");
 
@@ -142,6 +244,15 @@ export const createPeople = ({ onSelect }) => {
             if (away.length) groups.push(renderGroup(strings.people.groupAway, away, meId));
             list.replaceChildren(...groups);
             if (focusedId) this.buttonFor(focusedId)?.focus();
+        },
+
+        /**
+         * Filtra a lista por nome ou arroba (só no navegador).
+         * @param {string} text
+         */
+        setFilter(text) {
+            query = text;
+            this.render(...last);
         },
 
         /**

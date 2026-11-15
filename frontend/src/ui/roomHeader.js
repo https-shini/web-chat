@@ -24,7 +24,9 @@ export const createRoomHeader = () => {
         /** @type {HTMLButtonElement | null} */ (
             document.querySelector(`[data-conversation-action="${action}"]`)
         );
-    const invite = action("invite");
+    const invites = /** @type {HTMLButtonElement[]} */ ([
+        ...document.querySelectorAll('[data-conversation-action="invite"]'),
+    ]);
     const block = action("block");
     const leave = action("leave");
 
@@ -32,7 +34,8 @@ export const createRoomHeader = () => {
     const label = (button, label) => {
         if (!button) return;
         button.setAttribute("aria-label", label);
-        button.dataset.tooltip = label;
+        // Ação com texto visível (painel) não precisa de dica.
+        if (!button.classList.contains("c-action")) button.dataset.tooltip = label;
     };
 
     let lastKind = "";
@@ -58,9 +61,7 @@ export const createRoomHeader = () => {
                                   ? strings.conversations.online
                                   : strings.conversations.offline,
                           })
-                        : room?.code
-                          ? format(strings.room.topic, { code: room.code })
-                          : strings.room.topicPending;
+                        : strings.room.topicPending;
             }
             if (welcome) {
                 welcome.textContent = dm
@@ -72,12 +73,24 @@ export const createRoomHeader = () => {
                     ? format(strings.conversations.dmPlaceholder, { name })
                     : format(strings.room.placeholder, { name });
             }
-            if (invite) invite.hidden = dm || !room?.code;
+            for (const invite of invites) invite.hidden = dm || !room?.code;
+            const blockLabel = format(strings.conversations.block, { name });
+            const leaveLabel = dm ? strings.conversations.closeDm : strings.conversations.leaveRoom;
             if (block) {
                 block.hidden = !dm;
-                label(block, format(strings.conversations.block, { name }));
+                label(block, blockLabel);
+                const text = block.querySelector("[data-context-block-label]");
+                if (text) text.textContent = `${blockLabel}…`;
             }
-            label(leave, dm ? strings.conversations.closeDm : strings.conversations.leaveRoom);
+            label(leave, leaveLabel);
+            const leaveText = leave?.querySelector("[data-context-leave-label]");
+            if (leaveText) leaveText.textContent = `${leaveLabel}…`;
+            const leaveHint = leave?.querySelector("[data-context-leave-hint]");
+            if (leaveHint) {
+                leaveHint.textContent = dm
+                    ? strings.context.closeDmHint
+                    : strings.context.leaveHint;
+            }
         },
     };
 };

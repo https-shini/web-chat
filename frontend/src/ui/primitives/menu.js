@@ -333,14 +333,9 @@ export const showMenu = ({
           });
 
     index = first(items);
-    // O foco vai para o primeiro item depois do primeiro desenho (o
-    // posicionamento é assíncrono e o foco não pode rolar a página).
-    requestAnimationFrame(() => {
-        if (openMenu === handle) {
-            const button = buttons[index];
-            button?.focus({ preventScroll: true });
-        }
-    });
+    // O foco vai já para o primeiro item (sem rolar a página: a posição é
+    // calculada logo depois, de forma assíncrona).
+    buttons[index]?.focus({ preventScroll: true });
     anchor?.setAttribute("aria-expanded", "true");
 
     let closed = false;
