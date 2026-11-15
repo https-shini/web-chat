@@ -55,6 +55,9 @@ services:
           # Embutido no JavaScript no momento do build (público por natureza).
           - key: VITE_SOCKET_URL
             value: wss://webchat-api.gcruz.dev.br
+          # Endereço oficial: quem abre o site pelo onrender.com é levado para cá.
+          - key: VITE_PUBLIC_URL
+            value: https://webchat.gcruz.dev.br
       headers:
           # CSP como cabeçalho HTTP: é o único jeito de `frame-ancestors`
           # valer (no <meta> ele é ignorado). Espelha a CSP do index.html, com

@@ -30,6 +30,9 @@ only), apontando para o endereço do Render de cada serviço; o certificado é
 emitido pelo Render. Durante a transição, `ALLOWED_ORIGINS` aceita as duas
 origens do site e o `connect-src` da CSP aceita os dois endereços do backend.
 Quando os endereços do Render forem desativados, remova-os das duas listas.
+Com `VITE_PUBLIC_URL` definida no build, quem abre o site pelo
+`chat-frontend-g42t.onrender.com` é redirecionado para o mesmo caminho e
+convite em `webchat.gcruz.dev.br` (`frontend/src/publicHost.js`).
 
 ## Variáveis de ambiente
 
@@ -40,6 +43,7 @@ Quando os endereços do Render forem desativados, remova-os das duas listas.
 | `chat-backend`  | `ADMIN_KEY`       | definida no painel (`sync: false`)                                     | **Segredo** — nunca no repositório        |
 | `chat-frontend` | `NODE_VERSION`    | `22`                                                                   | Pública                                   |
 | `chat-frontend` | `VITE_SOCKET_URL` | `wss://webchat-api.gcruz.dev.br`                                       | Pública — embutida no JavaScript no build |
+| `chat-frontend` | `VITE_PUBLIC_URL` | `https://webchat.gcruz.dev.br`                                         | Pública — redireciona o onrender.com      |
 
 As demais variáveis do backend (limites, heartbeat, métricas) usam os padrões do
 código; a lista completa está no [README](../README.md#configuração-do-ambiente).

@@ -1,5 +1,7 @@
 // @ts-check
 
+// Primeiro: quem chega pelo endereço antigo é levado ao domínio próprio.
+import "./publicHost.js";
 import { SOCKET_URL, TIMING } from "./config.js";
 import { CLIENT_EVENTS, CLOSE_CODES, ERROR_CODES, REACTION_EMOJIS } from "./protocol.js";
 import { routeInput } from "./commands/input.js";
