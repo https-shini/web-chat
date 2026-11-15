@@ -216,7 +216,7 @@ export const loadConfig = (env) => {
         throw new ConfigError(
             "ALLOWED_ORIGINS",
             "ALLOWED_ORIGINS é obrigatória em produção (NODE_ENV=production): informe a origem " +
-                "do frontend, ex.: https://chat-frontend-g42t.onrender.com.",
+                "do frontend, ex.: https://chat.gcruz.dev.br.",
         );
     }
 

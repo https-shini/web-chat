@@ -18,15 +18,28 @@ a sala está no teto de conexões. Como health check, isso faria o Render reinic
 serviço exatamente no momento de maior uso. `/healthz` só confirma que o processo
 responde.
 
+## Domínios
+
+| Serviço         | Domínio próprio         | Endereço do Render (continua ativo) |
+| --------------- | ----------------------- | ----------------------------------- |
+| `chat-frontend` | `chat.gcruz.dev.br`     | `chat-frontend-g42t.onrender.com`   |
+| `chat-backend`  | `chat-api.gcruz.dev.br` | `chat-backend-3sxv.onrender.com`    |
+
+Os dois domínios são registros CNAME na Cloudflare, com o proxy desligado (DNS
+only), apontando para o endereço do Render de cada serviço; o certificado é
+emitido pelo Render. Durante a transição, `ALLOWED_ORIGINS` aceita as duas
+origens do site e o `connect-src` da CSP aceita os dois endereços do backend.
+Quando os endereços do Render forem desativados, remova-os das duas listas.
+
 ## Variáveis de ambiente
 
-| Serviço         | Variável          | Valor                                     | Natureza                                  |
-| --------------- | ----------------- | ----------------------------------------- | ----------------------------------------- |
-| `chat-backend`  | `NODE_VERSION`    | `22`                                      | Pública — igual ao CI                     |
-| `chat-backend`  | `ALLOWED_ORIGINS` | `https://chat-frontend-g42t.onrender.com` | Pública                                   |
-| `chat-backend`  | `ADMIN_KEY`       | definida no painel (`sync: false`)        | **Segredo** — nunca no repositório        |
-| `chat-frontend` | `NODE_VERSION`    | `22`                                      | Pública                                   |
-| `chat-frontend` | `VITE_SOCKET_URL` | `wss://chat-backend-3sxv.onrender.com`    | Pública — embutida no JavaScript no build |
+| Serviço         | Variável          | Valor                                                               | Natureza                                  |
+| --------------- | ----------------- | ------------------------------------------------------------------- | ----------------------------------------- |
+| `chat-backend`  | `NODE_VERSION`    | `22`                                                                | Pública — igual ao CI                     |
+| `chat-backend`  | `ALLOWED_ORIGINS` | `https://chat.gcruz.dev.br,https://chat-frontend-g42t.onrender.com` | Pública                                   |
+| `chat-backend`  | `ADMIN_KEY`       | definida no painel (`sync: false`)                                  | **Segredo** — nunca no repositório        |
+| `chat-frontend` | `NODE_VERSION`    | `22`                                                                | Pública                                   |
+| `chat-frontend` | `VITE_SOCKET_URL` | `wss://chat-api.gcruz.dev.br`                                       | Pública — embutida no JavaScript no build |
 
 As demais variáveis do backend (limites, heartbeat, métricas) usam os padrões do
 código; a lista completa está no [README](../README.md#configuração-do-ambiente).
@@ -88,14 +101,14 @@ e salve (o Render faz um novo deploy).
 ## Verificação depois do deploy
 
 ```bash
-curl -sS https://chat-backend-3sxv.onrender.com/healthz
+curl -sS https://chat-api.gcruz.dev.br/healthz
 ```
 
 ```bash
-curl -sSI https://chat-frontend-g42t.onrender.com/ | grep -iE "content-security|x-frame|permissions|referrer"
+curl -sSI https://chat.gcruz.dev.br/ | grep -iE "content-security|x-frame|permissions|referrer"
 ```
 
-E no navegador, em https://chat-frontend-g42t.onrender.com:
+E no navegador, em https://chat.gcruz.dev.br:
 
 - entrar com nome completo e nome de usuário;
 - enviar `/ping` (resposta só para você);
