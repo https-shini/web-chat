@@ -514,9 +514,22 @@
     }
 }
 
-/* No celular (gaveta) o trilho não se aplica nem aparece o botão. */
+/* No celular a lista é uma tela da pilha, na largura toda (ui/layout.js);
+   o trilho não se aplica nem aparece o botão. */
 @media (max-width: 47.99rem) {
+    .c-sidebar {
+        flex-basis: 100%;
+        width: 100%;
+    }
+
     .c-sidebar__rail {
+        display: none;
+    }
+}
+
+/* Toque sem teclado físico: o atalho não ensina nada. */
+@media (pointer: coarse) {
+    .c-jump__kbd {
         display: none;
     }
 }

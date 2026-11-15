@@ -192,6 +192,9 @@ export const strings = {
     layout: {
         openSidebar: "Abrir barra lateral",
         closeSidebar: "Fechar barra lateral",
+        backToList: "Voltar para as conversas",
+        backToChat: "Voltar para a conversa",
+        closeDetails: "Fechar dados da conversa",
         members: "Pessoas",
         /** @param {number} px */
         width: (px) => `${px} pixels`,

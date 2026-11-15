@@ -157,18 +157,17 @@
     white-space: nowrap;
 }
 
-/* < 48rem: gaveta à esquerda, sobre a conversa. */
+/* < 48rem: a lista é a tela de base da pilha (ui/layout.js), na tela toda.
+   A conversa fica "por cima"; voltar a ela é escolher um item (ou Esc). */
 @media (max-width: 47.99rem) {
     .c-sidebar {
         position: fixed;
-        inset: 0 auto 0 0;
+        inset: 0;
         z-index: calc(var(--z-drawer) + 1);
-        width: min(18rem, 85vw);
-        box-shadow: var(--shadow-3);
         animation: slide-in-left var(--duration-slow) var(--ease-out);
     }
 
     .c-sidebar__close {
-        display: inline-flex;
+        display: none;
     }
 }

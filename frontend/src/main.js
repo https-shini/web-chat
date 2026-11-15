@@ -1638,6 +1638,9 @@ const profilePage = createProfilePage({
 // página não recarrega. Se é de uma sala que você já tem, ela é aberta; se
 // não, é pedida ao servidor como "entrar com código".
 window.addEventListener("hashchange", () => {
+    // Voltar/avançar entre as telas da pilha do celular (ui/layout.js) também
+    // troca o `#` de uma entrada antiga: isso não é um convite novo.
+    if (history.state && typeof history.state === "object" && "layer" in history.state) return;
     const code = readInviteHash(location.hash);
     const state = store.getState();
     if (!code || state.screen === "entry") return;
@@ -1883,6 +1886,22 @@ const linkAnnouncement = (state) => {
 };
 
 /**
+ * O endereço da página é o convite da sala aberta; fora dela, nenhum. O
+ * estado da entrada (nível da pilha no celular) é mantido.
+ * @param {import("./state/store.js").State} state
+ */
+const syncInviteHash = (state) => {
+    if (state.screen === "entry") return;
+    const room = state.screen === "room" && state.room?.kind !== "dm" ? state.room : null;
+    const hash = room?.code ? inviteHash(room.code) : "";
+    if (location.hash !== hash) {
+        history.replaceState(history.state, "", hash || location.pathname + location.search);
+    }
+};
+// Voltar a uma tela da pilha traz a URL antiga daquela entrada: reacerta.
+layout.onChange(() => syncInviteHash(store.getState()));
+
+/**
  * Pinta a tela a partir do estado. Cada componente só é redesenhado quando a
  * parte do estado de que ele depende mudou — antes, todo evento recebido
  * (inclusive cada sinal de digitação de outra pessoa) reconstruía a lista de
@@ -1893,7 +1912,6 @@ const linkAnnouncement = (state) => {
 const render = (state, previous) => {
     const inRoom = state.screen === "room";
     const inApp = state.screen !== "entry";
-    const isDm = state.room?.kind === "dm";
     const noMessages = state.messages.length === 0;
     const wasEmpty = previous ? previous.messages.length === 0 : null;
 
@@ -1928,13 +1946,7 @@ const render = (state, previous) => {
             const on = (button.dataset.navFilter === "unread") === state.nav.unreadOnly;
             button.setAttribute("aria-pressed", String(on));
         }
-        // O endereço da página é o convite da sala aberta; fora dela, nenhum.
-        if (inApp) {
-            const hash = inRoom && state.room?.code && !isDm ? inviteHash(state.room.code) : "";
-            if (location.hash !== hash) {
-                history.replaceState(null, "", hash || location.pathname + location.search);
-            }
-        }
+        syncInviteHash(state);
     }
     if (changed(state, previous, ["conversations"])) {
         // Total de não lidas no título da aba: "(3) web-chat · …".

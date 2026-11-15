@@ -150,6 +150,23 @@
     }
 }
 
+/* Celular: os dados da conversa são uma tela da pilha, na tela toda, com
+   "Voltar" à esquerda do título (como o "Dados do grupo" do WhatsApp). */
+@media (max-width: 47.99rem) {
+    .c-members {
+        width: 100%;
+        border-left: 0;
+        box-shadow: none;
+    }
+
+    .c-members__top {
+        flex-direction: row-reverse;
+        justify-content: flex-end;
+        gap: var(--space-2);
+        padding-left: var(--space-2);
+    }
+}
+
 /* ─── Painel de contexto: informações, blocos recolhíveis e ações ──── */
 .c-context .c-members__scroll {
     display: flex;

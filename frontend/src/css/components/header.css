@@ -73,3 +73,14 @@
         display: none;
     }
 }
+
+/* Toque: os botões do cabeçalho com a área confortável (44 px). */
+@media (max-width: 47.99rem), (pointer: coarse) {
+    .c-header .c-icon-button,
+    .c-home__bar .c-icon-button,
+    .c-members__top .c-icon-button,
+    .c-page__bar .c-icon-button {
+        min-width: var(--tap-comfort);
+        min-height: var(--tap-comfort);
+    }
+}
