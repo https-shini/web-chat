@@ -6,7 +6,7 @@
 > que o Fluxer usa, foi adotada só `@floating-ui/dom` (versão fixa 1.6.13).
 > O projeto continua MIT.
 
-## 1. Entregas (PRs empilhados, todos em rascunho)
+## 1. Entregas (integradas no `main` e publicadas em 15/11/2026)
 
 | PR                                                     | Branch                 | Conteúdo                                                                                                                                                                                                                                        |
 | ------------------------------------------------------ | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -20,9 +20,26 @@
 | [#20](https://github.com/https-shini/web-chat/pull/20) | `feat/ui-11-validacao` | Validação final, a conversa fica presa ao fim quando o campo cresce, roteiro manual de acessibilidade atualizado e este relatório                                                                                                               |
 | [#21](https://github.com/https-shini/web-chat/pull/21) | `feat/ui-12-decisoes`  | Aviso ao sair, densidade compacta, avisos de menção; revisão da documentação                                                                                                                                                                    |
 
-Ordem de merge: #13 → #14 → #15 → #16 → #17 → #18 → #19 → #20 → #21, um por
-vez, com a sua autorização e com o CI verde em cada etapa. Nada foi mesclado
-nem publicado.
+Integração: #13 → #14 → #15 → #16 → #17 → #18 → #19 → #20 → #21, um por vez,
+com merge commit, depois de o CI e o CodeQL passarem com a base no `main`.
+
+- **Commit final do `main`:** `0848961`. A árvore de arquivos é idêntica à do
+  commit validado do PR 12 (`3d35a1f`).
+- **Produção (Render):**
+    - frontend em https://chat-frontend-g42t.onrender.com (deploy
+      `dep-dbsvd96417fc7380d7b0`);
+    - backend em https://chat-backend-3sxv.onrender.com (deploy
+      `dep-dbsv6k5bedkc73climg0`, commit `b7fdd81`; nada em `backend/` mudou
+      depois dele).
+- **Rollback:** o painel do Render volta a um deploy anterior.
+    - Antes desta entrega, o frontend estava em `dep-dbrona61egvs73a7brpg`
+      (commit `3606dd2`) e o backend em `dep-dbrbcu142hec73bdsf1g` (commit
+      `eb65aed`).
+    - Pelo Git, o caminho é um `git revert -m 1` dos merges, do #21 para trás.
+      O deploy automático publica o resultado.
+- **CDN:** o `index.html` do site fica até 5 min no cache do Cloudflare
+  (`s-maxage=300`). Logo depois de um deploy, a versão anterior ainda pode
+  aparecer por alguns minutos.
 
 ## 2. O que veio do Fluxer
 
