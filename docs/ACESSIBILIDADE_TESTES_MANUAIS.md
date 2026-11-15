@@ -24,6 +24,12 @@ para dizer se a experiência faz sentido ouvida.
     - Escape devolve o foco ao botão de menu;
     - os botões têm área de toque de pelo menos 24 × 24 px;
     - não há rolagem horizontal a 375 px.
+- `08-navegacao`: ordem do menu (Início, Comandos, Fixadas, Salas, Privadas, Perfil no rodapé), setas e roving tabindex na lista, fixar e reordenar pelo teclado (Ctrl+Shift+↑/↓), Ctrl K, menu "+".
+- `09-painel`: painel de contexto igual para sala e privada, menu do integrante por Shift+F10 com submenu de silêncio, moderação só para quem modera.
+- `10-composer`: Enter envia e Shift+Enter quebra a linha, formatação por atalho e barra, contador e aviso de limite.
+- `11-historico`: Markdown sem HTML, menções com aviso em texto, separador de dia, "Novas mensagens", ações da mensagem por barra, menu e teclado.
+- `12-recursos`: responder (Esc cancela), reagir com `aria-pressed`, editar com ↑, apagar, fixadas no painel, descrição, silêncio com prazo.
+- `13-pilha`: no celular (320, 375 e 430 px) lista, conversa e dados em pilha; "Voltar" com rótulo; voltar do navegador desce um nível; botões do cabeçalho com 44 px.
 - `03-reconexao`: depois de uma queda, o foco continua no campo de mensagem e o texto meio escrito continua lá.
 - axe sem violações sérias no início, na sala, na privada, no celular e com a gaveta aberta.
 
@@ -142,10 +148,54 @@ importar), **onde o foco ficou**, e o resultado — ✅ (como esperado), ⚠️
 
 ### 10. Telas pequenas (TalkBack e VoiceOver no iOS)
 
-1. Em retrato, a gaveta lateral deve abrir pelo botão "Abrir barra lateral".
-   O foco deve ficar preso nela, e "voltar" ou Escape deve fechá-la.
-2. Itens de conversa e botões devem ter área de toque suficiente e ser lidos
+1. Numa conversa, em retrato, o primeiro botão do cabeçalho deve ser lido
+   "Voltar para as conversas". Ativá-lo leva à lista, na tela toda, com o
+   foco dentro dela.
+2. O gesto de voltar do sistema (TalkBack: deslizar para baixo e para a
+   esquerda, ou o botão do Android; iOS: esfregar com dois dedos) deve descer
+   um nível: dados → conversa → lista. Não deve sair do chat antes da lista.
+3. "Dados da conversa" abre na tela toda; o botão do topo é lido "Voltar
+   para a conversa".
+4. Manter o dedo numa mensagem (toque longo) abre as ações numa folha
+   inferior; o foco vai para o primeiro item, e voltar fecha a folha.
+5. Itens de conversa e botões devem ter área de toque suficiente e ser lidos
    com o mesmo nome do desktop.
+
+### 11. Menu lateral e navegação
+
+1. Percorra a barra lateral: a ordem lida deve ser Início, Comandos,
+   Fixadas, Salas, Privadas e, por último, o perfil.
+2. Nas listas, as setas andam entre as conversas; o item lido traz nome,
+   não lidas, "fixada" e presença (privada).
+3. Fixe uma conversa pelo menu (Shift+F10 ou tecla de menu). Ela deve ser
+   anunciada em "Fixadas"; Ctrl+Shift+↑/↓ muda a ordem e a nova posição é
+   anunciada.
+4. Ctrl K abre "Ir para conversa": o campo é lido, as opções são lidas ao
+   andar com as setas e Enter abre a conversa.
+
+### 12. Ações e recursos das mensagens
+
+1. Numa mensagem, Shift+F10 abre o menu: Responder, Reagir (submenu),
+   Editar (só a sua), Fixar (só quem pode), Copiar, Apagar….
+2. Responder: a barra "Respondendo a …" é lida; Esc cancela. Na mensagem
+   enviada, a citação é um botão que leva à original.
+3. Reagir: o botão da reação é lido com o emoji, a contagem e se você reagiu
+   (alternado). Ativar de novo tira a sua.
+4. Editar com ↑ no campo vazio: o campo de edição recebe o foco; Enter salva
+   e "(editada)" é lido junto da mensagem; Esc cancela e devolve o foco.
+5. Apagar pede confirmação num diálogo; quem modera vê o aviso "Uma mensagem
+   foi removida pela moderação".
+6. No painel, "Mensagens fixadas" lista autor e trecho; ativar leva à
+   mensagem. A descrição da sala é lida; quem modera consegue editá-la.
+
+### 13. Painel de contexto
+
+1. Em sala e em privada, o painel começa pelas informações (nome, resumo,
+   seu papel), depois as ações rápidas, os blocos recolhíveis (lidos como
+   expandido/recolhido) e as ações de saída.
+2. No integrante, Shift+F10 abre o menu; o submenu "Silenciar" é anunciado
+   e as opções (5, 10, 60 min, até liberar) são lidas.
+3. Silenciado(a), o aviso do campo diz até que horas.
 
 ## Registro de execuções
 
