@@ -27,6 +27,45 @@ describe("validação", () => {
         assert.equal(readContent("y".repeat(2000)).content.length, 1000);
     });
 
+    test("mensagem aceita quebra de linha; os outros controles continuam fora", () => {
+        assert.equal(readContent("linha 1\nlinha 2").content, "linha 1\nlinha 2");
+        assert.equal(readContent("a\r\nb\rc").content, "a\nb\nc", "CRLF e CR viram LF");
+        assert.equal(
+            readContent("x\u0000y\u001bz\u007f").content,
+            "x y z",
+            "outros controles viram espaço",
+        );
+        assert.equal(
+            readContent("\tcódigo").content,
+            "código",
+            "tabulação vira espaço (e a ponta é aparada)",
+        );
+        assert.equal(readContent("a\n\tb").content, "a\n  b", "indentação no meio é mantida");
+        assert.equal(
+            readContent("fim   \nnovo").content,
+            "fim\nnovo",
+            "espaço no fim da linha some",
+        );
+    });
+
+    test("linhas vazias seguidas viram uma; pontas aparadas", () => {
+        assert.equal(readContent("\n\n a \n\n\n\nb\n\n").content, "a\n\nb");
+        assert.deepEqual(readContent("\n \n\t\n"), { ok: false, code: "empty_message" });
+    });
+
+    test("no máximo 20 linhas, sem perder o texto que passa", () => {
+        const lines = Array.from({ length: 30 }, (_, i) => `l${i + 1}`);
+        const content = readContent(lines.join("\n")).content;
+        const out = content.split("\n");
+        assert.equal(out.length, 20);
+        assert.equal(out[19], lines.slice(19).join(" "), "a 20ª junta o resto");
+    });
+
+    test("nome e @ continuam sem quebra de linha", () => {
+        assert.equal(readName("Ana\nSouza").name, "Ana Souza");
+        assert.equal(normalizeText("a\nb", 10), "a b");
+    });
+
     test("readResumeToken aceita só string de tamanho razoável", () => {
         assert.equal(readResumeToken("abc"), "abc");
         for (const bad of ["", "z".repeat(101), 5, null, {}])

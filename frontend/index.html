@@ -21,7 +21,10 @@
             http-equiv="Content-Security-Policy"
             content="default-src 'self'; script-src 'self' 'sha256-Fi5GNExRuHFNJT41G5L8f9zpBwwJ0I4ywQTVAiJUGhs='; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; connect-src 'self' ws: wss:; base-uri 'self'; form-action 'self'; object-src 'none';"
         />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content"
+        />
         <meta
             name="description"
             content="Chat em tempo real, efêmero e anônimo: salas com convite e conversas privadas. Nada é salvo."
@@ -704,23 +707,88 @@
 
                         <form class="c-composer" novalidate>
                             <label class="sr-only" for="campo-mensagem">Mensagem</label>
-                            <input
+                            <textarea
                                 class="c-composer__input"
                                 id="campo-mensagem"
                                 name="mensagem"
-                                type="text"
+                                rows="1"
                                 maxlength="1000"
                                 autocomplete="off"
                                 enterkeyhint="send"
-                                placeholder="Conversar na sala — digite / para comandos"
-                            />
-                            <button
-                                type="submit"
-                                class="c-icon-button c-composer__send"
-                                aria-label="Enviar"
-                            >
-                                <span data-icon="send"></span>
-                            </button>
+                                aria-describedby="campo-mensagem-dica"
+                                placeholder="Mensagem"
+                            ></textarea>
+                            <div class="c-composer__bar">
+                                <button
+                                    type="button"
+                                    class="c-icon-button c-composer__tool"
+                                    data-composer-tool="commands"
+                                    aria-label="Comandos"
+                                    data-tooltip="Comandos (/)"
+                                >
+                                    <span data-icon="terminal"></span>
+                                </button>
+                                <span class="c-composer__divider" aria-hidden="true"></span>
+                                <span
+                                    class="c-composer__format"
+                                    role="toolbar"
+                                    aria-label="Formatação"
+                                    aria-controls="campo-mensagem"
+                                >
+                                    <button
+                                        type="button"
+                                        class="c-icon-button c-composer__tool"
+                                        data-composer-format="bold"
+                                        aria-label="Negrito"
+                                        aria-keyshortcuts="Control+B Meta+B"
+                                        data-tooltip="Negrito (Ctrl+B)"
+                                    >
+                                        <span data-icon="bold"></span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="c-icon-button c-composer__tool"
+                                        data-composer-format="italic"
+                                        aria-label="Itálico"
+                                        aria-keyshortcuts="Control+I Meta+I"
+                                        data-tooltip="Itálico (Ctrl+I)"
+                                    >
+                                        <span data-icon="italic"></span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="c-icon-button c-composer__tool"
+                                        data-composer-format="code"
+                                        aria-label="Código"
+                                        aria-keyshortcuts="Control+E Meta+E"
+                                        data-tooltip="Código (Ctrl+E)"
+                                    >
+                                        <span data-icon="code"></span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="c-icon-button c-composer__tool"
+                                        data-composer-format="spoiler"
+                                        aria-label="Spoiler"
+                                        data-tooltip="Spoiler"
+                                    >
+                                        <span data-icon="eye-off"></span>
+                                    </button>
+                                </span>
+                                <span class="c-composer__spacer"></span>
+                                <span class="c-composer__hint" id="campo-mensagem-dica">
+                                    <kbd>Enter</kbd> envia · <kbd>Shift</kbd>+<kbd>Enter</kbd> nova
+                                    linha
+                                </span>
+                                <span class="c-composer__count" aria-hidden="true" hidden></span>
+                                <button
+                                    type="submit"
+                                    class="c-icon-button c-composer__send"
+                                    aria-label="Enviar"
+                                >
+                                    <span data-icon="send"></span>
+                                </button>
+                            </div>
                         </form>
 
                         <p class="c-typing" hidden>

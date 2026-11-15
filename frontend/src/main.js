@@ -29,6 +29,7 @@ import { createNotifier } from "./ui/notify.js";
 import { createDialog } from "./ui/dialog.js";
 import { hydrateIcons } from "./ui/icons.js";
 import { createLayout } from "./ui/layout.js";
+import { trackViewport } from "./ui/viewport.js";
 import { createPanelResize } from "./ui/panelResize.js";
 import { createRoomHeader } from "./ui/roomHeader.js";
 import { inviteHash, readInviteHash } from "./state/invite.js";
@@ -70,6 +71,7 @@ const shell = /** @type {HTMLElement} */ (must(".c-app"));
 const skeleton = /** @type {HTMLElement} */ (must(".c-skeleton"));
 
 const layout = createLayout();
+trackViewport(shell);
 const panelResize = createPanelResize({ layout, label: strings.layout.width });
 const dialog = createDialog();
 createTooltips();
@@ -492,6 +494,23 @@ const composer = createComposer({
     onTyping: () => typingSignal.input(),
     onInput: (text, cursor) => suggestions.update(text, cursor),
     onKeyDown: (event) => suggestions.handleKey(event),
+    // Botão "Comandos" do campo: abre as sugestões como se a pessoa
+    // digitasse "/" (sem apagar o que já estava escrito).
+    onCommands: () => {
+        if (composer.getValue().trim() === "") composer.setValue("/");
+        else showPage("commands");
+    },
+    onNotice: (text) => toasts.show(text, "error"),
+});
+
+// Page Up / Page Down rolam o histórico mesmo com o foco no campo.
+composer.input.addEventListener("keydown", (event) => {
+    if (event.key !== "PageUp" && event.key !== "PageDown") return;
+    if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+    const log = document.querySelector(".c-message-list");
+    if (!(log instanceof HTMLElement)) return;
+    event.preventDefault();
+    log.scrollBy({ top: (event.key === "PageUp" ? -1 : 1) * log.clientHeight * 0.85 });
 });
 
 const suggestions = createCommandSuggestions({
@@ -1395,8 +1414,11 @@ handleEvent = createEventHandler({
     },
     onOwnConfirmed: (clientMsgId) => {
         inFlight.delete(clientMsgId);
+        // Uma mensagem passou: o silêncio acabou (ou nunca houve).
+        composer.setMuted("");
     },
     onSendRejected: (clientMsgId, code, reason) => {
+        if (code === ERROR_CODES.MUTED) composer.setMuted(strings.composer.muted);
         const flight = inFlight.get(clientMsgId);
         if (!flight || !DEFINITE_REJECTIONS.has(code)) return;
         const state = store.getState();

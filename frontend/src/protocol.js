@@ -17,6 +17,8 @@ export const LIMITS = Object.freeze({
     usernameMinLength: 3,
     usernameMaxLength: 20,
     messageMaxLength: 1000,
+    /** Linhas de uma mensagem (as que passarem são juntadas na última). */
+    messageMaxLines: 20,
     commandMaxLength: 1000,
     roomNameMaxLength: 40,
 });
